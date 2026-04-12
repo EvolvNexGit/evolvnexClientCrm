@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { Session, User } from "@supabase/supabase-js";
-import { getSupabaseClient } from "@/lib/supabase";
+import { getConfigError, getSupabaseClient } from "@/lib/supabase";
 import { getClientIdForAuthUser } from "@/lib/client-cache";
 import { getTabs } from "@/lib/tabs";
 import type { TabDefinition } from "@/lib/types";
@@ -62,7 +62,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabaseClient();
 
     if (!supabase) {
-      setAuthError("Missing Supabase environment variables.");
+      setAuthError(getConfigError() ?? "Missing Supabase environment variables.");
       setLoading(false);
       return () => {
         isMounted = false;
@@ -215,7 +215,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabaseClient();
 
     if (!supabase) {
-      throw new Error("Missing Supabase environment variables.");
+      throw new Error(getConfigError() ?? "Missing Supabase environment variables.");
     }
 
     setAuthError(null);
@@ -248,7 +248,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setClientId(null);
       setTabs([]);
       setActiveTabId("summary");
-      setAuthError("Missing Supabase environment variables.");
+      setAuthError(getConfigError() ?? "Missing Supabase environment variables.");
       return;
     }
 

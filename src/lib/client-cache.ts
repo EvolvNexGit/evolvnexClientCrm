@@ -1,4 +1,4 @@
-import { getSupabaseClient } from "@/lib/supabase";
+import { getConfigError, getSupabaseClient } from "@/lib/supabase";
 
 const clientCache = new Map<string, string | null>();
 
@@ -6,7 +6,7 @@ export async function getClientIdForAuthUser(authUserId: string): Promise<string
   const supabase = getSupabaseClient();
 
   if (!supabase) {
-    throw new Error("Missing Supabase environment variables.");
+    throw new Error(getConfigError() ?? "Missing Supabase environment variables.");
   }
 
   if (clientCache.has(authUserId)) {
