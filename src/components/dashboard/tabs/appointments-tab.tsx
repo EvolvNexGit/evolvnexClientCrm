@@ -6,8 +6,24 @@ import { getSupabaseClient } from "@/lib/supabase";
 
 type AppointmentRow = {
   id: string;
-  title: string | null;
-  scheduled_at: string | null;
+  client_id: string;
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  service: string | null;
+  location: string | null;
+  staff_name: string | null;
+  date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  status: "tentative" | "booked" | "cancelled" | "completed" | null;
+  remark: string | null;
+  created_by: string | null;
+  verified_at: string | null;
+  verified_by: string | null;
+  reminder_sent: boolean | null;
+  reminder_sent_at: string | null;
+  created_at: string | null;
 };
 
 export default function AppointmentsTab({ clientId }: { clientId: string }) {
@@ -38,10 +54,10 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
         const { data, error } = await client
           .from("appointments")
-          .select("id, title, scheduled_at")
+          .select("*")
           .eq("client_id", clientId)
-          .order("scheduled_at", { ascending: true })
-          .limit(25);
+          .order("date", { ascending: true, nullsFirst: false })
+          .order("start_time", { ascending: true, nullsFirst: false });
 
         if (error) {
           throw error;
@@ -109,12 +125,40 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
         )}
 
         {appointments.map((appointment) => (
-          <article key={appointment.id} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-4">
-            <div>
-              <div className="text-sm font-medium text-slate-950">{appointment.title ?? "Untitled appointment"}</div>
-              <div className="mt-1 text-xs text-slate-500">{appointment.scheduled_at ?? "No schedule time"}</div>
+          <article key={appointment.id} className="rounded-2xl bg-slate-50 p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-sm font-semibold text-slate-950">{appointment.name ?? "Unnamed appointment"}</div>
+                <div className="mt-1 text-xs text-slate-500">
+                  {appointment.date ?? "No date"} {appointment.start_time ? `at ${appointment.start_time}` : ""}
+                </div>
+              </div>
+              <div className="rounded-full bg-white px-2 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-600">
+                {appointment.status ?? "tentative"}
+              </div>
             </div>
-            <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Client scoped</div>
+
+            <div className="mt-4 grid gap-2 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
+              <div>Service: {appointment.service ?? "-"}</div>
+              <div>Staff: {appointment.staff_name ?? "-"}</div>
+              <div>Location: {appointment.location ?? "-"}</div>
+              <div>Phone: {appointment.phone ?? "-"}</div>
+              <div>Email: {appointment.email ?? "-"}</div>
+              <div>Client ID: {appointment.client_id}</div>
+              <div>End Time: {appointment.end_time ?? "-"}</div>
+              <div>Created By: {appointment.created_by ?? "-"}</div>
+              <div>Created At: {appointment.created_at ?? "-"}</div>
+              <div>Verified At: {appointment.verified_at ?? "-"}</div>
+              <div>Verified By: {appointment.verified_by ?? "-"}</div>
+              <div>Reminder Sent: {appointment.reminder_sent ? "Yes" : "No"}</div>
+              <div>Reminder At: {appointment.reminder_sent_at ?? "-"}</div>
+            </div>
+
+            {appointment.remark && (
+              <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+                Remark: {appointment.remark}
+              </div>
+            )}
           </article>
         ))}
       </div>
