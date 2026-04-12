@@ -2,13 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { getSupabaseClient } from "@/lib/supabase";
-
-type AppointmentRow = {
-  id: string;
-  title: string | null;
-  scheduled_at: string | null;
-};
+import { getAppointmentsByClientId, type AppointmentRow } from "@/lib/appointments";
 
 export default function AppointmentsTab({ clientId }: { clientId: string }) {
   const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
@@ -17,41 +11,18 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
   useEffect(() => {
     let isMounted = true;
-    const supabaseClient = getSupabaseClient();
-
-    if (!supabaseClient) {
-      setError("Missing Supabase environment variables.");
-      setLoading(false);
-      return () => {
-        isMounted = false;
-      };
-    }
 
     async function loadAppointments() {
       try {
         setLoading(true);
-        const client = supabaseClient;
-
-        if (!client) {
-          throw new Error("Missing Supabase environment variables.");
-        }
-
-        const { data, error } = await client
-          .from("appointments")
-          .select("id, title, scheduled_at")
-          .eq("client_id", clientId)
-          .order("scheduled_at", { ascending: true })
-          .limit(25);
-
-        if (error) {
-          throw error;
-        }
+        setError(null);
+        const data = await getAppointmentsByClientId(clientId);
 
         if (!isMounted) {
           return;
         }
 
-        setAppointments((data ?? []) as AppointmentRow[]);
+        setAppointments(data);
       } catch (fetchError) {
         if (!isMounted) {
           return;
