@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { Session, User } from "@supabase/supabase-js";
-import { getSupabaseClient, getSupabaseConfigError } from "@/lib/supabase";
+import { getSupabaseClient } from "@/lib/supabase";
 import { getClientIdForAuthUser } from "@/lib/client-cache";
 import { getTabs } from "@/lib/tabs";
 import type { TabDefinition } from "@/lib/types";
@@ -40,25 +40,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
-    let timedOut = false;
     const supabase = getSupabaseClient();
-    const configError = getSupabaseConfigError();
 
-    if (configError || !supabase) {
-      setAuthError(configError ?? "Missing Supabase environment variables.");
+    if (!supabase) {
+      setAuthError("Missing Supabase environment variables.");
       setLoading(false);
       return () => {
         isMounted = false;
       };
     }
-
-    const bootstrapTimer = setTimeout(() => {
-      timedOut = true;
-      if (isMounted) {
-        setAuthError("Authentication timed out. Please refresh the page.");
-        setLoading(false);
-      }
-    }, 10_000);
 
     async function bootstrap() {
       try {
@@ -74,18 +64,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
           throw error;
         }
 
-        if (!isMounted || timedOut) {
+        if (!isMounted) {
           return;
         }
 
         const currentUser = data.user ?? null;
         setUser(currentUser);
         const { data: sessionData } = await client.auth.getSession();
-
-        if (!isMounted || timedOut) {
-          return;
-        }
-
         setSession(sessionData.session);
         setAuthId(currentUser?.id ?? null);
 
@@ -98,7 +83,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
 
         const resolvedClientId = await getClientIdForAuthUser(currentUser.id);
-        if (!isMounted || timedOut) {
+        if (!isMounted) {
           return;
         }
 
@@ -112,7 +97,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
 
         const nextTabs = await getTabs(resolvedClientId);
-        if (!isMounted || timedOut) {
+        if (!isMounted) {
           return;
         }
 
@@ -126,14 +111,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setClientError(null);
         setLoading(false);
       } catch (error) {
-        if (!isMounted || timedOut) {
+        if (!isMounted) {
           return;
         }
 
         setAuthError(error instanceof Error ? error.message : "Unable to load session.");
         setLoading(false);
-      } finally {
-        clearTimeout(bootstrapTimer);
       }
     }
 
@@ -180,7 +163,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     return () => {
       isMounted = false;
-      clearTimeout(bootstrapTimer);
       listener.subscription.unsubscribe();
     };
   }, [router]);
