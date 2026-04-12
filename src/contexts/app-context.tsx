@@ -176,22 +176,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     setAuthError(null);
     setClientError(null);
+    setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) {
-      throw error;
+      if (error) {
+        throw error;
+      }
+
+      const nextSession = data.session ?? null;
+      const nextUser = data.user ?? null;
+
+      if (!nextSession || !nextUser) {
+        throw new Error("Login succeeded but no active session was returned.");
+      }
+
+      setSession(nextSession);
+      setUser(nextUser);
+      setAuthId(nextUser.id);
+
+      const resolvedClientId = await getClientIdForAuthUser(nextUser.id);
+      setClientId(resolvedClientId);
+
+      if (!resolvedClientId) {
+        setTabs([]);
+        setClientError("Client not mapped");
+        throw new Error("Client not mapped");
+      }
+
+      const nextTabs = await getTabs(resolvedClientId);
+      setTabs(nextTabs.filter((tab) => tab.visible));
+      setActiveTabId((current) => {
+        const nextVisibleTabs = nextTabs.filter((tab) => tab.visible);
+        return nextVisibleTabs.some((tab) => tab.id === current)
+          ? current
+          : nextVisibleTabs[0]?.id ?? "summary";
+      });
+      setClientError(null);
+    } finally {
+      setLoading(false);
     }
-
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError) {
-      throw userError;
-    }
-
-    const resolvedUser = userData.user ?? null;
-    setUser(resolvedUser);
-    setAuthId(resolvedUser?.id ?? null);
   }
 
   async function signOut() {

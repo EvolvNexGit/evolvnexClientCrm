@@ -17,7 +17,7 @@ export function LoginForm() {
 
   useEffect(() => {
     if (!loading && user) {
-      router.replace("/dashboard");
+      router.replace("/");
     }
   }, [loading, router, user]);
 
@@ -28,7 +28,7 @@ export function LoginForm() {
 
     try {
       await signIn(email, password);
-      router.replace("/dashboard");
+      router.replace("/");
     } catch (error) {
       if (error instanceof Error) {
         setFormError(error.message.includes("Invalid login credentials") ? "Invalid credentials" : error.message);
