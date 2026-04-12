@@ -56,11 +56,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [authError, setAuthError] = useState<string | null>(null);
   const [clientError, setClientError] = useState<string | null>(null);
 
+  function applyVisibleTabs(nextTabs: TabDefinition[]) {
+    const visibleTabs = nextTabs.filter((tab) => tab.visible);
+    setTabs(visibleTabs);
+    setActiveTabId((current) =>
+      visibleTabs.some((tab) => tab.id === current) ? current : visibleTabs[0]?.id ?? "summary",
+    );
+  }
+
+  function resetClientState(errorMessage: string | null = null) {
+    setClientId(null);
+    setTabs([]);
+    setClientError(errorMessage);
+  }
+
+  function applySessionSnapshot(nextSession: Session | null) {
+    const nextUser = nextSession?.user ?? null;
+    setSession(nextSession);
+    setUser(nextUser);
+    setAuthId(nextUser?.id ?? null);
+    return nextUser;
+  }
+
   async function hydrateClientData(nextUser: User | null) {
     if (!nextUser) {
-      setClientId(null);
-      setTabs([]);
-      setClientError(null);
+      resetClientState();
       return;
     }
 
@@ -71,19 +91,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setClientId(resolvedClientId);
 
     if (!resolvedClientId) {
-      setClientError("Client not mapped");
       setTabs([]);
+      setClientError("Client not mapped");
       return;
     }
 
     const nextTabs = await withTimeout(getTabs(resolvedClientId), "Tab loading timed out.");
-    setTabs(nextTabs.filter((tab) => tab.visible));
-    setActiveTabId((current) => {
-      const nextVisibleTabs = nextTabs.filter((tab) => tab.visible);
-      return nextVisibleTabs.some((tab) => tab.id === current)
-        ? current
-        : nextVisibleTabs[0]?.id ?? "summary";
-    });
+    applyVisibleTabs(nextTabs);
     setClientError(null);
   }
 
@@ -121,11 +135,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const nextSession = data.session;
-        const currentUser = nextSession?.user ?? null;
-        setSession(nextSession);
-        setUser(currentUser);
-        setAuthId(currentUser?.id ?? null);
+        const currentUser = applySessionSnapshot(data.session);
 
         if (!currentUser) {
           await hydrateClientData(null);
@@ -157,10 +167,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       void (async () => {
         try {
           setLoading(true);
-          const nextUser = nextSession?.user ?? null;
-          setSession(nextSession);
-          setUser(nextUser);
-          setAuthId(nextUser?.id ?? null);
+          const nextUser = applySessionSnapshot(nextSession);
           await hydrateClientData(nextUser);
 
           if (!nextUser) {
@@ -204,15 +211,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       const nextSession = data.session ?? null;
-      const nextUser = data.user ?? null;
+      const nextUser = applySessionSnapshot(nextSession);
 
       if (!nextSession || !nextUser) {
         throw new Error("Login succeeded but no active session was returned.");
       }
-
-      setSession(nextSession);
-      setUser(nextUser);
-      setAuthId(nextUser.id);
     } finally {
       setLoading(false);
     }
@@ -225,8 +228,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSession(null);
       setUser(null);
       setAuthId(null);
-      setClientId(null);
-      setTabs([]);
+      resetClientState();
       setActiveTabId("summary");
       setAuthError("Missing Supabase environment variables.");
       return;
@@ -236,11 +238,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setUser(null);
     setAuthId(null);
-    setClientId(null);
-    setTabs([]);
+    resetClientState();
     setActiveTabId("summary");
     setAuthError(null);
-    setClientError(null);
     router.replace("/login");
   }
 
