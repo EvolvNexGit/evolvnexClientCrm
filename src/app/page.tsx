@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/app-context";
 import { Loader2 } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-
 export default function HomePage() {
   const router = useRouter();
   const { loading, user } = useAuth();

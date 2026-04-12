@@ -25,6 +25,24 @@ type AppContextValue = {
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
+const REQUEST_TIMEOUT_MS = 10000;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMessage: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(timeoutMessage)), REQUEST_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -37,6 +55,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activeTabId, setActiveTabId] = useState("summary");
   const [authError, setAuthError] = useState<string | null>(null);
   const [clientError, setClientError] = useState<string | null>(null);
+
+  async function hydrateClientData(nextUser: User | null) {
+    if (!nextUser) {
+      setClientId(null);
+      setTabs([]);
+      setClientError(null);
+      return;
+    }
+
+    const resolvedClientId = await withTimeout(
+      getClientIdForAuthUser(nextUser.id),
+      "Client lookup timed out.",
+    );
+    setClientId(resolvedClientId);
+
+    if (!resolvedClientId) {
+      setClientError("Client not mapped");
+      setTabs([]);
+      return;
+    }
+
+    const nextTabs = await withTimeout(getTabs(resolvedClientId), "Tab loading timed out.");
+    setTabs(nextTabs.filter((tab) => tab.visible));
+    setActiveTabId((current) => {
+      const nextVisibleTabs = nextTabs.filter((tab) => tab.visible);
+      return nextVisibleTabs.some((tab) => tab.id === current)
+        ? current
+        : nextVisibleTabs[0]?.id ?? "summary";
+    });
+    setClientError(null);
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -53,13 +102,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async function bootstrap() {
       try {
         setLoading(true);
+        setAuthError(null);
         const client = supabase;
 
         if (!client) {
           throw new Error("Missing Supabase environment variables.");
         }
 
-        const { data, error } = await client.auth.getUser();
+        const { data, error } = await withTimeout(
+          client.auth.getSession(),
+          "Session lookup timed out.",
+        );
         if (error) {
           throw error;
         }
@@ -68,47 +121,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const currentUser = data.user ?? null;
+        const nextSession = data.session;
+        const currentUser = nextSession?.user ?? null;
+        setSession(nextSession);
         setUser(currentUser);
-        const { data: sessionData } = await client.auth.getSession();
-        setSession(sessionData.session);
         setAuthId(currentUser?.id ?? null);
 
         if (!currentUser) {
-          setClientId(null);
-          setTabs([]);
+          await hydrateClientData(null);
           setLoading(false);
           router.replace("/login");
           return;
         }
 
-        const resolvedClientId = await getClientIdForAuthUser(currentUser.id);
+        await hydrateClientData(currentUser);
+
         if (!isMounted) {
           return;
         }
-
-        setClientId(resolvedClientId);
-
-        if (!resolvedClientId) {
-          setClientError("Client not mapped");
-          setTabs([]);
-          setLoading(false);
-          return;
-        }
-
-        const nextTabs = await getTabs(resolvedClientId);
-        if (!isMounted) {
-          return;
-        }
-
-        setTabs(nextTabs.filter((tab) => tab.visible));
-        setActiveTabId((current) => {
-          const nextVisibleTabs = nextTabs.filter((tab) => tab.visible);
-          return nextVisibleTabs.some((tab) => tab.id === current)
-            ? current
-            : nextVisibleTabs[0]?.id ?? "summary";
-        });
-        setClientError(null);
         setLoading(false);
       } catch (error) {
         if (!isMounted) {
@@ -123,42 +153,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     bootstrap();
 
     const client = supabase;
-    const { data: listener } = client.auth.onAuthStateChange(async (_event, nextSession) => {
-      setSession(nextSession);
-      const nextUser = nextSession?.user ?? null;
-      setUser(nextUser);
-      setAuthId(nextUser?.id ?? null);
+    const { data: listener } = client.auth.onAuthStateChange((_event, nextSession) => {
+      void (async () => {
+        try {
+          setLoading(true);
+          const nextUser = nextSession?.user ?? null;
+          setSession(nextSession);
+          setUser(nextUser);
+          setAuthId(nextUser?.id ?? null);
+          await hydrateClientData(nextUser);
 
-      if (!nextUser) {
-        setClientId(null);
-        setTabs([]);
-        setClientError(null);
-        router.replace("/login");
-        return;
-      }
-
-      try {
-        const resolvedClientId = await getClientIdForAuthUser(nextUser.id);
-        setClientId(resolvedClientId);
-
-        if (!resolvedClientId) {
-          setClientError("Client not mapped");
-          setTabs([]);
-          return;
+          if (!nextUser) {
+            router.replace("/login");
+          }
+        } catch (error) {
+          setClientError(error instanceof Error ? error.message : "Unable to resolve client.");
+        } finally {
+          if (isMounted) {
+            setLoading(false);
+          }
         }
-
-        const nextTabs = await getTabs(resolvedClientId);
-        setTabs(nextTabs.filter((tab) => tab.visible));
-        setActiveTabId((current) => {
-          const nextVisibleTabs = nextTabs.filter((tab) => tab.visible);
-          return nextVisibleTabs.some((tab) => tab.id === current)
-            ? current
-            : nextVisibleTabs[0]?.id ?? "summary";
-        });
-        setClientError(null);
-      } catch (error) {
-        setClientError(error instanceof Error ? error.message : "Unable to resolve client.");
-      }
+      })();
     });
 
     return () => {
@@ -179,7 +194,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await withTimeout(
+        supabase.auth.signInWithPassword({ email, password }),
+        "Login request timed out.",
+      );
 
       if (error) {
         throw error;
@@ -195,25 +213,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSession(nextSession);
       setUser(nextUser);
       setAuthId(nextUser.id);
-
-      const resolvedClientId = await getClientIdForAuthUser(nextUser.id);
-      setClientId(resolvedClientId);
-
-      if (!resolvedClientId) {
-        setTabs([]);
-        setClientError("Client not mapped");
-        throw new Error("Client not mapped");
-      }
-
-      const nextTabs = await getTabs(resolvedClientId);
-      setTabs(nextTabs.filter((tab) => tab.visible));
-      setActiveTabId((current) => {
-        const nextVisibleTabs = nextTabs.filter((tab) => tab.visible);
-        return nextVisibleTabs.some((tab) => tab.id === current)
-          ? current
-          : nextVisibleTabs[0]?.id ?? "summary";
-      });
-      setClientError(null);
     } finally {
       setLoading(false);
     }
