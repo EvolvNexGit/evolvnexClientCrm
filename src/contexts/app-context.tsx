@@ -25,6 +25,24 @@ type AppContextValue = {
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
+const AUTH_TIMEOUT_MS = 10000;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMessage: string) {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(timeoutMessage)), AUTH_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
 
 function isSupabaseLockAbort(error: unknown) {
   if (!(error instanceof Error)) {
@@ -61,7 +79,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const resolvedClientId = await getClientIdForAuthUser(nextUser.id);
+    const resolvedClientId = await withTimeout(
+      getClientIdForAuthUser(nextUser.id),
+      "Client lookup timed out. Please try again.",
+    );
     setClientId(resolvedClientId);
 
     if (!resolvedClientId) {
@@ -70,7 +91,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const nextTabs = await getTabs(resolvedClientId);
+    const nextTabs = await withTimeout(getTabs(resolvedClientId), "Tab loading timed out. Please try again.");
     setTabs(nextTabs.filter((tab) => tab.visible));
     setActiveTabId((current) => {
       const nextVisibleTabs = nextTabs.filter((tab) => tab.visible);
@@ -100,7 +121,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           throw new Error("Missing Supabase environment variables.");
         }
 
-        const { data, error } = await client.auth.getSession();
+        const { data, error } = await withTimeout(
+          client.auth.getSession(),
+          "Session lookup timed out. Please try again.",
+        );
         if (error) {
           throw error;
         }
@@ -185,8 +209,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       throw error;
     }
 
+    if (!data.session) {
+      throw new Error("No active session returned after login. Check Supabase auth settings.");
+    }
+
     const resolvedUser = data.user ?? null;
-    setSession(data.session ?? null);
+    setSession(data.session);
     setUser(resolvedUser);
     setAuthId(resolvedUser?.id ?? null);
   }
