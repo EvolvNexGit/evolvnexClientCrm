@@ -26,25 +26,6 @@ type AppContextValue = {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-const REQUEST_TIMEOUT_MS = 10000;
-
-async function withTimeout<T>(promise: Promise<T>, timeoutMessage: string): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<T>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error(timeoutMessage)), REQUEST_TIMEOUT_MS);
-      }),
-    ]);
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-  }
-}
-
 export function AppProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -78,10 +59,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           throw new Error("Missing Supabase environment variables.");
         }
 
-        const { data, error } = await withTimeout(
-          client.auth.getUser(),
-          "Supabase auth request timed out while loading the session.",
-        );
+        const { data, error } = await client.auth.getUser();
         if (error) {
           throw error;
         }
@@ -92,10 +70,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         const currentUser = data.user ?? null;
         setUser(currentUser);
-        const { data: sessionData } = await withTimeout(
-          client.auth.getSession(),
-          "Supabase session request timed out while loading the session.",
-        );
+        const { data: sessionData } = await client.auth.getSession();
         setSession(sessionData.session);
         setAuthId(currentUser?.id ?? null);
 
@@ -107,10 +82,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const resolvedClientId = await withTimeout(
-          getClientIdForAuthUser(currentUser.id),
-          "Client lookup timed out while loading the session.",
-        );
+        const resolvedClientId = await getClientIdForAuthUser(currentUser.id);
         if (!isMounted) {
           return;
         }
@@ -124,10 +96,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const nextTabs = await withTimeout(
-          getTabs(resolvedClientId),
-          "Tab lookup timed out while loading the session.",
-        );
+        const nextTabs = await getTabs(resolvedClientId);
         if (!isMounted) {
           return;
         }
@@ -154,55 +123,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
     bootstrap();
 
     const client = supabase;
-    const { data: listener } = client.auth.onAuthStateChange((_event, nextSession) => {
-      void (async () => {
-        setLoading(true);
-        try {
-          setSession(nextSession);
-          const nextUser = nextSession?.user ?? null;
-          setUser(nextUser);
-          setAuthId(nextUser?.id ?? null);
+    const { data: listener } = client.auth.onAuthStateChange(async (_event, nextSession) => {
+      setSession(nextSession);
+      const nextUser = nextSession?.user ?? null;
+      setUser(nextUser);
+      setAuthId(nextUser?.id ?? null);
 
-          if (!nextUser) {
-            setClientId(null);
-            setTabs([]);
-            setClientError(null);
-            router.replace("/login");
-            return;
-          }
+      if (!nextUser) {
+        setClientId(null);
+        setTabs([]);
+        setClientError(null);
+        router.replace("/login");
+        return;
+      }
 
-          const resolvedClientId = await withTimeout(
-            getClientIdForAuthUser(nextUser.id),
-            "Client lookup timed out after authentication.",
-          );
-          setClientId(resolvedClientId);
+      try {
+        const resolvedClientId = await getClientIdForAuthUser(nextUser.id);
+        setClientId(resolvedClientId);
 
-          if (!resolvedClientId) {
-            setClientError("Client not mapped");
-            setTabs([]);
-            return;
-          }
-
-          const nextTabs = await withTimeout(
-            getTabs(resolvedClientId),
-            "Tab lookup timed out after authentication.",
-          );
-          setTabs(nextTabs.filter((tab) => tab.visible));
-          setActiveTabId((current) => {
-            const nextVisibleTabs = nextTabs.filter((tab) => tab.visible);
-            return nextVisibleTabs.some((tab) => tab.id === current)
-              ? current
-              : nextVisibleTabs[0]?.id ?? "summary";
-          });
-          setClientError(null);
-        } catch (error) {
-          setClientError(error instanceof Error ? error.message : "Unable to resolve client.");
-        } finally {
-          if (isMounted) {
-            setLoading(false);
-          }
+        if (!resolvedClientId) {
+          setClientError("Client not mapped");
+          setTabs([]);
+          return;
         }
-      })();
+
+        const nextTabs = await getTabs(resolvedClientId);
+        setTabs(nextTabs.filter((tab) => tab.visible));
+        setActiveTabId((current) => {
+          const nextVisibleTabs = nextTabs.filter((tab) => tab.visible);
+          return nextVisibleTabs.some((tab) => tab.id === current)
+            ? current
+            : nextVisibleTabs[0]?.id ?? "summary";
+        });
+        setClientError(null);
+      } catch (error) {
+        setClientError(error instanceof Error ? error.message : "Unable to resolve client.");
+      }
     });
 
     return () => {
