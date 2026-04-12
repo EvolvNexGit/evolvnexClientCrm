@@ -1,4 +1,4 @@
-import { getSupabaseClient } from "@/lib/supabase";
+import { getSupabaseClient, getSupabaseConfigError } from "@/lib/supabase";
 
 export type AppointmentRow = {
   id: string;
@@ -10,7 +10,7 @@ export async function getAppointmentsByClientId(clientId: string): Promise<Appoi
   const supabase = getSupabaseClient();
 
   if (!supabase) {
-    throw new Error("Missing Supabase environment variables.");
+    throw new Error(getSupabaseConfigError() ?? "Missing Supabase environment variables.");
   }
 
   const { data, error } = await supabase
