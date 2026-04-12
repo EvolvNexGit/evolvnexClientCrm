@@ -26,6 +26,18 @@ type AppContextValue = {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
+function isSupabaseLockAbort(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  if (error.name === "AbortError") {
+    return true;
+  }
+
+  return error.message.includes("Lock broken by another request");
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -37,6 +49,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activeTabId, setActiveTabId] = useState("summary");
   const [authError, setAuthError] = useState<string | null>(null);
   const [clientError, setClientError] = useState<string | null>(null);
+
+  async function hydrateFromUser(nextUser: User | null) {
+    setUser(nextUser);
+    setAuthId(nextUser?.id ?? null);
+
+    if (!nextUser) {
+      setClientId(null);
+      setTabs([]);
+      setClientError(null);
+      return;
+    }
+
+    const resolvedClientId = await getClientIdForAuthUser(nextUser.id);
+    setClientId(resolvedClientId);
+
+    if (!resolvedClientId) {
+      setClientError("Client not mapped");
+      setTabs([]);
+      return;
+    }
+
+    const nextTabs = await getTabs(resolvedClientId);
+    setTabs(nextTabs.filter((tab) => tab.visible));
+    setActiveTabId((current) => {
+      const nextVisibleTabs = nextTabs.filter((tab) => tab.visible);
+      return nextVisibleTabs.some((tab) => tab.id === current) ? current : nextVisibleTabs[0]?.id ?? "summary";
+    });
+    setClientError(null);
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -59,7 +100,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           throw new Error("Missing Supabase environment variables.");
         }
 
-        const { data, error } = await client.auth.getUser();
+        const { data, error } = await client.auth.getSession();
         if (error) {
           throw error;
         }
@@ -68,50 +109,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const currentUser = data.user ?? null;
-        setUser(currentUser);
-        const { data: sessionData } = await client.auth.getSession();
-        setSession(sessionData.session);
-        setAuthId(currentUser?.id ?? null);
+        const nextSession = data.session;
+        setSession(nextSession);
+        const currentUser = nextSession?.user ?? null;
+        await hydrateFromUser(currentUser);
 
         if (!currentUser) {
-          setClientId(null);
-          setTabs([]);
           setLoading(false);
           router.replace("/login");
           return;
         }
-
-        const resolvedClientId = await getClientIdForAuthUser(currentUser.id);
-        if (!isMounted) {
-          return;
-        }
-
-        setClientId(resolvedClientId);
-
-        if (!resolvedClientId) {
-          setClientError("Client not mapped");
-          setTabs([]);
-          setLoading(false);
-          return;
-        }
-
-        const nextTabs = await getTabs(resolvedClientId);
-        if (!isMounted) {
-          return;
-        }
-
-        setTabs(nextTabs.filter((tab) => tab.visible));
-        setActiveTabId((current) => {
-          const nextVisibleTabs = nextTabs.filter((tab) => tab.visible);
-          return nextVisibleTabs.some((tab) => tab.id === current)
-            ? current
-            : nextVisibleTabs[0]?.id ?? "summary";
-        });
-        setClientError(null);
         setLoading(false);
       } catch (error) {
         if (!isMounted) {
+          return;
+        }
+
+        if (isSupabaseLockAbort(error)) {
+          // A competing request stole the lock; auth state listener will hydrate the latest session.
+          setLoading(false);
           return;
         }
 
@@ -123,42 +139,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     bootstrap();
 
     const client = supabase;
-    const { data: listener } = client.auth.onAuthStateChange(async (_event, nextSession) => {
-      setSession(nextSession);
-      const nextUser = nextSession?.user ?? null;
-      setUser(nextUser);
-      setAuthId(nextUser?.id ?? null);
+    const { data: listener } = client.auth.onAuthStateChange((_event, nextSession) => {
+      void (async () => {
+        try {
+          setLoading(true);
+          setSession(nextSession);
+          await hydrateFromUser(nextSession?.user ?? null);
 
-      if (!nextUser) {
-        setClientId(null);
-        setTabs([]);
-        setClientError(null);
-        router.replace("/login");
-        return;
-      }
+          if (!nextSession?.user) {
+            router.replace("/login");
+          }
+        } catch (error) {
+          if (isSupabaseLockAbort(error)) {
+            return;
+          }
 
-      try {
-        const resolvedClientId = await getClientIdForAuthUser(nextUser.id);
-        setClientId(resolvedClientId);
-
-        if (!resolvedClientId) {
-          setClientError("Client not mapped");
-          setTabs([]);
-          return;
+          setClientError(error instanceof Error ? error.message : "Unable to resolve client.");
+        } finally {
+          if (isMounted) {
+            setLoading(false);
+          }
         }
-
-        const nextTabs = await getTabs(resolvedClientId);
-        setTabs(nextTabs.filter((tab) => tab.visible));
-        setActiveTabId((current) => {
-          const nextVisibleTabs = nextTabs.filter((tab) => tab.visible);
-          return nextVisibleTabs.some((tab) => tab.id === current)
-            ? current
-            : nextVisibleTabs[0]?.id ?? "summary";
-        });
-        setClientError(null);
-      } catch (error) {
-        setClientError(error instanceof Error ? error.message : "Unable to resolve client.");
-      }
+      })();
     });
 
     return () => {
@@ -177,19 +179,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAuthError(null);
     setClientError(null);
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       throw error;
     }
 
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError) {
-      throw userError;
-    }
-
-    const resolvedUser = userData.user ?? null;
+    const resolvedUser = data.user ?? null;
+    setSession(data.session ?? null);
     setUser(resolvedUser);
     setAuthId(resolvedUser?.id ?? null);
   }
