@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp, useClient } from "@/contexts/app-context";
 import { Button } from "@/components/ui/button";
+import type { BillingSubTab } from "@/lib/billing-types";
 import type { TabDefinition } from "@/lib/types";
 
 const SummaryTab = dynamic(() => import("./tabs/summary-tab"), {
@@ -28,8 +29,6 @@ const AppointmentsTab = dynamic(() => import("./tabs/appointments-tab"), {
 const BillingCrmTab = dynamic(() => import("./tabs/billing-crm-tab"), {
   loading: () => <TabLoading />,
 });
-
-type BillingSubTab = "customer" | "product" | "bill" | "transaction";
 
 function TabLoading() {
   return (
@@ -262,7 +261,6 @@ function SidebarContent({
                   {([
                     { id: "customer", label: "Customer" },
                     { id: "product", label: "Product" },
-                    { id: "bill", label: "Bill" },
                     { id: "transaction", label: "Transaction" },
                   ] as Array<{ id: BillingSubTab; label: string }>).map((subTab) => {
                     const subTabActive = activeBillingSubTab === subTab.id;
