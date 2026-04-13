@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, Loader2 } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase";
 
 type AppointmentRow = {
@@ -22,6 +22,27 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  function toggleExpanded(id: string) {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function getSlot(startTime: string | null, endTime: string | null) {
+    if (!startTime && !endTime) {
+      return "-";
+    }
+
+    return `${startTime ?? "-"} - ${endTime ?? "-"}`;
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -116,35 +137,55 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           </div>
         )}
 
-        {appointments.map((appointment) => (
-          <article key={appointment.id} className="rounded-2xl bg-slate-50 p-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-sm font-semibold text-slate-950">{appointment.name ?? "Unnamed appointment"}</div>
-                <div className="mt-1 text-xs text-slate-500">
-                  {appointment.date ?? "No date"} {appointment.start_time ? `at ${appointment.start_time}` : ""}
+        {appointments.map((appointment) => {
+          const isExpanded = expandedIds.has(appointment.id);
+          return (
+            <article key={appointment.id} className="rounded-2xl bg-slate-50 p-4">
+              <button
+                type="button"
+                onClick={() => toggleExpanded(appointment.id)}
+                className="flex w-full items-start justify-between gap-4 text-left"
+              >
+                <div className="grid gap-1 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-4 lg:gap-3">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.1em] text-slate-400">Name</div>
+                    <div className="text-sm font-semibold text-slate-950">{appointment.name ?? "Unnamed appointment"}</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.1em] text-slate-400">Date</div>
+                    <div className="text-sm text-slate-800">{appointment.date ?? "-"}</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.1em] text-slate-400">Slot</div>
+                    <div className="text-sm text-slate-800">{getSlot(appointment.start_time, appointment.end_time)}</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.1em] text-slate-400">Status</div>
+                    <div className="text-sm text-slate-800">{appointment.status ?? "tentative"}</div>
+                  </div>
                 </div>
-              </div>
-              <div className="rounded-full bg-white px-2 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-600">
-                {appointment.status ?? "tentative"}
-              </div>
-            </div>
 
-            <div className="mt-4 grid gap-2 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
-              <div>ID: {appointment.id}</div>
-              <div>Name: {appointment.name ?? "-"}</div>
-              <div>Phone: {appointment.phone ?? "-"}</div>
-              <div>Email: {appointment.email ?? "-"}</div>
-              <div>Service: {appointment.service ?? "-"}</div>
-              <div>Location: {appointment.location ?? "-"}</div>
-              <div>Date: {appointment.date ?? "-"}</div>
-              <div>Start Time: {appointment.start_time ?? "-"}</div>
-              <div>End Time: {appointment.end_time ?? "-"}</div>
-              <div>Status: {appointment.status ?? "-"}</div>
-              <div>Remark: {appointment.remark ?? "-"}</div>
-            </div>
-          </article>
-        ))}
+                <div className="inline-flex items-center gap-2">
+                  <div className="rounded-full bg-white px-2 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-600">
+                    {isExpanded ? "Expanded" : "Collapsed"}
+                  </div>
+                  <ChevronDown className={`h-4 w-4 text-slate-500 transition ${isExpanded ? "rotate-180" : "rotate-0"}`} />
+                </div>
+              </button>
+
+              {isExpanded && (
+                <div className="mt-4 grid gap-2 border-t border-slate-200 pt-4 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
+                  <div>ID: {appointment.id}</div>
+                  <div>Phone: {appointment.phone ?? "-"}</div>
+                  <div>Email: {appointment.email ?? "-"}</div>
+                  <div>Service: {appointment.service ?? "-"}</div>
+                  <div>Location: {appointment.location ?? "-"}</div>
+                  <div>Remark: {appointment.remark ?? "-"}</div>
+                </div>
+              )}
+            </article>
+          );
+        })}
       </div>
     </section>
   );
