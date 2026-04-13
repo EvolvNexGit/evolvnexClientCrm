@@ -37,11 +37,20 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   }
 
   function getSlot(startTime: string | null, endTime: string | null) {
+    function formatTime(value: string | null) {
+      if (!value) {
+        return "-";
+      }
+
+      const [hours = "00", minutes = "00"] = value.split(":");
+      return `${hours}:${minutes}`;
+    }
+
     if (!startTime && !endTime) {
       return "-";
     }
 
-    return `${startTime ?? "-"} - ${endTime ?? "-"}`;
+    return `${formatTime(startTime)} - ${formatTime(endTime)}`;
   }
 
   useEffect(() => {
@@ -144,9 +153,9 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
               <button
                 type="button"
                 onClick={() => toggleExpanded(appointment.id)}
-                className="flex w-full items-start justify-between gap-4 text-left"
+                className="flex w-full items-center justify-between gap-4 text-left"
               >
-                <div className="grid gap-1 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-4 lg:gap-3">
+                <div className="grid flex-1 grid-cols-2 gap-3 text-xs text-slate-600 lg:grid-cols-4">
                   <div>
                     <div className="text-[11px] uppercase tracking-[0.1em] text-slate-400">Name</div>
                     <div className="text-sm font-semibold text-slate-950">{appointment.name ?? "Unnamed appointment"}</div>
@@ -165,12 +174,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                   </div>
                 </div>
 
-                <div className="inline-flex items-center gap-2">
-                  <div className="rounded-full bg-white px-2 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-600">
-                    {isExpanded ? "Expanded" : "Collapsed"}
-                  </div>
-                  <ChevronDown className={`h-4 w-4 text-slate-500 transition ${isExpanded ? "rotate-180" : "rotate-0"}`} />
-                </div>
+                <ChevronDown className={`h-4 w-4 shrink-0 text-slate-500 transition ${isExpanded ? "rotate-180" : "rotate-0"}`} />
               </button>
 
               {isExpanded && (
