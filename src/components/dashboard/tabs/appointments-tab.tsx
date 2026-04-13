@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronDown, Loader2 } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase";
 
@@ -18,6 +18,19 @@ type AppointmentRow = {
   remark: string | null;
 };
 
+type AppointmentFormState = {
+  name: string;
+  phone: string;
+  email: string;
+  service: string;
+  location: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  status: "tentative" | "booked" | "cancelled" | "completed";
+  remark: string;
+};
+
 export default function AppointmentsTab({ clientId }: { clientId: string }) {
   const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +43,42 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   const [dateFilterMode, setDateFilterMode] = useState<"day" | "month" | "year">("day");
   const [sortBy, setSortBy] = useState<"date" | "status" | "service" | "location">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [newAppointment, setNewAppointment] = useState<AppointmentFormState>({
+    name: "",
+    phone: "",
+    email: "",
+    service: "",
+    location: "",
+    date: "",
+    start_time: "",
+    end_time: "",
+    status: "tentative",
+    remark: "",
+  });
   const dateInputRef = useRef<HTMLInputElement | null>(null);
+
+  function toNullable(value: string) {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  function resetNewAppointmentForm() {
+    setNewAppointment({
+      name: "",
+      phone: "",
+      email: "",
+      service: "",
+      location: "",
+      date: "",
+      start_time: "",
+      end_time: "",
+      status: "tentative",
+      remark: "",
+    });
+  }
 
   function toggleExpanded(id: string) {
     setExpandedIds((current) => {
@@ -89,6 +137,61 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     setDateFilterMode("day");
     setSortBy("date");
     setSortOrder("asc");
+  }
+
+  async function handleAddAppointment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAddError(null);
+
+    if (!newAppointment.date) {
+      setAddError("Date is required.");
+      return;
+    }
+
+    const client = getSupabaseClient();
+    if (!client) {
+      setAddError("Missing Supabase environment variables.");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      const payload = {
+        client_id: clientId,
+        name: toNullable(newAppointment.name),
+        phone: toNullable(newAppointment.phone),
+        email: toNullable(newAppointment.email),
+        service: toNullable(newAppointment.service),
+        location: toNullable(newAppointment.location),
+        date: newAppointment.date,
+        start_time: toNullable(newAppointment.start_time),
+        end_time: toNullable(newAppointment.end_time),
+        status: newAppointment.status,
+        remark: toNullable(newAppointment.remark),
+      };
+
+      const { data, error } = await client
+        .from("appointments")
+        .insert(payload)
+        .select("id, name, phone, email, service, location, date, start_time, end_time, status, remark")
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      if (data) {
+        setAppointments((current) => [data as AppointmentRow, ...current]);
+      }
+
+      resetNewAppointmentForm();
+      setShowAddForm(false);
+    } catch (saveError) {
+      setAddError(saveError instanceof Error ? saveError.message : "Unable to add appointment.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   function matchesDateFilter(appointmentDate: string | null) {
@@ -254,8 +357,120 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           <h2 className="text-lg font-semibold text-slate-950">Appointments</h2>
           <p className="mt-1 text-sm text-slate-500">Filtered by client_id and ready for RLS.</p>
         </div>
-        <div className="text-xs text-slate-500">{displayedAppointments.length} / {appointments.length} record(s)</div>
+        <div className="flex items-center gap-3">
+          <div className="text-xs text-slate-500">{displayedAppointments.length} / {appointments.length} record(s)</div>
+          <button
+            type="button"
+            onClick={() => {
+              setAddError(null);
+              setShowAddForm((current) => !current);
+            }}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+          >
+            {showAddForm ? "Close" : "Add appointment"}
+          </button>
+        </div>
       </div>
+
+      {showAddForm && (
+        <form onSubmit={handleAddAppointment} className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <input
+              value={newAppointment.name}
+              onChange={(event) => setNewAppointment((current) => ({ ...current, name: event.target.value }))}
+              placeholder="Name"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+            />
+            <input
+              value={newAppointment.phone}
+              onChange={(event) => setNewAppointment((current) => ({ ...current, phone: event.target.value }))}
+              placeholder="Phone"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+            />
+            <input
+              value={newAppointment.email}
+              onChange={(event) => setNewAppointment((current) => ({ ...current, email: event.target.value }))}
+              type="email"
+              placeholder="Email"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+            />
+            <input
+              value={newAppointment.service}
+              onChange={(event) => setNewAppointment((current) => ({ ...current, service: event.target.value }))}
+              placeholder="Service"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+            />
+            <input
+              value={newAppointment.location}
+              onChange={(event) => setNewAppointment((current) => ({ ...current, location: event.target.value }))}
+              placeholder="Location"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+            />
+            <select
+              value={newAppointment.status}
+              onChange={(event) =>
+                setNewAppointment((current) => ({
+                  ...current,
+                  status: event.target.value as "tentative" | "booked" | "cancelled" | "completed",
+                }))
+              }
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+            >
+              <option value="tentative">tentative</option>
+              <option value="booked">booked</option>
+              <option value="cancelled">cancelled</option>
+              <option value="completed">completed</option>
+            </select>
+            <input
+              value={newAppointment.date}
+              onChange={(event) => setNewAppointment((current) => ({ ...current, date: event.target.value }))}
+              type="date"
+              required
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+            />
+            <input
+              value={newAppointment.start_time}
+              onChange={(event) => setNewAppointment((current) => ({ ...current, start_time: event.target.value }))}
+              type="time"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+            />
+            <input
+              value={newAppointment.end_time}
+              onChange={(event) => setNewAppointment((current) => ({ ...current, end_time: event.target.value }))}
+              type="time"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+            />
+            <textarea
+              value={newAppointment.remark}
+              onChange={(event) => setNewAppointment((current) => ({ ...current, remark: event.target.value }))}
+              placeholder="Remark"
+              className="min-h-20 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs sm:col-span-2 lg:col-span-3"
+            />
+          </div>
+
+          {addError && <p className="mt-3 text-xs text-rose-700">{addError}</p>}
+
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="rounded-xl border border-slate-200 bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSaving ? "Saving..." : "Save appointment"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAddError(null);
+                resetNewAppointmentForm();
+              }}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 hover:bg-slate-100"
+            >
+              Reset form
+            </button>
+          </div>
+        </form>
+      )}
 
       <div className="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <label className="text-xs text-slate-600">
