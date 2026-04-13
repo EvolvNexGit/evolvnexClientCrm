@@ -209,6 +209,8 @@ function SidebarContent({
   tabs,
   activeTabId,
   setActiveTabId,
+  activeBillingSubTab,
+  setActiveBillingSubTab,
   onLogout,
   onNavigate,
 }: {
