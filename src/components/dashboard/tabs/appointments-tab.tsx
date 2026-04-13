@@ -27,6 +27,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [serviceFilter, setServiceFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("");
+  const [dateFilterMode, setDateFilterMode] = useState<"day" | "month" | "year">("day");
   const [sortBy, setSortBy] = useState<"date" | "status" | "service" | "location">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const dateInputRef = useRef<HTMLInputElement | null>(null);
@@ -61,6 +62,10 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   }
 
   function openDatePicker() {
+    if (dateFilterMode === "year") {
+      return;
+    }
+
     const input = dateInputRef.current;
     if (!input) {
       return;
@@ -81,8 +86,29 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     setStatusFilter("all");
     setServiceFilter("all");
     setDateFilter("");
+    setDateFilterMode("day");
     setSortBy("date");
     setSortOrder("asc");
+  }
+
+  function matchesDateFilter(appointmentDate: string | null) {
+    if (!dateFilter) {
+      return true;
+    }
+
+    if (!appointmentDate) {
+      return false;
+    }
+
+    if (dateFilterMode === "day") {
+      return appointmentDate === dateFilter;
+    }
+
+    if (dateFilterMode === "month") {
+      return appointmentDate.startsWith(dateFilter);
+    }
+
+    return appointmentDate.startsWith(dateFilter);
   }
 
   useEffect(() => {
@@ -169,7 +195,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       const matchesLocation = locationFilter === "all" || appointment.location === locationFilter;
       const matchesStatus = statusFilter === "all" || appointment.status === statusFilter;
       const matchesService = serviceFilter === "all" || appointment.service === serviceFilter;
-      const matchesDate = !dateFilter || appointment.date === dateFilter;
+      const matchesDate = matchesDateFilter(appointment.date);
       return matchesLocation && matchesStatus && matchesService && matchesDate;
     });
 
@@ -200,7 +226,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     });
 
     return sorted;
-  }, [appointments, dateFilter, locationFilter, serviceFilter, sortBy, sortOrder, statusFilter]);
+  }, [appointments, dateFilter, dateFilterMode, locationFilter, serviceFilter, sortBy, sortOrder, statusFilter]);
 
   if (loading) {
     return (
@@ -250,15 +276,43 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
         <label className="text-xs text-slate-600">
           <span className="mb-1 block">Date</span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={openDatePicker}
-              className="inline-flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-2 text-left text-xs text-slate-700"
+          <div className="space-y-2">
+            <select
+              value={dateFilterMode}
+              onChange={(event) => {
+                setDateFilterMode(event.target.value as "day" | "month" | "year");
+                setDateFilter("");
+              }}
+              className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs"
             >
-              <CalendarDays className="h-4 w-4 text-slate-500" />
-              <span>{dateFilter || "Select date"}</span>
-            </button>
+              <option value="day">Day</option>
+              <option value="month">Month</option>
+              <option value="year">Year</option>
+            </select>
+
+            {dateFilterMode === "year" ? (
+              <input
+                value={dateFilter}
+                onChange={(event) => setDateFilter(event.target.value.replace(/[^\d]/g, "").slice(0, 4))}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="YYYY"
+                className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs"
+                aria-label="Filter by year"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={openDatePicker}
+                className="inline-flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-2 text-left text-xs text-slate-700"
+              >
+                <CalendarDays className="h-4 w-4 text-slate-500" />
+                <span>
+                  {dateFilter || (dateFilterMode === "day" ? "Select date" : "Select month")}
+                </span>
+              </button>
+            )}
+
             {dateFilter && (
               <button
                 type="button"
@@ -269,14 +323,17 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
               </button>
             )}
           </div>
-          <input
-            ref={dateInputRef}
-            value={dateFilter}
-            onChange={(event) => setDateFilter(event.target.value)}
-            type="date"
-            className="sr-only"
-            aria-label="Select date"
-          />
+
+          {dateFilterMode !== "year" && (
+            <input
+              ref={dateInputRef}
+              value={dateFilter}
+              onChange={(event) => setDateFilter(event.target.value)}
+              type={dateFilterMode === "day" ? "date" : "month"}
+              className="sr-only"
+              aria-label={dateFilterMode === "day" ? "Select date" : "Select month"}
+            />
+          )}
         </label>
 
         <label className="text-xs text-slate-600">
