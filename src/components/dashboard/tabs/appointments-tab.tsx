@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CalendarDays, ChevronDown, Loader2 } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase";
 
 type AppointmentRow = {
@@ -29,6 +29,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   const [dateFilter, setDateFilter] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "status" | "service" | "location">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const dateInputRef = useRef<HTMLInputElement | null>(null);
 
   function toggleExpanded(id: string) {
     setExpandedIds((current) => {
@@ -57,6 +58,22 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     }
 
     return `${formatTime(startTime)} - ${formatTime(endTime)}`;
+  }
+
+  function openDatePicker() {
+    const input = dateInputRef.current;
+    if (!input) {
+      return;
+    }
+
+    const pickerInput = input as HTMLInputElement & { showPicker?: () => void };
+    if (typeof pickerInput.showPicker === "function") {
+      pickerInput.showPicker();
+      return;
+    }
+
+    input.focus();
+    input.click();
   }
 
   useEffect(() => {
@@ -224,11 +241,32 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
         <label className="text-xs text-slate-600">
           <span className="mb-1 block">Date</span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={openDatePicker}
+              className="inline-flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-2 text-left text-xs text-slate-700"
+            >
+              <CalendarDays className="h-4 w-4 text-slate-500" />
+              <span>{dateFilter || "Select date"}</span>
+            </button>
+            {dateFilter && (
+              <button
+                type="button"
+                onClick={() => setDateFilter("")}
+                className="rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs text-slate-600"
+              >
+                Clear
+              </button>
+            )}
+          </div>
           <input
+            ref={dateInputRef}
             value={dateFilter}
             onChange={(event) => setDateFilter(event.target.value)}
             type="date"
-            className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs"
+            className="sr-only"
+            aria-label="Select date"
           />
         </label>
 
