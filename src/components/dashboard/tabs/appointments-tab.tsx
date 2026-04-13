@@ -373,7 +373,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       </div>
 
       {showAddForm && (
-        <form onSubmit={handleAddAppointment} className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <form onSubmit={handleAddAppointment} className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-900">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <input
               value={newAppointment.name}
