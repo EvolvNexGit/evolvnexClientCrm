@@ -6,24 +6,16 @@ import { getSupabaseClient } from "@/lib/supabase";
 
 type AppointmentRow = {
   id: string;
-  client_id: string;
   name: string | null;
   phone: string | null;
   email: string | null;
   service: string | null;
   location: string | null;
-  staff_name: string | null;
   date: string | null;
   start_time: string | null;
   end_time: string | null;
   status: "tentative" | "booked" | "cancelled" | "completed" | null;
   remark: string | null;
-  created_by: string | null;
-  verified_at: string | null;
-  verified_by: string | null;
-  reminder_sent: boolean | null;
-  reminder_sent_at: string | null;
-  created_at: string | null;
 };
 
 export default function AppointmentsTab({ clientId }: { clientId: string }) {
@@ -54,7 +46,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
         const { data, error } = await client
           .from("appointments")
-          .select("*")
+          .select("id, name, phone, email, service, location, date, start_time, end_time, status, remark")
           .eq("client_id", clientId)
           .order("date", { ascending: true, nullsFirst: false })
           .order("start_time", { ascending: true, nullsFirst: false });
@@ -139,26 +131,18 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
             </div>
 
             <div className="mt-4 grid gap-2 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
-              <div>Service: {appointment.service ?? "-"}</div>
-              <div>Staff: {appointment.staff_name ?? "-"}</div>
-              <div>Location: {appointment.location ?? "-"}</div>
+              <div>ID: {appointment.id}</div>
+              <div>Name: {appointment.name ?? "-"}</div>
               <div>Phone: {appointment.phone ?? "-"}</div>
               <div>Email: {appointment.email ?? "-"}</div>
-              <div>Client ID: {appointment.client_id}</div>
+              <div>Service: {appointment.service ?? "-"}</div>
+              <div>Location: {appointment.location ?? "-"}</div>
+              <div>Date: {appointment.date ?? "-"}</div>
+              <div>Start Time: {appointment.start_time ?? "-"}</div>
               <div>End Time: {appointment.end_time ?? "-"}</div>
-              <div>Created By: {appointment.created_by ?? "-"}</div>
-              <div>Created At: {appointment.created_at ?? "-"}</div>
-              <div>Verified At: {appointment.verified_at ?? "-"}</div>
-              <div>Verified By: {appointment.verified_by ?? "-"}</div>
-              <div>Reminder Sent: {appointment.reminder_sent ? "Yes" : "No"}</div>
-              <div>Reminder At: {appointment.reminder_sent_at ?? "-"}</div>
+              <div>Status: {appointment.status ?? "-"}</div>
+              <div>Remark: {appointment.remark ?? "-"}</div>
             </div>
-
-            {appointment.remark && (
-              <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
-                Remark: {appointment.remark}
-              </div>
-            )}
           </article>
         ))}
       </div>
