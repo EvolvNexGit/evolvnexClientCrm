@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 
-type BillingSubTab = "customer" | "product" | "bill";
+type BillingSubTab = "customer" | "product" | "bill" | "transaction";
 
 const subTabs: Array<{ id: BillingSubTab; label: string; description: string }> = [
   {
@@ -19,6 +19,11 @@ const subTabs: Array<{ id: BillingSubTab; label: string; description: string }> 
     id: "bill",
     label: "Bill",
     description: "Prepare invoices, track statuses, and record payment collections.",
+  },
+  {
+    id: "transaction",
+    label: "Transaction",
+    description: "Track payment transactions, refunds, and reconciliation entries.",
   },
 ];
 
