@@ -46,6 +46,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
   const [newAppointment, setNewAppointment] = useState<AppointmentFormState>({
     name: "",
     phone: "",
@@ -191,6 +192,42 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       setAddError(saveError instanceof Error ? saveError.message : "Unable to add appointment.");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleStatusChange(appointmentId: string, newStatus: AppointmentRow["status"]) {
+    if (updatingIds.has(appointmentId)) {
+      return;
+    }
+
+    const client = getSupabaseClient();
+    if (!client) {
+      return;
+    }
+
+    try {
+      setUpdatingIds((current) => new Set(current).add(appointmentId));
+
+      const { error } = await client
+        .from("appointments")
+        .update({ status: newStatus })
+        .eq("id", appointmentId);
+
+      if (error) {
+        throw error;
+      }
+
+      setAppointments((current) =>
+        current.map((apt) => (apt.id === appointmentId ? { ...apt, status: newStatus } : apt)),
+      );
+    } catch (err) {
+      console.error("Failed to update appointment status:", err);
+    } finally {
+      setUpdatingIds((current) => {
+        const next = new Set(current);
+        next.delete(appointmentId);
+        return next;
+      });
     }
   }
 
@@ -652,7 +689,23 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                   </div>
                   <div>
                     <div className="text-[11px] uppercase tracking-[0.1em] text-slate-400">Status</div>
-                    <div className="text-sm text-slate-800">{appointment.status ?? "tentative"}</div>
+                    <select
+                      value={appointment.status ?? "tentative"}
+                      onChange={(event) => {
+                        event.stopPropagation();
+                        handleStatusChange(
+                          appointment.id,
+                          event.target.value as "tentative" | "booked" | "cancelled" | "completed",
+                        );
+                      }}
+                      disabled={updatingIds.has(appointment.id)}
+                      className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <option value="tentative">tentative</option>
+                      <option value="booked">booked</option>
+                      <option value="cancelled">cancelled</option>
+                      <option value="completed">completed</option>
+                    </select>
                   </div>
                 </div>
 
