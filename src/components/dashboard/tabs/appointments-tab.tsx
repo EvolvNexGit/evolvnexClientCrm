@@ -76,6 +76,15 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     input.click();
   }
 
+  function clearAllFiltersAndSort() {
+    setLocationFilter("all");
+    setStatusFilter("all");
+    setServiceFilter("all");
+    setDateFilter("");
+    setSortBy("date");
+    setSortOrder("asc");
+  }
+
   useEffect(() => {
     let isMounted = true;
     const supabaseClient = getSupabaseClient();
@@ -327,6 +336,17 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
             <option value="desc">Descending</option>
           </select>
         </label>
+
+        <div className="text-xs text-slate-600 sm:col-span-2 lg:col-span-3 xl:col-span-6">
+          <span className="mb-1 block">Actions</span>
+          <button
+            type="button"
+            onClick={clearAllFiltersAndSort}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+          >
+            Clear all filters and sorting
+          </button>
+        </div>
       </div>
 
       <div className="mt-6 space-y-3">
