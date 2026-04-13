@@ -370,7 +370,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-[240px] items-center justify-center rounded-3xl border border-slate-200 bg-white text-sm text-slate-500">
+      <div className="flex min-h-[240px] items-center justify-center rounded-3xl border border-border bg-card text-sm text-muted-foreground">
         <span className="inline-flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" />
           Fetching appointments
@@ -381,28 +381,28 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
   if (error) {
     return (
-      <div className="rounded-3xl border border-rose-200 bg-white p-6 text-sm text-rose-700">
+      <div className="rounded-3xl border border-rose-500/40 bg-card p-6 text-sm text-rose-400">
         Unable to load appointments: {error}
       </div>
     );
   }
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-3xl border border-border bg-card p-6 text-foreground shadow-sm">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-slate-950">Appointments</h2>
-          <p className="mt-1 text-sm text-slate-500">Filtered by client_id and ready for RLS.</p>
+          <h2 className="text-lg font-semibold text-foreground">Appointments</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Filtered by client_id and ready for RLS.</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="text-xs text-slate-500">{displayedAppointments.length} / {appointments.length} record(s)</div>
+          <div className="text-xs text-muted-foreground">{displayedAppointments.length} / {appointments.length} record(s)</div>
           <button
             type="button"
             onClick={() => {
               setAddError(null);
               setShowAddForm((current) => !current);
             }}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+            className="rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-muted"
           >
             {showAddForm ? "Close" : "Add appointment"}
           </button>
@@ -410,38 +410,38 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       </div>
 
       {showAddForm && (
-        <form onSubmit={handleAddAppointment} className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-900">
+        <form onSubmit={handleAddAppointment} className="mt-4 rounded-2xl border border-border bg-muted/40 p-4 text-foreground">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <input
               value={newAppointment.name}
               onChange={(event) => setNewAppointment((current) => ({ ...current, name: event.target.value }))}
               placeholder="Name"
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+              className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground"
             />
             <input
               value={newAppointment.phone}
               onChange={(event) => setNewAppointment((current) => ({ ...current, phone: event.target.value }))}
               placeholder="Phone"
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+              className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground"
             />
             <input
               value={newAppointment.email}
               onChange={(event) => setNewAppointment((current) => ({ ...current, email: event.target.value }))}
               type="email"
               placeholder="Email"
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+              className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground"
             />
             <input
               value={newAppointment.service}
               onChange={(event) => setNewAppointment((current) => ({ ...current, service: event.target.value }))}
               placeholder="Service"
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+              className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground"
             />
             <input
               value={newAppointment.location}
               onChange={(event) => setNewAppointment((current) => ({ ...current, location: event.target.value }))}
               placeholder="Location"
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+              className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground"
             />
             <select
               value={newAppointment.status}
@@ -451,7 +451,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                   status: event.target.value as "tentative" | "booked" | "cancelled" | "completed",
                 }))
               }
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+              className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground"
             >
               <option value="tentative">tentative</option>
               <option value="booked">booked</option>
@@ -463,25 +463,25 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
               onChange={(event) => setNewAppointment((current) => ({ ...current, date: event.target.value }))}
               type="date"
               required
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+              className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground"
             />
             <input
               value={newAppointment.start_time}
               onChange={(event) => setNewAppointment((current) => ({ ...current, start_time: event.target.value }))}
               type="time"
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+              className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground"
             />
             <input
               value={newAppointment.end_time}
               onChange={(event) => setNewAppointment((current) => ({ ...current, end_time: event.target.value }))}
               type="time"
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+              className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground"
             />
             <textarea
               value={newAppointment.remark}
               onChange={(event) => setNewAppointment((current) => ({ ...current, remark: event.target.value }))}
               placeholder="Remark"
-              className="min-h-20 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs sm:col-span-2 lg:col-span-3"
+              className="min-h-20 rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground sm:col-span-2 lg:col-span-3"
             />
           </div>
 
@@ -491,7 +491,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
             <button
               type="submit"
               disabled={isSaving}
-              className="rounded-xl border border-slate-200 bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-xl border border-border bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving ? "Saving..." : "Save appointment"}
             </button>
@@ -501,7 +501,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                 setAddError(null);
                 resetNewAppointmentForm();
               }}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 hover:bg-slate-100"
+              className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground hover:bg-muted"
             >
               Reset form
             </button>
@@ -509,13 +509,13 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
         </form>
       )}
 
-      <div className="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <label className="text-xs text-slate-600">
+      <div className="mt-4 grid gap-3 rounded-2xl border border-border bg-muted/40 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <label className="text-xs text-muted-foreground">
           <span className="mb-1 block">Location</span>
           <select
             value={locationFilter}
             onChange={(event) => setLocationFilter(event.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs"
+            className="w-full rounded-xl border border-border bg-background px-2 py-2 text-xs text-foreground"
           >
             <option value="all">All</option>
             {locationOptions.map((option) => (
@@ -526,7 +526,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           </select>
         </label>
 
-        <label className="text-xs text-slate-600">
+        <label className="text-xs text-muted-foreground">
           <span className="mb-1 block">Date</span>
           <div className="space-y-2">
             <select
@@ -535,7 +535,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                 setDateFilterMode(event.target.value as "day" | "month" | "year");
                 setDateFilter("");
               }}
-              className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs"
+              className="w-full rounded-xl border border-border bg-background px-2 py-2 text-xs text-foreground"
             >
               <option value="day">Day</option>
               <option value="month">Month</option>
@@ -549,16 +549,16 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 placeholder="YYYY"
-                className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs"
+                className="w-full rounded-xl border border-border bg-background px-2 py-2 text-xs text-foreground placeholder:text-muted-foreground"
                 aria-label="Filter by year"
               />
             ) : (
               <button
                 type="button"
                 onClick={openDatePicker}
-                className="inline-flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-2 text-left text-xs text-slate-700"
+                className="inline-flex w-full items-center gap-2 rounded-xl border border-border bg-background px-2 py-2 text-left text-xs text-foreground"
               >
-                <CalendarDays className="h-4 w-4 text-slate-500" />
+                <CalendarDays className="h-4 w-4 text-muted-foreground" />
                 <span>
                   {dateFilter || (dateFilterMode === "day" ? "Select date" : "Select month")}
                 </span>
@@ -569,7 +569,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
               <button
                 type="button"
                 onClick={() => setDateFilter("")}
-                className="rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs text-slate-600"
+                className="rounded-xl border border-border bg-background px-2 py-2 text-xs text-muted-foreground"
               >
                 Clear
               </button>
@@ -588,12 +588,12 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           )}
         </label>
 
-        <label className="text-xs text-slate-600">
+        <label className="text-xs text-muted-foreground">
           <span className="mb-1 block">Status</span>
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs"
+            className="w-full rounded-xl border border-border bg-background px-2 py-2 text-xs text-foreground"
           >
             <option value="all">All</option>
             {statusOptions.map((option) => (
@@ -604,12 +604,12 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           </select>
         </label>
 
-        <label className="text-xs text-slate-600">
+        <label className="text-xs text-muted-foreground">
           <span className="mb-1 block">Service</span>
           <select
             value={serviceFilter}
             onChange={(event) => setServiceFilter(event.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs"
+            className="w-full rounded-xl border border-border bg-background px-2 py-2 text-xs text-foreground"
           >
             <option value="all">All</option>
             {serviceOptions.map((option) => (
@@ -620,12 +620,12 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           </select>
         </label>
 
-        <label className="text-xs text-slate-600">
+        <label className="text-xs text-muted-foreground">
           <span className="mb-1 block">Sort By</span>
           <select
             value={sortBy}
             onChange={(event) => setSortBy(event.target.value as "date" | "status" | "service" | "location")}
-            className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs"
+            className="w-full rounded-xl border border-border bg-background px-2 py-2 text-xs text-foreground"
           >
             <option value="date">Date</option>
             <option value="status">Status</option>
@@ -634,24 +634,24 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           </select>
         </label>
 
-        <label className="text-xs text-slate-600">
+        <label className="text-xs text-muted-foreground">
           <span className="mb-1 block">Sort Order</span>
           <select
             value={sortOrder}
             onChange={(event) => setSortOrder(event.target.value as "asc" | "desc")}
-            className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs"
+            className="w-full rounded-xl border border-border bg-background px-2 py-2 text-xs text-foreground"
           >
             <option value="asc">Ascending</option>
             <option value="desc">Descending</option>
           </select>
         </label>
 
-        <div className="text-xs text-slate-600 sm:col-span-2 lg:col-span-3 xl:col-span-6">
+        <div className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-3 xl:col-span-6">
           <span className="mb-1 block">Actions</span>
           <button
             type="button"
             onClick={clearAllFiltersAndSort}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+            className="rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-muted"
           >
             Clear all filters and sorting
           </button>
@@ -660,7 +660,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
       <div className="mt-6 space-y-3">
         {displayedAppointments.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
+          <div className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">
             No appointments found for the selected filters.
           </div>
         )}
@@ -668,27 +668,27 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
         {displayedAppointments.map((appointment) => {
           const isExpanded = expandedIds.has(appointment.id);
           return (
-            <article key={appointment.id} className="rounded-2xl bg-slate-50 p-4">
+            <article key={appointment.id} className="rounded-2xl bg-muted/40 p-4">
               <button
                 type="button"
                 onClick={() => toggleExpanded(appointment.id)}
                 className="flex w-full items-center justify-between gap-4 text-left"
               >
-                <div className="grid flex-1 grid-cols-2 gap-3 text-xs text-slate-600 lg:grid-cols-4">
+                <div className="grid flex-1 grid-cols-2 gap-3 text-xs text-muted-foreground lg:grid-cols-4">
                   <div>
-                    <div className="text-[11px] uppercase tracking-[0.1em] text-slate-400">Name</div>
-                    <div className="text-sm font-semibold text-slate-950">{appointment.name ?? "Unnamed appointment"}</div>
+                    <div className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Name</div>
+                    <div className="text-sm font-semibold text-foreground">{appointment.name ?? "Unnamed appointment"}</div>
                   </div>
                   <div>
-                    <div className="text-[11px] uppercase tracking-[0.1em] text-slate-400">Date</div>
-                    <div className="text-sm text-slate-800">{appointment.date ?? "-"}</div>
+                    <div className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Date</div>
+                    <div className="text-sm text-foreground">{appointment.date ?? "-"}</div>
                   </div>
                   <div>
-                    <div className="text-[11px] uppercase tracking-[0.1em] text-slate-400">Slot</div>
-                    <div className="text-sm text-slate-800">{getSlot(appointment.start_time, appointment.end_time)}</div>
+                    <div className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Slot</div>
+                    <div className="text-sm text-foreground">{getSlot(appointment.start_time, appointment.end_time)}</div>
                   </div>
                   <div>
-                    <div className="text-[11px] uppercase tracking-[0.1em] text-slate-400">Status</div>
+                    <div className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Status</div>
                     <select
                       value={appointment.status ?? "tentative"}
                       onChange={(event) => {
@@ -699,7 +699,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                         );
                       }}
                       disabled={updatingIds.has(appointment.id)}
-                      className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <option value="tentative">tentative</option>
                       <option value="booked">booked</option>
@@ -709,11 +709,11 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                   </div>
                 </div>
 
-                <ChevronDown className={`h-4 w-4 shrink-0 text-slate-500 transition ${isExpanded ? "rotate-180" : "rotate-0"}`} />
+                <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition ${isExpanded ? "rotate-180" : "rotate-0"}`} />
               </button>
 
               {isExpanded && (
-                <div className="mt-4 grid gap-2 border-t border-slate-200 pt-4 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="mt-4 grid gap-2 border-t border-border pt-4 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-3">
                   <div>ID: {appointment.id}</div>
                   <div>Phone: {appointment.phone ?? "-"}</div>
                   <div>Email: {appointment.email ?? "-"}</div>
