@@ -29,6 +29,8 @@ const BillingCrmTab = dynamic(() => import("./tabs/billing-crm-tab"), {
   loading: () => <TabLoading />,
 });
 
+type BillingSubTab = "customer" | "product" | "bill";
+
 function TabLoading() {
   return (
     <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-border bg-card text-sm text-muted-foreground">
@@ -64,6 +66,7 @@ export function DashboardPage() {
   } = useApp();
   const { clientId, clientError } = useClient();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [activeBillingSubTab, setActiveBillingSubTab] = useState<BillingSubTab>("customer");
 
   useEffect(() => {
     if (!loading && !user) {
@@ -98,6 +101,8 @@ export function DashboardPage() {
           tabs={tabs}
           activeTabId={activeTabId}
           setActiveTabId={setActiveTabId}
+          activeBillingSubTab={activeBillingSubTab}
+          setActiveBillingSubTab={setActiveBillingSubTab}
           onLogout={signOut}
         />
       </aside>
@@ -116,6 +121,8 @@ export function DashboardPage() {
               tabs={tabs}
               activeTabId={activeTabId}
               setActiveTabId={setActiveTabId}
+              activeBillingSubTab={activeBillingSubTab}
+              setActiveBillingSubTab={setActiveBillingSubTab}
               onLogout={signOut}
               onNavigate={() => setMobileOpen(false)}
             />
@@ -188,7 +195,7 @@ export function DashboardPage() {
               <AppointmentsTab clientId={clientId} />
             )}
             {activeTab?.id === "billing-crm" && (
-              <BillingCrmTab clientId={clientId} />
+              <BillingCrmTab clientId={clientId} activeSubTab={activeBillingSubTab} />
             )}
             {!activeTab && <EmptyState />}
           </div>
@@ -202,12 +209,16 @@ function SidebarContent({
   tabs,
   activeTabId,
   setActiveTabId,
+  activeBillingSubTab,
+  setActiveBillingSubTab,
   onLogout,
   onNavigate,
 }: {
   tabs: TabDefinition[];
   activeTabId: string;
   setActiveTabId: (tabId: string) => void;
+  activeBillingSubTab: BillingSubTab;
+  setActiveBillingSubTab: (tabId: BillingSubTab) => void;
   onLogout: () => Promise<void>;
   onNavigate?: () => void;
 }) {
@@ -230,23 +241,52 @@ function SidebarContent({
           const isActive = activeTabId === tab.id;
 
           return (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setActiveTabId(tab.id);
-                onNavigate?.();
-              }}
-              className={
-                isActive
-                  ? "flex w-full items-center gap-3 rounded-xl bg-primary px-4 py-3 text-white shadow-redGlow"
-                  : "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-muted-foreground hover:bg-muted hover:text-text"
-              }
-            >
-              <Icon className="h-4 w-4" />
-              <span className="flex-1 text-sm font-medium">
-                {tab.label}
-              </span>
-            </button>
+            <div key={tab.id}>
+              <button
+                onClick={() => {
+                  setActiveTabId(tab.id);
+                  onNavigate?.();
+                }}
+                className={
+                  isActive
+                    ? "flex w-full items-center gap-3 rounded-xl bg-primary px-4 py-3 text-white shadow-redGlow"
+                    : "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-muted-foreground hover:bg-muted hover:text-text"
+                }
+              >
+                <Icon className="h-4 w-4" />
+                <span className="flex-1 text-sm font-medium">{tab.label}</span>
+              </button>
+
+              {tab.id === "billing-crm" && isActive && (
+                <div className="mt-2 space-y-1 pl-6">
+                  {([
+                    { id: "customer", label: "Customer" },
+                    { id: "product", label: "Product" },
+                    { id: "bill", label: "Bill" },
+                  ] as Array<{ id: BillingSubTab; label: string }>).map((subTab) => {
+                    const subTabActive = activeBillingSubTab === subTab.id;
+                    return (
+                      <button
+                        key={subTab.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveTabId("billing-crm");
+                          setActiveBillingSubTab(subTab.id);
+                          onNavigate?.();
+                        }}
+                        className={
+                          subTabActive
+                            ? "flex w-full items-center rounded-lg bg-muted px-3 py-2 text-left text-xs font-semibold text-text"
+                            : "flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-medium text-muted-foreground hover:bg-muted hover:text-text"
+                        }
+                      >
+                        {subTab.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           );
         })}
       </nav>
