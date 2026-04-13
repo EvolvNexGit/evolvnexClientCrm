@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase";
 
@@ -23,6 +23,12 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [locationFilter, setLocationFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [serviceFilter, setServiceFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("");
+  const [sortBy, setSortBy] = useState<"date" | "status" | "service" | "location">("date");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   function toggleExpanded(id: string) {
     setExpandedIds((current) => {
@@ -110,6 +116,66 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     };
   }, [clientId]);
 
+  const locationOptions = useMemo(
+    () => Array.from(new Set(appointments.map((item) => item.location).filter((item): item is string => Boolean(item)))),
+    [appointments],
+  );
+
+  const statusOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          appointments
+            .map((item) => item.status)
+            .filter((item): item is NonNullable<AppointmentRow["status"]> => Boolean(item)),
+        ),
+      ),
+    [appointments],
+  );
+
+  const serviceOptions = useMemo(
+    () => Array.from(new Set(appointments.map((item) => item.service).filter((item): item is string => Boolean(item)))),
+    [appointments],
+  );
+
+  const displayedAppointments = useMemo(() => {
+    const filtered = appointments.filter((appointment) => {
+      const matchesLocation = locationFilter === "all" || appointment.location === locationFilter;
+      const matchesStatus = statusFilter === "all" || appointment.status === statusFilter;
+      const matchesService = serviceFilter === "all" || appointment.service === serviceFilter;
+      const matchesDate = !dateFilter || appointment.date === dateFilter;
+      return matchesLocation && matchesStatus && matchesService && matchesDate;
+    });
+
+    const sorted = [...filtered].sort((a, b) => {
+      const direction = sortOrder === "asc" ? 1 : -1;
+
+      if (sortBy === "date") {
+        const left = a.date ?? "";
+        const right = b.date ?? "";
+        return left.localeCompare(right) * direction;
+      }
+
+      if (sortBy === "status") {
+        const left = a.status ?? "";
+        const right = b.status ?? "";
+        return left.localeCompare(right) * direction;
+      }
+
+      if (sortBy === "service") {
+        const left = a.service ?? "";
+        const right = b.service ?? "";
+        return left.localeCompare(right) * direction;
+      }
+
+      const left = a.location ?? "";
+      const right = b.location ?? "";
+      return left.localeCompare(right) * direction;
+    });
+
+    return sorted;
+  }, [appointments, dateFilter, locationFilter, serviceFilter, sortBy, sortOrder, statusFilter]);
+
   if (loading) {
     return (
       <div className="flex min-h-[240px] items-center justify-center rounded-3xl border border-slate-200 bg-white text-sm text-slate-500">
@@ -136,17 +202,103 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           <h2 className="text-lg font-semibold text-slate-950">Appointments</h2>
           <p className="mt-1 text-sm text-slate-500">Filtered by client_id and ready for RLS.</p>
         </div>
-        <div className="text-xs text-slate-500">{appointments.length} record(s)</div>
+        <div className="text-xs text-slate-500">{displayedAppointments.length} / {appointments.length} record(s)</div>
+      </div>
+
+      <div className="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <label className="text-xs text-slate-600">
+          <span className="mb-1 block">Location</span>
+          <select
+            value={locationFilter}
+            onChange={(event) => setLocationFilter(event.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs"
+          >
+            <option value="all">All</option>
+            {locationOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="text-xs text-slate-600">
+          <span className="mb-1 block">Date</span>
+          <input
+            value={dateFilter}
+            onChange={(event) => setDateFilter(event.target.value)}
+            type="date"
+            className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs"
+          />
+        </label>
+
+        <label className="text-xs text-slate-600">
+          <span className="mb-1 block">Status</span>
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs"
+          >
+            <option value="all">All</option>
+            {statusOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="text-xs text-slate-600">
+          <span className="mb-1 block">Service</span>
+          <select
+            value={serviceFilter}
+            onChange={(event) => setServiceFilter(event.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs"
+          >
+            <option value="all">All</option>
+            {serviceOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="text-xs text-slate-600">
+          <span className="mb-1 block">Sort By</span>
+          <select
+            value={sortBy}
+            onChange={(event) => setSortBy(event.target.value as "date" | "status" | "service" | "location")}
+            className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs"
+          >
+            <option value="date">Date</option>
+            <option value="status">Status</option>
+            <option value="service">Service</option>
+            <option value="location">Location</option>
+          </select>
+        </label>
+
+        <label className="text-xs text-slate-600">
+          <span className="mb-1 block">Sort Order</span>
+          <select
+            value={sortOrder}
+            onChange={(event) => setSortOrder(event.target.value as "asc" | "desc")}
+            className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs"
+          >
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
+          </select>
+        </label>
       </div>
 
       <div className="mt-6 space-y-3">
-        {appointments.length === 0 && (
+        {displayedAppointments.length === 0 && (
           <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
-            No appointments found for this client.
+            No appointments found for the selected filters.
           </div>
         )}
 
-        {appointments.map((appointment) => {
+        {displayedAppointments.map((appointment) => {
           const isExpanded = expandedIds.has(appointment.id);
           return (
             <article key={appointment.id} className="rounded-2xl bg-slate-50 p-4">
