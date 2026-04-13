@@ -29,7 +29,7 @@ const BillingCrmTab = dynamic(() => import("./tabs/billing-crm-tab"), {
   loading: () => <TabLoading />,
 });
 
-type BillingSubTab = "customer" | "product" | "bill";
+type BillingSubTab = "customer" | "product" | "bill" | "transaction";
 
 function TabLoading() {
   return (
@@ -263,6 +263,7 @@ function SidebarContent({
                     { id: "customer", label: "Customer" },
                     { id: "product", label: "Product" },
                     { id: "bill", label: "Bill" },
+                    { id: "transaction", label: "Transaction" },
                   ] as Array<{ id: BillingSubTab; label: string }>).map((subTab) => {
                     const subTabActive = activeBillingSubTab === subTab.id;
                     return (
