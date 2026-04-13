@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import {
   AlertCircle,
   CalendarDays,
@@ -86,105 +87,106 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-text">
-      <div className="flex min-h-screen">
-        {/* Sidebar */}
-        <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 border-r border-border bg-card px-5 py-6 xl:flex xl:flex-col">
-          <SidebarContent
-            tabs={tabs}
-            activeTabId={activeTabId}
-            setActiveTabId={setActiveTabId}
-            onLogout={signOut}
-          />
-        </aside>
+    <div className="min-h-screen bg-background text-text flex">
+      {/* Sidebar */}
+      <aside className="hidden w-72 border-r border-border bg-card px-5 py-6 xl:flex xl:flex-col">
+        <SidebarContent
+          tabs={tabs}
+          activeTabId={activeTabId}
+          setActiveTabId={setActiveTabId}
+          onLogout={signOut}
+        />
+      </aside>
 
-        {/* Mobile Sidebar */}
-        {mobileOpen && (
-          <div
-            className="fixed inset-0 z-30 bg-black/60 xl:hidden"
-            onClick={() => setMobileOpen(false)}
+      {/* Mobile Sidebar */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/60 xl:hidden"
+          onClick={() => setMobileOpen(false)}
+        >
+          <aside
+            className="absolute inset-y-0 left-0 w-80 max-w-[85vw] border-r border-border bg-card p-5 shadow-soft"
+            onClick={(e) => e.stopPropagation()}
           >
-            <aside
-              className="absolute inset-y-0 left-0 w-80 max-w-[85vw] border-r border-border bg-card p-5 shadow-soft"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <SidebarContent
-                tabs={tabs}
-                activeTabId={activeTabId}
-                setActiveTabId={setActiveTabId}
-                onLogout={signOut}
-                onNavigate={() => setMobileOpen(false)}
+            <SidebarContent
+              tabs={tabs}
+              activeTabId={activeTabId}
+              setActiveTabId={setActiveTabId}
+              onLogout={signOut}
+              onNavigate={() => setMobileOpen(false)}
+            />
+          </aside>
+        </div>
+      )}
+
+      {/* Main */}
+      <main className="flex min-h-screen flex-1 flex-col">
+        {/* Header */}
+        <header className="sticky top-0 z-10 border-b border-border bg-background px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 xl:hidden">
+              <button
+                onClick={() => setMobileOpen(true)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-text"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+
+              {/* 🔥 MOBILE LOGO */}
+              <Image
+                src="/logo.png"
+                alt="EvolvNex"
+                width={110}
+                height={32}
+                className="object-contain"
               />
-            </aside>
+            </div>
+
+            <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
+              <div className="rounded-full border border-border bg-card px-3 py-2">
+                Auth ID: {authId ?? "missing"}
+              </div>
+              <div className="rounded-full border border-border bg-card px-3 py-2">
+                Client ID: {clientId}
+              </div>
+            </div>
           </div>
-        )}
+        </header>
 
-        {/* Main */}
-        <main className="flex min-h-screen flex-1 flex-col xl:pl-72">
-          {/* Header */}
-          <header className="sticky top-0 z-10 border-b border-border bg-background px-4 py-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3 xl:hidden">
-                <button
-                  onClick={() => setMobileOpen(true)}
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-text"
-                >
-                  <Menu className="h-5 w-5" />
-                </button>
-                <div>
-                  <div className="text-sm font-semibold">Evolvnex CRM</div>
-                  <div className="text-xs text-muted-foreground">
-                    Client workspace
-                  </div>
-                </div>
+        {/* Content */}
+        <section className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mx-auto flex max-w-6xl flex-col gap-6">
+            <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
+              <div>
+                <p className="text-sm font-medium uppercase tracking-wider text-primary">
+                  Dashboard
+                </p>
+                <h1 className="mt-2 text-3xl font-semibold">
+                  {activeTab?.label ?? "Summary"}
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+                  Client-scoped dashboard with dynamic tab system.
+                </p>
               </div>
 
-              <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
-                <div className="rounded-full border border-border bg-card px-3 py-2">
-                  Auth ID: {authId ?? "missing"}
-                </div>
-                <div className="rounded-full border border-border bg-card px-3 py-2">
-                  Client ID: {clientId}
-                </div>
-              </div>
+              <Button onClick={signOut}>
+                <span className="inline-flex items-center gap-2">
+                  <LogOut className="h-4 w-4" />
+                  Logout
+                </span>
+              </Button>
             </div>
-          </header>
 
-          {/* Content */}
-          <section className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
-            <div className="mx-auto flex max-w-6xl flex-col gap-6">
-              <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
-                <div>
-                  <p className="text-sm font-medium uppercase tracking-wider text-primary">
-                    Dashboard
-                  </p>
-                  <h1 className="mt-2 text-3xl font-semibold">
-                    {activeTab?.label ?? "Summary"}
-                  </h1>
-                  <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-                    Client-scoped dashboard with dynamic tab system.
-                  </p>
-                </div>
-
-                <Button onClick={signOut}>
-                  <span className="inline-flex items-center gap-2">
-                    <LogOut className="h-4 w-4" />
-                    Logout
-                  </span>
-                </Button>
-              </div>
-
-              {activeTab?.id === "summary" && (
-                <SummaryTab clientId={clientId} />
-              )}
-              {activeTab?.id === "appointments" && (
-                <AppointmentsTab clientId={clientId} />
-              )}
-              {!activeTab && <EmptyState />}
-            </div>
-          </section>
-        </main>
-      </div>
+            {activeTab?.id === "summary" && (
+              <SummaryTab clientId={clientId} />
+            )}
+            {activeTab?.id === "appointments" && (
+              <AppointmentsTab clientId={clientId} />
+            )}
+            {!activeTab && <EmptyState />}
+          </div>
+        </section>
+      </main>
     </div>
   );
 }
@@ -204,11 +206,15 @@ function SidebarContent({
 }) {
   return (
     <>
+      {/* 🔥 LOGO */}
       <div className="mb-8">
-        <div className="text-lg font-semibold">Evolvnex CRM</div>
-        <div className="text-sm text-muted-foreground">
-          Client dashboard
-        </div>
+        <Image
+          src="/logo.png"
+          alt="EvolvNex"
+          width={140}
+          height={40}
+          className="object-contain"
+        />
       </div>
 
       <nav className="space-y-2">
