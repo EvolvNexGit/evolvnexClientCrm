@@ -25,6 +25,10 @@ const AppointmentsTab = dynamic(() => import("./tabs/appointments-tab"), {
   loading: () => <TabLoading />,
 });
 
+const BillingCrmTab = dynamic(() => import("./tabs/billing-crm-tab"), {
+  loading: () => <TabLoading />,
+});
+
 function TabLoading() {
   return (
     <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-border bg-card text-sm text-muted-foreground">
@@ -182,6 +186,9 @@ export function DashboardPage() {
             )}
             {activeTab?.id === "appointments" && (
               <AppointmentsTab clientId={clientId} />
+            )}
+            {activeTab?.id === "billing-crm" && (
+              <BillingCrmTab clientId={clientId} />
             )}
             {!activeTab && <EmptyState />}
           </div>
