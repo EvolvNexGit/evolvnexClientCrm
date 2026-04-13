@@ -9,29 +9,29 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // 🔥 Minimal Black / Red / White Theme
-        background: "#000000",
-        surface: "#0A0A0A",
-        surfaceLight: "#141414",
+        // 🔥 CONNECTED TO CSS VARIABLES (globals.css)
+        background: "hsl(var(--background))",
+        text: "hsl(var(--foreground))",
 
-        primary: "#FF2D2D",      // main red
-        primaryDark: "#CC1F1F",  // hover red
+        card: "hsl(var(--card))",
+        "card-foreground": "hsl(var(--card-foreground))",
 
-        text: "#FFFFFF",
-        textMuted: "#A1A1AA",
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
 
-        border: "#1F1F1F",
+        muted: "hsl(var(--muted))",
+        "muted-foreground": "hsl(var(--muted-foreground))",
+
+        primary: "hsl(var(--primary))",
+        "primary-foreground": "hsl(var(--primary-foreground))",
+
+        accent: "hsl(var(--accent))",
+        "accent-foreground": "hsl(var(--accent-foreground))",
       },
 
       boxShadow: {
         soft: "0 10px 30px rgba(0, 0, 0, 0.6)",
-        redGlow: "0 0 20px rgba(255, 45, 45, 0.35)",
-      },
-
-      backgroundImage: {
-        // subtle red line glow (not full gradient)
-        "red-glow":
-          "radial-gradient(circle at 50% 0%, rgba(255,45,45,0.15), transparent 60%)",
+        redGlow: "0 0 20px hsl(var(--primary) / 0.35)",
       },
 
       borderRadius: {

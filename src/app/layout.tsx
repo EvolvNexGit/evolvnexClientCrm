@@ -8,10 +8,12 @@ export const metadata: Metadata = {
   description: "A modern CRM shell with Supabase Auth and client-scoped data flows.",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+export default function RootLayout({
+  children,
+}: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" className="dark">
+      <body className="bg-background text-text antialiased">
         <AppShell>{children}</AppShell>
       </body>
     </html>
