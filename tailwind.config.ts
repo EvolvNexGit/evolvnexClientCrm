@@ -9,39 +9,34 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // 🔥 EvolvNex Brand Theme
-        primary: "#00FFB2",
-        primaryDark: "#00CC8E",
+        // 🔥 Minimal Black / Red / White Theme
+        background: "#000000",
+        surface: "#0A0A0A",
+        surfaceLight: "#141414",
 
-        background: "#0B0F14",
-        surface: "#111827",
-        surfaceLight: "#1F2937",
+        primary: "#FF2D2D",      // main red
+        primaryDark: "#CC1F1F",  // hover red
 
-        text: "#E5E7EB",
-        textMuted: "#9CA3AF",
+        text: "#FFFFFF",
+        textMuted: "#A1A1AA",
 
-        border: "#1F2937",
-
-        accent: "#22D3EE",
+        border: "#1F1F1F",
       },
 
       boxShadow: {
-        soft: "0 20px 60px rgba(0, 0, 0, 0.35)",
-        glow: "0 0 30px rgba(0, 255, 178, 0.25)",
+        soft: "0 10px 30px rgba(0, 0, 0, 0.6)",
+        redGlow: "0 0 20px rgba(255, 45, 45, 0.35)",
       },
 
       backgroundImage: {
-        "dashboard-gradient":
-          "radial-gradient(circle at top left, rgba(0, 255, 178, 0.15), transparent 35%), radial-gradient(circle at top right, rgba(34, 211, 238, 0.12), transparent 30%), linear-gradient(180deg, #0B0F14, #0B0F14)",
+        // subtle red line glow (not full gradient)
+        "red-glow":
+          "radial-gradient(circle at 50% 0%, rgba(255,45,45,0.15), transparent 60%)",
       },
 
       borderRadius: {
         xl: "1rem",
         "2xl": "1.25rem",
-      },
-
-      transitionTimingFunction: {
-        smooth: "cubic-bezier(0.4, 0, 0.2, 1)",
       },
     },
   },
