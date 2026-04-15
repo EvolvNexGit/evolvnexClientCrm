@@ -26,6 +26,7 @@ export async function fetchCustomers(clientId: string): Promise<CustomerRecord[]
     .from("customers")
     .select("id, name, phone, email, dob, created_at, bills(id, final_amount)")
     .eq("client_id", clientId)
+    .eq("is_active", true)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -90,7 +91,10 @@ export async function deleteCustomer(clientId: string, customerId: string): Prom
   const supabase = getClient();
   const { error } = await supabase
     .from("customers")
-    .delete()
+    .update({
+      end_date: new Date().toISOString().slice(0, 10),
+      is_active: false,
+    })
     .eq("id", customerId)
     .eq("client_id", clientId);
 
