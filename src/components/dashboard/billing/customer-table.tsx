@@ -172,7 +172,7 @@ export function CustomerTable({
     try {
       await onDelete(customerId);
     } catch (deleteError) {
-      setActionError(deleteError instanceof Error ? deleteError.message : "Unable to delete customer.");
+      setActionError(deleteError instanceof Error ? deleteError.message : "Unable to deactivate customer.");
     }
   }
 
@@ -261,7 +261,7 @@ export function CustomerTable({
                         className="rounded-md border border-primary/50 px-2 py-1 text-xs text-primary"
                         disabled={saving}
                       >
-                        Delete
+                        Deactivate
                       </button>
                     </div>
                   </td>
@@ -298,20 +298,20 @@ export function CustomerTable({
 
       <EntityModal
         open={Boolean(pendingDeleteCustomer)}
-        title="Confirm customer deletion"
+        title="Confirm customer deactivation"
         onClose={() => setPendingDeleteCustomer(null)}
       >
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Delete customer <span className="font-semibold text-text">{pendingDeleteCustomer?.name}</span>? This action
-            cannot be undone.
+            Deactivate customer <span className="font-semibold text-text">{pendingDeleteCustomer?.name}</span>? The
+            record will stay in the database with an end date and inactive status.
           </p>
           <div className="flex items-center justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setPendingDeleteCustomer(null)} disabled={saving}>
               Cancel
             </Button>
             <Button type="button" onClick={() => void confirmDeleteCustomer()} disabled={saving}>
-              {saving ? "Deleting..." : "Delete"}
+              {saving ? "Deactivating..." : "Deactivate"}
             </Button>
           </div>
         </div>
