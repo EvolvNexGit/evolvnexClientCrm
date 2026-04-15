@@ -3,6 +3,7 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronDown, Loader2 } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase";
+import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 
 type AppointmentRow = {
   id: string;
@@ -31,6 +32,12 @@ type AppointmentFormState = {
   remark: string;
 };
 
+type PendingStatusChange = {
+  appointmentId: string;
+  appointmentName: string;
+  nextStatus: "tentative" | "booked" | "cancelled" | "completed";
+};
+
 export default function AppointmentsTab({ clientId }: { clientId: string }) {
   const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,6 +54,8 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   const [isSaving, setIsSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
+  const [pendingStatusChange, setPendingStatusChange] = useState<PendingStatusChange | null>(null);
+  const [statusChangeError, setStatusChangeError] = useState<string | null>(null);
   const [newAppointment, setNewAppointment] = useState<AppointmentFormState>({
     name: "",
     phone: "",
@@ -221,7 +230,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
         current.map((apt) => (apt.id === appointmentId ? { ...apt, status: newStatus } : apt)),
       );
     } catch (err) {
-      console.error("Failed to update appointment status:", err);
+      setStatusChangeError(err instanceof Error ? err.message : "Failed to update appointment status.");
     } finally {
       setUpdatingIds((current) => {
         const next = new Set(current);
@@ -229,6 +238,16 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
         return next;
       });
     }
+  }
+
+  async function confirmStatusChange() {
+    if (!pendingStatusChange) {
+      return;
+    }
+
+    const { appointmentId, nextStatus } = pendingStatusChange;
+    await handleStatusChange(appointmentId, nextStatus);
+    setPendingStatusChange(null);
   }
 
   function matchesDateFilter(appointmentDate: string | null) {
@@ -659,6 +678,12 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       </div>
 
       <div className="mt-6 space-y-3">
+        {statusChangeError && (
+          <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-400">
+            {statusChangeError}
+          </div>
+        )}
+
         {displayedAppointments.length === 0 && (
           <div className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">
             No appointments found for the selected filters.
@@ -693,10 +718,12 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                       value={appointment.status ?? "tentative"}
                       onChange={(event) => {
                         event.stopPropagation();
-                        handleStatusChange(
-                          appointment.id,
-                          event.target.value as "tentative" | "booked" | "cancelled" | "completed",
-                        );
+                        setStatusChangeError(null);
+                        setPendingStatusChange({
+                          appointmentId: appointment.id,
+                          appointmentName: appointment.name ?? "Unnamed appointment",
+                          nextStatus: event.target.value as "tentative" | "booked" | "cancelled" | "completed",
+                        });
                       }}
                       disabled={updatingIds.has(appointment.id)}
                       className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground disabled:cursor-not-allowed disabled:opacity-60"
@@ -726,6 +753,36 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           );
         })}
       </div>
+
+      <EntityModal
+        open={Boolean(pendingStatusChange)}
+        title="Confirm status change"
+        onClose={() => setPendingStatusChange(null)}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Change status for <span className="font-semibold text-text">{pendingStatusChange?.appointmentName}</span> to{" "}
+            <span className="font-semibold text-text">{pendingStatusChange?.nextStatus}</span>?
+          </p>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setPendingStatusChange(null)}
+              className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground hover:bg-muted"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void confirmStatusChange()}
+              disabled={Boolean(pendingStatusChange && updatingIds.has(pendingStatusChange.appointmentId))}
+              className="rounded-xl border border-border bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {pendingStatusChange && updatingIds.has(pendingStatusChange.appointmentId) ? "Updating..." : "Confirm"}
+            </button>
+          </div>
+        </div>
+      </EntityModal>
     </section>
   );
 }

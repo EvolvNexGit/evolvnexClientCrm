@@ -60,6 +60,7 @@ export function CustomerTable({
   const [form, setForm] = useState<CustomerFormState>(initialForm);
   const [actionError, setActionError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [pendingDeleteCustomer, setPendingDeleteCustomer] = useState<CustomerRecord | null>(null);
 
   const filteredCustomers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -175,6 +176,15 @@ export function CustomerTable({
     }
   }
 
+  async function confirmDeleteCustomer() {
+    if (!pendingDeleteCustomer) {
+      return;
+    }
+
+    await handleDelete(pendingDeleteCustomer.id);
+    setPendingDeleteCustomer(null);
+  }
+
   return (
     <div className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -247,7 +257,7 @@ export function CustomerTable({
                       </button>
                       <button
                         type="button"
-                        onClick={() => void handleDelete(customer.id)}
+                        onClick={() => setPendingDeleteCustomer(customer)}
                         className="rounded-md border border-primary/50 px-2 py-1 text-xs text-primary"
                         disabled={saving}
                       >
@@ -284,6 +294,27 @@ export function CustomerTable({
           saving={saving}
           submitLabel="Save Changes"
         />
+      </EntityModal>
+
+      <EntityModal
+        open={Boolean(pendingDeleteCustomer)}
+        title="Confirm customer deletion"
+        onClose={() => setPendingDeleteCustomer(null)}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Delete customer <span className="font-semibold text-text">{pendingDeleteCustomer?.name}</span>? This action
+            cannot be undone.
+          </p>
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setPendingDeleteCustomer(null)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => void confirmDeleteCustomer()} disabled={saving}>
+              {saving ? "Deleting..." : "Delete"}
+            </Button>
+          </div>
+        </div>
       </EntityModal>
     </div>
   );
