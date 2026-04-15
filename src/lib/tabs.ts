@@ -3,7 +3,9 @@ import type { TabDefinition } from "@/lib/types";
 const defaultTabs: TabDefinition[] = [
   { id: "summary", label: "Summary", icon: "home", visible: true },
   { id: "appointments", label: "Appointments", icon: "calendar", visible: true },
-  { id: "billing-crm", label: "Billling Crm", icon: "chevron", visible: true },
+  { id: "customer", label: "Customer", icon: "chevron", visible: true },
+  { id: "product", label: "Product", icon: "chevron", visible: true },
+  { id: "transaction", label: "Transaction", icon: "chevron", visible: true },
 ];
 
 const tabsCache = new Map<string, TabDefinition[]>();

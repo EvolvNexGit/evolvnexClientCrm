@@ -65,7 +65,6 @@ export function DashboardPage() {
   } = useApp();
   const { clientId, clientError } = useClient();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [activeBillingSubTab, setActiveBillingSubTab] = useState<BillingSubTab>("customer");
 
   useEffect(() => {
     if (!loading && !user) {
@@ -100,8 +99,6 @@ export function DashboardPage() {
           tabs={tabs}
           activeTabId={activeTabId}
           setActiveTabId={setActiveTabId}
-          activeBillingSubTab={activeBillingSubTab}
-          setActiveBillingSubTab={setActiveBillingSubTab}
           onLogout={signOut}
         />
       </aside>
@@ -120,8 +117,6 @@ export function DashboardPage() {
               tabs={tabs}
               activeTabId={activeTabId}
               setActiveTabId={setActiveTabId}
-              activeBillingSubTab={activeBillingSubTab}
-              setActiveBillingSubTab={setActiveBillingSubTab}
               onLogout={signOut}
               onNavigate={() => setMobileOpen(false)}
             />
@@ -193,8 +188,12 @@ export function DashboardPage() {
             {activeTab?.id === "appointments" && (
               <AppointmentsTab clientId={clientId} />
             )}
-            {activeTab?.id === "billing-crm" && (
-              <BillingCrmTab clientId={clientId} activeSubTab={activeBillingSubTab} />
+            {(
+              activeTab?.id === "customer" ||
+              activeTab?.id === "product" ||
+              activeTab?.id === "transaction"
+            ) && (
+              <BillingCrmTab clientId={clientId} activeSubTab={activeTab.id as BillingSubTab} />
             )}
             {!activeTab && <EmptyState />}
           </div>
@@ -208,16 +207,12 @@ function SidebarContent({
   tabs,
   activeTabId,
   setActiveTabId,
-  activeBillingSubTab,
-  setActiveBillingSubTab,
   onLogout,
   onNavigate,
 }: {
   tabs: TabDefinition[];
   activeTabId: string;
   setActiveTabId: (tabId: string) => void;
-  activeBillingSubTab: BillingSubTab;
-  setActiveBillingSubTab: (tabId: BillingSubTab) => void;
   onLogout: () => Promise<void>;
   onNavigate?: () => void;
 }) {
@@ -255,36 +250,6 @@ function SidebarContent({
                 <Icon className="h-4 w-4" />
                 <span className="flex-1 text-sm font-medium">{tab.label}</span>
               </button>
-
-              {tab.id === "billing-crm" && isActive && (
-                <div className="mt-2 space-y-1 pl-6">
-                  {([
-                    { id: "customer", label: "Customer" },
-                    { id: "product", label: "Product" },
-                    { id: "transaction", label: "Transaction" },
-                  ] as Array<{ id: BillingSubTab; label: string }>).map((subTab) => {
-                    const subTabActive = activeBillingSubTab === subTab.id;
-                    return (
-                      <button
-                        key={subTab.id}
-                        type="button"
-                        onClick={() => {
-                          setActiveTabId("billing-crm");
-                          setActiveBillingSubTab(subTab.id);
-                          onNavigate?.();
-                        }}
-                        className={
-                          subTabActive
-                            ? "flex w-full items-center rounded-lg bg-muted px-3 py-2 text-left text-xs font-semibold text-text"
-                            : "flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-medium text-muted-foreground hover:bg-muted hover:text-text"
-                        }
-                      >
-                        {subTab.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
             </div>
           );
         })}
