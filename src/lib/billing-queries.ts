@@ -107,7 +107,7 @@ export async function fetchProducts(clientId: string): Promise<ProductRecord[]> 
   const supabase = getClient();
   const { data, error } = await supabase
     .from("products")
-    .select("id, name, price, type, is_active, created_at")
+    .select("id, client_id, name, price, type, is_active, created_at")
     .eq("client_id", clientId)
     .eq("is_active", true)
     .order("created_at", { ascending: false });
@@ -118,6 +118,7 @@ export async function fetchProducts(clientId: string): Promise<ProductRecord[]> 
 
   return (data ?? []).map((row: any) => ({
     id: String(row.id),
+    client_id: String(row.client_id),
     name: String(row.name ?? "Unnamed product"),
     price: asNumber(row.price),
     type: row.type ?? null,
