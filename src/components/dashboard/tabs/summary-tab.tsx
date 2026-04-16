@@ -10,7 +10,7 @@ type ClientInfo = {
   name: string | null;
   email: string | null;
   phone: string | null;
-  created_at: string | null;
+  whattsapp_number: string | null;
 };
 
 type TaskRow = {
@@ -59,7 +59,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
       }
 
       const { data, error } = await client
-        .from("task")
+        .from("tasks")
         .select(TASK_COLUMNS)
         .eq("client_id", clientId)
         .order("created_at", { ascending: false });
@@ -93,27 +93,54 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
 
       try {
         setClientInfoError(null);
-        const { data, error } = await client
+        const { data: clientRow, error: clientError } = await client
           .from("clients")
-          .select("id, crm_user_id, name, email, phone, created_at")
+          .select("id, crm_user_id, primary_contact_id")
           .eq("id", clientId)
           .single();
 
-        if (error) {
-          throw error;
+        if (clientError) {
+          throw clientError;
         }
 
         if (!active) {
           return;
         }
 
+        let name: string | null = null;
+        let email: string | null = null;
+        let phone: string | null = null;
+        let whattsapp_number: string | null = null;
+
+        if (clientRow.primary_contact_id) {
+          const { data: peopleRow, error: peopleError } = await client
+            .from("people")
+            .select("f_name, m_name, l_name, phone, email, whattsapp_number")
+            .eq("id", clientRow.primary_contact_id)
+            .single();
+
+          if (peopleError) {
+            throw peopleError;
+          }
+
+          const fullName = [peopleRow.f_name, peopleRow.m_name, peopleRow.l_name]
+            .map((part) => String(part ?? "").trim())
+            .filter((part) => part.length > 0)
+            .join(" ");
+
+          name = fullName || null;
+          email = peopleRow.email ?? null;
+          phone = peopleRow.phone ?? null;
+          whattsapp_number = peopleRow.whattsapp_number ?? null;
+        }
+
         setClientInfo({
-          id: String(data.id),
-          crm_user_id: data.crm_user_id ?? null,
-          name: data.name ?? null,
-          email: data.email ?? null,
-          phone: data.phone ?? null,
-          created_at: data.created_at ?? null,
+          id: String(clientRow.id),
+          crm_user_id: clientRow.crm_user_id ?? null,
+          name,
+          email,
+          phone,
+          whattsapp_number,
         });
       } catch (error) {
         if (!active) {
@@ -162,7 +189,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
         is_completed: false,
       };
 
-      const { data, error } = await client.from("task").insert(payload).select(TASK_COLUMNS).single();
+      const { data, error } = await client.from("tasks").insert(payload).select(TASK_COLUMNS).single();
 
       if (error) {
         throw error;
@@ -193,7 +220,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
 
     try {
       const { error } = await client
-        .from("task")
+        .from("tasks")
         .update({ is_completed: !task.is_completed })
         .eq("id", task.id)
         .eq("client_id", clientId);
@@ -269,8 +296,8 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
               <span className="mt-1 block text-text">{clientInfo?.phone ?? "-"}</span>
             </div>
             <div className="rounded-xl border border-border bg-background p-3 text-sm text-muted-foreground">
-              <span className="block text-xs uppercase tracking-wide">Created At</span>
-              <span className="mt-1 block text-text">{formatDate(clientInfo?.created_at ?? null)}</span>
+              <span className="block text-xs uppercase tracking-wide">WhatsApp</span>
+              <span className="mt-1 block text-text">{clientInfo?.whattsapp_number ?? "-"}</span>
             </div>
           </div>
         )}
