@@ -11,7 +11,7 @@ type CustomerTableProps = {
   loading: boolean;
   error: string | null;
   saving: boolean;
-  onAdd: (payload: CustomerPayload) => Promise<void>;
+  onAdd: (payload: CustomerPayload) => Promise<CustomerRecord>;
   onEdit: (customerId: string, payload: Partial<CustomerPayload>) => Promise<void>;
   onDelete: (customerId: string) => Promise<void>;
 };
