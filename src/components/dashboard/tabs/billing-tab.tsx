@@ -124,12 +124,16 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     setCreateBillMessage(null);
   }
 
-  function openCustomerModal(prefillName = "") {
+  function openCustomerModal() {
     setCartActionError(null);
     setCreateBillMessage(null);
     resetCustomerForm();
-    setCustomerForm((current) => ({ ...current, name: prefillName }));
     setIsCustomerModalOpen(true);
+  }
+
+  function openPrefilledCustomerModal(prefillName = "") {
+    openCustomerModal();
+    setCustomerForm((current) => ({ ...current, name: prefillName }));
   }
 
   function handleCustomerInputChange(value: string) {
@@ -585,7 +589,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                             type="button"
                             onMouseDown={(event) => {
                               event.preventDefault();
-                              openCustomerModal(customerCreateSuggestion);
+                              openPrefilledCustomerModal(customerCreateSuggestion);
                               setIsCustomerListOpen(false);
                             }}
                             className="flex w-full flex-col items-start rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-left hover:bg-primary/10"
@@ -634,7 +638,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                             type="button"
                             onMouseDown={(event) => {
                               event.preventDefault();
-                              openCustomerModal(customerCreateSuggestion);
+                              openPrefilledCustomerModal(customerCreateSuggestion);
                               setIsCustomerListOpen(false);
                             }}
                             className="flex w-full flex-col items-start rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-left hover:bg-primary/10"
