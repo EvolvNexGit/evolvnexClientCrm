@@ -254,8 +254,8 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     try {
       const createdCustomer = await customerState.addCustomer({
         name: customerForm.name.trim(),
-        phone: customerForm.phone.trim() || null,
-        email: customerForm.email.trim() || null,
+        phone: customerForm.phone?.trim() || null,
+        email: customerForm.email?.trim() || null,
         dob: customerForm.dob || null,
       });
 
