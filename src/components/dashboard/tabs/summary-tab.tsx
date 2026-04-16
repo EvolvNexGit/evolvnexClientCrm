@@ -10,7 +10,7 @@ type ClientInfo = {
   name: string | null;
   email: string | null;
   phone: string | null;
-  whattsapp_number: string | null;
+  whatsapp_number: string | null;
 };
 
 type TaskRow = {
@@ -110,12 +110,12 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
         let name: string | null = null;
         let email: string | null = null;
         let phone: string | null = null;
-        let whattsapp_number: string | null = null;
+        let whatsapp_number: string | null = null;
 
         if (clientRow.primary_contact_id) {
           const { data: peopleRow, error: peopleError } = await client
             .from("people")
-            .select("f_name, m_name, l_name, phone, email, whattsapp_number")
+            .select("f_name, m_name, l_name, phone, email, whatsapp_number")
             .eq("id", clientRow.primary_contact_id)
             .single();
 
@@ -131,7 +131,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
           name = fullName || null;
           email = peopleRow.email ?? null;
           phone = peopleRow.phone ?? null;
-          whattsapp_number = peopleRow.whattsapp_number ?? null;
+          whatsapp_number = peopleRow.whatsapp_number ?? null;
         }
 
         setClientInfo({
@@ -140,7 +140,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
           name,
           email,
           phone,
-          whattsapp_number,
+          whatsapp_number,
         });
       } catch (error) {
         if (!active) {
@@ -297,7 +297,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
             </div>
             <div className="rounded-xl border border-border bg-background p-3 text-sm text-muted-foreground">
               <span className="block text-xs uppercase tracking-wide">WhatsApp</span>
-              <span className="mt-1 block text-text">{clientInfo?.whattsapp_number ?? "-"}</span>
+              <span className="mt-1 block text-text">{clientInfo?.whatsapp_number ?? "-"}</span>
             </div>
           </div>
         )}
