@@ -20,6 +20,7 @@ export type CustomerPayload = {
 
 export type ProductRecord = {
   id: string;
+  client_id: string;
   name: string;
   price: number;
   type: string | null;

@@ -26,6 +26,10 @@ const AppointmentsTab = dynamic(() => import("./tabs/appointments-tab"), {
   loading: () => <TabLoading />,
 });
 
+const BillingTab = dynamic(() => import("./tabs/billing-tab"), {
+  loading: () => <TabLoading />,
+});
+
 const IngredientTab = dynamic(() => import("./tabs/ingredient-tab"), {
   loading: () => <TabLoading />,
 });
@@ -195,6 +199,9 @@ export function DashboardPage() {
             )}
             {activeTab?.id === "appointments" && (
               <AppointmentsTab clientId={clientId} />
+            )}
+            {activeTab?.id === "billing" && (
+              <BillingTab clientId={clientId} />
             )}
             {activeTab?.id === "ingredients" && (
               <IngredientTab clientId={clientId} />
