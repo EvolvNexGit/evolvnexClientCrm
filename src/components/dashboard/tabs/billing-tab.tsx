@@ -110,10 +110,6 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     setIsCustomerListOpen(true);
   }
 
-  function closeCustomerCombobox() {
-    setIsCustomerListOpen(false);
-  }
-
   function selectCustomer(customer: (typeof customerState.customers)[number]) {
     setBillingMode("customer");
     setCustomerId(customer.id);
