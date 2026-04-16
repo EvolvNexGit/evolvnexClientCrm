@@ -187,7 +187,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
 
       if (isCustomerListOpen && canCreateCustomerFromDropdown) {
         event.preventDefault();
-        openCustomerModal(customerCreateSuggestion);
+        openPrefilledCustomerModal(customerCreateSuggestion);
         setIsCustomerListOpen(false);
       }
       return;
