@@ -36,8 +36,9 @@ export function useCustomers(clientId: string) {
     async (payload: CustomerPayload) => {
       setSaving(true);
       try {
-        await createCustomer(clientId, payload);
+        const createdCustomer = await createCustomer(clientId, payload);
         await refresh();
+        return createdCustomer;
       } finally {
         setSaving(false);
       }

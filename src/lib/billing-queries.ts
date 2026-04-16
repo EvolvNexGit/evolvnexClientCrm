@@ -50,19 +50,31 @@ export async function fetchCustomers(clientId: string): Promise<CustomerRecord[]
   });
 }
 
-export async function createCustomer(clientId: string, payload: CustomerPayload): Promise<void> {
+export async function createCustomer(clientId: string, payload: CustomerPayload): Promise<CustomerRecord> {
   const supabase = getClient();
-  const { error } = await supabase.from("customers").insert({
+  const { data, error } = await supabase
+    .from("customers")
+    .insert({
     client_id: clientId,
     name: payload.name,
     phone: payload.phone ?? null,
     email: payload.email ?? null,
     dob: payload.dob ?? null,
-  });
+    })
+    .select("id, name, phone, email, dob, created_at")
+    .single();
 
   if (error) {
     throw error;
   }
+
+  const customer = data as CustomerRecord;
+
+  return {
+    ...customer,
+    totalOrders: 0,
+    totalSpent: 0,
+  };
 }
 
 export async function updateCustomer(
