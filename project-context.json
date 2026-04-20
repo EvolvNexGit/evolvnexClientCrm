@@ -1,0 +1,565 @@
+{
+  "schemaVersion": 3,
+  "generatedAt": "2026-04-20T19:23:19.725Z",
+  "project": {
+    "name": "evolvnex-client-crm",
+    "framework": "Next.js 15 App Router",
+    "runtime": "React 19",
+    "backend": "Supabase",
+    "ui": [
+      "Tailwind CSS",
+      "lucide-react"
+    ],
+    "architecture": [
+      "app-router",
+      "client-scoped-data",
+      "tab-driven-dashboard",
+      "context-plus-hooks"
+    ]
+  },
+  "entryPoints": [
+    {
+      "id": "route-root",
+      "path": "src/app/page.tsx",
+      "kind": "route",
+      "summary": "Redirects to /dashboard or /login after auth state resolves."
+    },
+    {
+      "id": "route-login",
+      "path": "src/app/login/page.tsx",
+      "kind": "route",
+      "summary": "Renders the login form."
+    },
+    {
+      "id": "route-dashboard",
+      "path": "src/app/dashboard/page.tsx",
+      "kind": "route",
+      "summary": "Renders the main dashboard page."
+    },
+    {
+      "id": "layout-root",
+      "path": "src/app/layout.tsx",
+      "kind": "layout",
+      "summary": "Wraps the app in AppShell and global styling."
+    }
+  ],
+  "nodes": [
+    {
+      "id": "component:app-shell",
+      "kind": "component",
+      "path": "src/components/app-shell.tsx",
+      "summary": "Top-level shell that mounts AppProvider around the app.",
+      "search": {
+        "exportedSymbols": [
+          "AppShell"
+        ],
+        "keyTableNames": []
+      }
+    },
+    {
+      "id": "component:dashboard-page",
+      "kind": "component",
+      "path": "src/components/dashboard/dashboard-page.tsx",
+      "summary": "Composes the dashboard layout, sidebar, and active tab rendering.",
+      "search": {
+        "exportedSymbols": [
+          "DashboardPage"
+        ],
+        "keyTableNames": []
+      }
+    },
+    {
+      "id": "context:app-provider",
+      "kind": "context",
+      "path": "src/contexts/app-context.tsx",
+      "exports": [
+        "AppProvider",
+        "useApp",
+        "useAuth",
+        "useClient"
+      ],
+      "summary": "Owns session, user, authId, clientId, tabs, active tab, and auth/client errors.",
+      "search": {
+        "exportedSymbols": [
+          "AppProvider",
+          "useApp",
+          "useAuth",
+          "useClient"
+        ],
+        "keyTableNames": []
+      }
+    },
+    {
+      "id": "lib:supabase",
+      "kind": "library",
+      "path": "src/lib/supabase.ts",
+      "summary": "Creates the singleton Supabase client from environment variables.",
+      "search": {
+        "exportedSymbols": [
+          "getSupabaseClient"
+        ],
+        "keyTableNames": []
+      }
+    },
+    {
+      "id": "lib:client-cache",
+      "kind": "library",
+      "path": "src/lib/client-cache.ts",
+      "summary": "Resolves auth user IDs to client IDs and caches the mapping.",
+      "search": {
+        "exportedSymbols": [
+          "getClientIdForAuthUser"
+        ],
+        "keyTableNames": [
+          "clients"
+        ]
+      }
+    },
+    {
+      "id": "lib:tabs",
+      "kind": "library",
+      "path": "src/lib/tabs.ts",
+      "summary": "Returns the default visible tabs for a client and caches them by client ID.",
+      "search": {
+        "exportedSymbols": [
+          "getTabs"
+        ],
+        "keyTableNames": []
+      }
+    },
+    {
+      "id": "feature:summary",
+      "kind": "feature",
+      "path": "src/components/dashboard/tabs/summary-tab.tsx",
+      "summary": "Loads client details and task data directly from Supabase.",
+      "search": {
+        "exportedSymbols": [
+          "SummaryTab"
+        ],
+        "keyTableNames": [
+          "clients",
+          "people",
+          "tasks"
+        ]
+      }
+    },
+    {
+      "id": "feature:appointments",
+      "kind": "feature",
+      "path": "src/components/dashboard/tabs/appointments-tab.tsx",
+      "summary": "Appointment tab entry point within the dashboard shell.",
+      "search": {
+        "exportedSymbols": [
+          "AppointmentsTab"
+        ],
+        "keyTableNames": [
+          "appointments"
+        ]
+      }
+    },
+    {
+      "id": "feature:billing",
+      "kind": "feature",
+      "path": "src/components/dashboard/tabs/billing-tab.tsx",
+      "summary": "Billing workspace for creating bills from products and customers.",
+      "search": {
+        "exportedSymbols": [
+          "BillingTab"
+        ],
+        "keyTableNames": []
+      }
+    },
+    {
+      "id": "feature:billing-crm",
+      "kind": "feature",
+      "path": "src/components/dashboard/tabs/billing-crm-tab.tsx",
+      "summary": "Billing CRM overview with customer, product, and transaction subtabs.",
+      "search": {
+        "exportedSymbols": [
+          "BillingCrmTab"
+        ],
+        "keyTableNames": []
+      }
+    },
+    {
+      "id": "feature:inventory",
+      "kind": "feature",
+      "path": "src/components/dashboard/tabs/ingredient-tab.tsx",
+      "summary": "Inventory area exposed through ingredients and recipes tabs.",
+      "search": {
+        "exportedSymbols": [
+          "IngredientTab"
+        ],
+        "keyTableNames": []
+      }
+    },
+    {
+      "id": "ui:button",
+      "kind": "ui",
+      "path": "src/components/ui/button.tsx",
+      "summary": "Shared button primitive used across the app.",
+      "search": {
+        "exportedSymbols": [
+          "Button"
+        ],
+        "keyTableNames": []
+      }
+    },
+    {
+      "id": "lib:billing-queries",
+      "kind": "library",
+      "path": "src/lib/billing-queries.ts",
+      "summary": "CRUD helpers for customers, products, and bills.",
+      "search": {
+        "exportedSymbols": [
+          "createCustomer",
+          "createProduct",
+          "deleteCustomer",
+          "fetchCustomers",
+          "fetchProducts",
+          "fetchTransactions",
+          "setProductActive",
+          "updateCustomer",
+          "updateProduct"
+        ],
+        "keyTableNames": [
+          "bills",
+          "customers",
+          "products"
+        ]
+      }
+    },
+    {
+      "id": "lib:billing-types",
+      "kind": "library",
+      "path": "src/lib/billing-types.ts",
+      "summary": "Types for customers, products, transaction records, and billing subtabs.",
+      "search": {
+        "exportedSymbols": [
+          "BillingSubTab",
+          "CustomerPayload",
+          "CustomerRecord",
+          "ProductPayload",
+          "ProductRecord",
+          "TransactionItem",
+          "TransactionRecord"
+        ],
+        "keyTableNames": []
+      }
+    },
+    {
+      "id": "lib:inventory-queries",
+      "kind": "library",
+      "path": "src/lib/inventory-queries.ts",
+      "summary": "CRUD helpers for ingredients and recipes.",
+      "search": {
+        "exportedSymbols": [
+          "createIngredient",
+          "createRecipe",
+          "deleteIngredient",
+          "deleteRecipe",
+          "fetchIngredients",
+          "fetchRecipes",
+          "updateIngredient",
+          "updateRecipe"
+        ],
+        "keyTableNames": [
+          "ingredients",
+          "recipes"
+        ]
+      }
+    },
+    {
+      "id": "lib:inventory-types",
+      "kind": "library",
+      "path": "src/lib/inventory-types.ts",
+      "summary": "Types for ingredient and recipe records and payloads.",
+      "search": {
+        "exportedSymbols": [
+          "IngredientPayload",
+          "IngredientRecord",
+          "InventoryUnit",
+          "RecipePayload",
+          "RecipeRecord"
+        ],
+        "keyTableNames": []
+      }
+    },
+    {
+      "id": "hook:use-customers",
+      "kind": "hook",
+      "path": "src/hooks/use-customers.ts",
+      "summary": "Fetches and mutates customer data through billing queries.",
+      "search": {
+        "exportedSymbols": [
+          "useCustomers"
+        ],
+        "keyTableNames": []
+      }
+    },
+    {
+      "id": "hook:use-products",
+      "kind": "hook",
+      "path": "src/hooks/use-products.ts",
+      "summary": "Fetches and mutates product data through billing queries.",
+      "search": {
+        "exportedSymbols": [
+          "useProducts"
+        ],
+        "keyTableNames": []
+      }
+    },
+    {
+      "id": "hook:use-transactions",
+      "kind": "hook",
+      "path": "src/hooks/use-transactions.ts",
+      "summary": "Fetches bill and transaction history through billing queries.",
+      "search": {
+        "exportedSymbols": [
+          "useTransactions"
+        ],
+        "keyTableNames": []
+      }
+    },
+    {
+      "id": "hook:use-ingredients",
+      "kind": "hook",
+      "path": "src/hooks/use-ingredients.ts",
+      "summary": "Fetches and mutates ingredient data through inventory queries.",
+      "search": {
+        "exportedSymbols": [
+          "useIngredients"
+        ],
+        "keyTableNames": []
+      }
+    },
+    {
+      "id": "hook:use-recipes",
+      "kind": "hook",
+      "path": "src/hooks/use-recipes.ts",
+      "summary": "Fetches and mutates recipe data through inventory queries.",
+      "search": {
+        "exportedSymbols": [
+          "useRecipes"
+        ],
+        "keyTableNames": []
+      }
+    },
+    {
+      "id": "service:order-service",
+      "kind": "service",
+      "path": "src/lib/orderService.ts",
+      "summary": "Billing calculation and order logic used by the billing tab.",
+      "search": {
+        "exportedSymbols": [
+          "CartItem",
+          "orderService",
+          "WalkInDetails"
+        ],
+        "keyTableNames": [
+          "bill_items",
+          "bills",
+          "ingredients",
+          "recipes"
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "layout-root",
+      "to": "component:app-shell",
+      "relation": "wraps"
+    },
+    {
+      "from": "component:app-shell",
+      "to": "context:app-provider",
+      "relation": "provides"
+    },
+    {
+      "from": "route-root",
+      "to": "context:app-provider",
+      "relation": "reads"
+    },
+    {
+      "from": "route-login",
+      "to": "context:app-provider",
+      "relation": "reads"
+    },
+    {
+      "from": "route-dashboard",
+      "to": "component:dashboard-page",
+      "relation": "renders"
+    },
+    {
+      "from": "component:dashboard-page",
+      "to": "context:app-provider",
+      "relation": "reads"
+    },
+    {
+      "from": "context:app-provider",
+      "to": "lib:supabase",
+      "relation": "initializes"
+    },
+    {
+      "from": "context:app-provider",
+      "to": "lib:client-cache",
+      "relation": "resolves-client-id"
+    },
+    {
+      "from": "context:app-provider",
+      "to": "lib:tabs",
+      "relation": "loads-tabs"
+    },
+    {
+      "from": "feature:billing",
+      "to": "hook:use-customers",
+      "relation": "uses"
+    },
+    {
+      "from": "feature:billing",
+      "to": "hook:use-products",
+      "relation": "uses"
+    },
+    {
+      "from": "feature:billing",
+      "to": "service:order-service",
+      "relation": "uses"
+    },
+    {
+      "from": "feature:billing-crm",
+      "to": "hook:use-customers",
+      "relation": "uses"
+    },
+    {
+      "from": "feature:billing-crm",
+      "to": "hook:use-products",
+      "relation": "uses"
+    },
+    {
+      "from": "feature:billing-crm",
+      "to": "hook:use-transactions",
+      "relation": "uses"
+    },
+    {
+      "from": "feature:summary",
+      "to": "lib:supabase",
+      "relation": "queries-directly"
+    },
+    {
+      "from": "feature:inventory",
+      "to": "hook:use-ingredients",
+      "relation": "uses"
+    },
+    {
+      "from": "feature:inventory",
+      "to": "hook:use-recipes",
+      "relation": "uses"
+    },
+    {
+      "from": "hook:use-customers",
+      "to": "lib:billing-queries",
+      "relation": "calls"
+    },
+    {
+      "from": "hook:use-products",
+      "to": "lib:billing-queries",
+      "relation": "calls"
+    },
+    {
+      "from": "hook:use-transactions",
+      "to": "lib:billing-queries",
+      "relation": "calls"
+    },
+    {
+      "from": "hook:use-ingredients",
+      "to": "lib:inventory-queries",
+      "relation": "calls"
+    },
+    {
+      "from": "hook:use-recipes",
+      "to": "lib:inventory-queries",
+      "relation": "calls"
+    }
+  ],
+  "dataFlow": {
+    "primaryPath": [
+      "src/app/layout.tsx",
+      "src/components/app-shell.tsx",
+      "src/contexts/app-context.tsx",
+      "src/lib/client-cache.ts",
+      "src/lib/tabs.ts",
+      "src/components/dashboard/dashboard-page.tsx",
+      "src/components/dashboard/tabs/*"
+    ],
+    "authFlow": [
+      "Supabase session is read in AppProvider",
+      "auth user ID becomes authId",
+      "authId is resolved to clientId via client-cache",
+      "clientId scopes all feature queries and tab loading"
+    ],
+    "featureFlow": {
+      "billing": [
+        "billing-tab uses useCustomers and useProducts",
+        "billing-tab uses orderService for cart and total calculations",
+        "billing-crm-tab uses useCustomers, useProducts, and useTransactions"
+      ],
+      "inventory": [
+        "useIngredients and useRecipes call inventory queries",
+        "recipes link products to ingredients"
+      ],
+      "summary": [
+        "summary-tab reads client metadata and tasks directly from Supabase"
+      ]
+    }
+  },
+  "searchHints": [
+    "Start with src/contexts/app-context.tsx for auth and client resolution.",
+    "Use src/lib/tabs.ts to understand visible dashboard tabs.",
+    "Use src/components/dashboard/dashboard-page.tsx to find tab rendering boundaries.",
+    "Use src/lib/billing-queries.ts and src/lib/inventory-queries.ts for data access patterns.",
+    "Use src/components/dashboard/tabs/billing-tab.tsx to trace checkout and order calculation logic."
+  ],
+  "openQuestions": [
+    "src/lib/orderService.ts appears to be central to billing calculations, but its full surface area should be verified.",
+    "The appointments tab currently looks UI-complete, but its backend behavior is worth confirming.",
+    "The tab cache in src/lib/tabs.ts currently always returns the default tab list; confirm whether feature flags or permissions are planned."
+  ],
+  "sectionMetadata": {
+    "project": {
+      "lastUpdated": "2026-04-20T19:11:30.300Z",
+      "refreshHint": "Update this section whenever related files or architecture decisions change.",
+      "contentHash": "fc78b0df806a955e947185d18a4689276b22542f7bcf59655a0fde623081dbc3"
+    },
+    "entryPoints": {
+      "lastUpdated": "2026-04-20T19:11:30.300Z",
+      "refreshHint": "Update this section whenever related files or architecture decisions change.",
+      "contentHash": "9e261733a9d0606d0dac9a0d820adad1b2ea394e8af441709c87d4d1d91cbbb2"
+    },
+    "nodes": {
+      "lastUpdated": "2026-04-20T19:11:30.300Z",
+      "refreshHint": "Update this section whenever related files or architecture decisions change.",
+      "contentHash": "eb07a12a2a94f3aa415c1615e7378b1b9ee97b3c634fea20974e40c2fbe7a89d"
+    },
+    "edges": {
+      "lastUpdated": "2026-04-20T19:11:30.300Z",
+      "refreshHint": "Update this section whenever related files or architecture decisions change.",
+      "contentHash": "974ef8958f99eb740597e6dc09e021b673fb30a970436d42686b7ca0096c6517"
+    },
+    "dataFlow": {
+      "lastUpdated": "2026-04-20T19:11:30.300Z",
+      "refreshHint": "Update this section whenever related files or architecture decisions change.",
+      "contentHash": "4ae2c215bb601baac3a57738e58d98cbca0926d3f9f57c7a1a653145974d9d68"
+    },
+    "searchHints": {
+      "lastUpdated": "2026-04-20T19:11:30.300Z",
+      "refreshHint": "Update this section whenever related files or architecture decisions change.",
+      "contentHash": "2bc186c997d4592a4ad88aec938448146fd1fb3a33a46630c3c319f2e7fd743e"
+    },
+    "openQuestions": {
+      "lastUpdated": "2026-04-20T19:11:30.300Z",
+      "refreshHint": "Update this section whenever related files or architecture decisions change.",
+      "contentHash": "b460bf215136639273bb06849c54e980e5950439bd219d9ad1af4672e11948c9"
+    }
+  }
+}
