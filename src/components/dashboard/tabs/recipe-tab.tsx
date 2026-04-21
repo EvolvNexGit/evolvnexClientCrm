@@ -341,6 +341,16 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
     }));
   }
 
+  function clearProductFilter() {
+    setProductSearchQuery("");
+    setSelectedProduct("");
+  }
+
+  function clearIngredientFilter() {
+    setIngredientSearchQuery("");
+    setSelectedIngredient("");
+  }
+
   return (
     <div className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -380,12 +390,22 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
         <div className="space-y-2">
           <label className="block text-xs text-muted-foreground">
             <span className="mb-1 block">Product filter</span>
-            <input
-              value={productSearchQuery}
-              onChange={(event) => setProductSearchQuery(event.target.value)}
-              placeholder="Search products"
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
-            />
+            <div className="flex items-stretch gap-2 rounded-xl border border-border bg-card px-3 py-2">
+              <input
+                value={productSearchQuery}
+                onChange={(event) => setProductSearchQuery(event.target.value)}
+                placeholder="Search products"
+                className="min-w-0 flex-1 bg-transparent text-sm text-text outline-none placeholder:text-muted-foreground"
+              />
+              <button
+                type="button"
+                onClick={clearProductFilter}
+                className="rounded-md border border-border px-2 text-xs text-muted-foreground hover:text-text"
+                aria-label="Clear product filter"
+              >
+                ×
+              </button>
+            </div>
           </label>
           <select
             value={selectedProduct}
@@ -404,12 +424,22 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
         <div className="space-y-2">
           <label className="block text-xs text-muted-foreground">
             <span className="mb-1 block">Ingredient filter</span>
-            <input
-              value={ingredientSearchQuery}
-              onChange={(event) => setIngredientSearchQuery(event.target.value)}
-              placeholder="Search ingredients"
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
-            />
+            <div className="flex items-stretch gap-2 rounded-xl border border-border bg-card px-3 py-2">
+              <input
+                value={ingredientSearchQuery}
+                onChange={(event) => setIngredientSearchQuery(event.target.value)}
+                placeholder="Search ingredients"
+                className="min-w-0 flex-1 bg-transparent text-sm text-text outline-none placeholder:text-muted-foreground"
+              />
+              <button
+                type="button"
+                onClick={clearIngredientFilter}
+                className="rounded-md border border-border px-2 text-xs text-muted-foreground hover:text-text"
+                aria-label="Clear ingredient filter"
+              >
+                ×
+              </button>
+            </div>
           </label>
           <select
             value={selectedIngredient}
