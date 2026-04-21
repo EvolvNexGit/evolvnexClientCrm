@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { createRecipe, deleteRecipe, fetchRecipes, updateRecipe } from "@/lib/inventory-queries";
+import { createRecipe, createRecipes, deleteRecipe, fetchRecipes, updateRecipe } from "@/lib/inventory-queries";
 import type { RecipePayload, RecipeRecord } from "@/lib/inventory-types";
 
 export function useRecipes(clientId: string) {
@@ -32,6 +32,19 @@ export function useRecipes(clientId: string) {
       setSaving(true);
       try {
         await createRecipe(clientId, payload);
+        await refresh();
+      } finally {
+        setSaving(false);
+      }
+    },
+    [clientId, refresh],
+  );
+
+  const addRecipes = useCallback(
+    async (payloads: RecipePayload[]) => {
+      setSaving(true);
+      try {
+        await createRecipes(clientId, payloads);
         await refresh();
       } finally {
         setSaving(false);
@@ -73,6 +86,7 @@ export function useRecipes(clientId: string) {
     error,
     refresh,
     addRecipe,
+    addRecipes,
     editRecipe,
     removeRecipe,
   };
