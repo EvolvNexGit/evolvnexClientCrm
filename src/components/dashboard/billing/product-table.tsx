@@ -156,7 +156,7 @@ export function ProductTable({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-text">Products</h3>
-          <p className="text-sm text-muted-foreground">Only active products are listed.</p>
+          <p className="text-sm text-muted-foreground">All products are listed, including deactivated entries.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="secondary" onClick={exportProductsCsv} disabled={filteredProducts.length === 0}>
@@ -183,7 +183,7 @@ export function ProductTable({
         loading={loading}
         error={error}
         empty={!loading && !error && !hasRows}
-        emptyLabel={searchQuery ? "No products match your search." : "No active products found."}
+        emptyLabel={searchQuery ? "No products match your search." : "No products found."}
       />
 
       {hasRows && !loading && !error && (
@@ -218,7 +218,11 @@ export function ProductTable({
                       <button
                         type="button"
                         onClick={() => void onToggle(product.id, !product.is_active)}
-                        className="rounded-md border border-primary/50 px-2 py-1 text-xs text-primary"
+                        className={`rounded-md border px-2 py-1 text-xs ${
+                          product.is_active
+                            ? "border-primary/50 text-primary"
+                            : "border-emerald-500/50 text-emerald-400"
+                        }`}
                         disabled={saving}
                       >
                         {product.is_active ? "Deactivate" : "Activate"}

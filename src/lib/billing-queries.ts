@@ -115,14 +115,19 @@ export async function deleteCustomer(clientId: string, customerId: string): Prom
   }
 }
 
-export async function fetchProducts(clientId: string): Promise<ProductRecord[]> {
+export async function fetchProducts(clientId: string, options?: { includeInactive?: boolean }): Promise<ProductRecord[]> {
   const supabase = getClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("products")
     .select("id, client_id, name, price, type, is_active, created_at")
     .eq("client_id", clientId)
-    .eq("is_active", true)
     .order("created_at", { ascending: false });
+
+  if (!options?.includeInactive) {
+    query = query.eq("is_active", true);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     throw error;

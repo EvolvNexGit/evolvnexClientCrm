@@ -152,27 +152,6 @@ export async function createRecipe(clientId: string, payload: RecipePayload): Pr
   }
 }
 
-export async function createRecipes(clientId: string, payloads: RecipePayload[]): Promise<void> {
-  if (payloads.length === 0) {
-    return;
-  }
-
-  const supabase = getClient();
-  const { error } = await supabase.from("recipes").insert(
-    payloads.map((payload) => ({
-      client_id: clientId,
-      product_id: payload.product_id,
-      ingredient_id: payload.ingredient_id,
-      quantity: payload.quantity,
-      quantity_unit: payload.quantity_unit,
-    })),
-  );
-
-  if (error) {
-    throw error;
-  }
-}
-
 export async function updateRecipe(
   clientId: string,
   recipeId: string,

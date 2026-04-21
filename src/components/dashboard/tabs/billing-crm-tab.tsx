@@ -25,7 +25,7 @@ export default function BillingCrmTab({
   activeSubTab: BillingSubTab;
 }) {
   const customerState = useCustomers(clientId);
-  const productState = useProducts(clientId);
+  const productState = useProducts(clientId, { includeInactive: true });
   const transactionState = useTransactions(clientId);
 
   const analytics = useMemo(() => {
