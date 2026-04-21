@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
@@ -69,8 +69,6 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
   const ingredientState = useIngredients(clientId);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [productSearchQuery, setProductSearchQuery] = useState("");
-  const [ingredientSearchQuery, setIngredientSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState("");
   const [selectedIngredient, setSelectedIngredient] = useState("");
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
@@ -97,24 +95,6 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
     () => [...ingredientState.ingredients].sort((a, b) => a.name.localeCompare(b.name)),
     [ingredientState.ingredients],
   );
-
-  const filteredProductOptions = useMemo(() => {
-    const query = productSearchQuery.trim().toLowerCase();
-    if (!query) {
-      return productOptions;
-    }
-
-    return productOptions.filter((product) => product.name.toLowerCase().includes(query));
-  }, [productOptions, productSearchQuery]);
-
-  const filteredIngredientOptions = useMemo(() => {
-    const query = ingredientSearchQuery.trim().toLowerCase();
-    if (!query) {
-      return ingredientOptions;
-    }
-
-    return ingredientOptions.filter((ingredient) => ingredient.name.toLowerCase().includes(query));
-  }, [ingredientOptions, ingredientSearchQuery]);
 
   const filteredRecipes = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -341,16 +321,6 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
     }));
   }
 
-  function clearProductFilter() {
-    setProductSearchQuery("");
-    setSelectedProduct("");
-  }
-
-  function clearIngredientFilter() {
-    setIngredientSearchQuery("");
-    setSelectedIngredient("");
-  }
-
   return (
     <div className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -387,73 +357,25 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
           </select>
         </label>
 
-        <div className="space-y-2">
-          <label className="block text-xs text-muted-foreground">
-            <span className="mb-1 block">Product filter</span>
-            <div className="flex items-stretch gap-2 rounded-xl border border-border bg-card px-3 py-2">
-              <input
-                value={productSearchQuery}
-                onChange={(event) => setProductSearchQuery(event.target.value)}
-                placeholder="Search products"
-                className="min-w-0 flex-1 bg-transparent text-sm text-text outline-none placeholder:text-muted-foreground"
-              />
-              <button
-                type="button"
-                onClick={clearProductFilter}
-                className="rounded-md border border-border px-2 text-xs text-muted-foreground hover:text-text"
-                aria-label="Clear product filter"
-              >
-                ×
-              </button>
-            </div>
-          </label>
-          <select
-            value={selectedProduct}
-            onChange={(event) => setSelectedProduct(event.target.value)}
-            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
-          >
-            <option value="">All products</option>
-            {filteredProductOptions.map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SearchableSelect
+          label="Product filter"
+          allLabel="All products"
+          searchPlaceholder="Search products"
+          noResultsLabel="No products found"
+          options={productOptions}
+          selectedValue={selectedProduct}
+          onChange={setSelectedProduct}
+        />
 
-        <div className="space-y-2">
-          <label className="block text-xs text-muted-foreground">
-            <span className="mb-1 block">Ingredient filter</span>
-            <div className="flex items-stretch gap-2 rounded-xl border border-border bg-card px-3 py-2">
-              <input
-                value={ingredientSearchQuery}
-                onChange={(event) => setIngredientSearchQuery(event.target.value)}
-                placeholder="Search ingredients"
-                className="min-w-0 flex-1 bg-transparent text-sm text-text outline-none placeholder:text-muted-foreground"
-              />
-              <button
-                type="button"
-                onClick={clearIngredientFilter}
-                className="rounded-md border border-border px-2 text-xs text-muted-foreground hover:text-text"
-                aria-label="Clear ingredient filter"
-              >
-                ×
-              </button>
-            </div>
-          </label>
-          <select
-            value={selectedIngredient}
-            onChange={(event) => setSelectedIngredient(event.target.value)}
-            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
-          >
-            <option value="">All ingredients</option>
-            {filteredIngredientOptions.map((ingredient) => (
-              <option key={ingredient.id} value={ingredient.id}>
-                {ingredient.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SearchableSelect
+          label="Ingredient filter"
+          allLabel="All ingredients"
+          searchPlaceholder="Search ingredients"
+          noResultsLabel="No ingredients found"
+          options={ingredientOptions}
+          selectedValue={selectedIngredient}
+          onChange={setSelectedIngredient}
+        />
 
         <label className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2 text-xs text-muted-foreground lg:col-span-2">
           <span>Show low stock recipes only</span>
@@ -609,6 +531,223 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
           </div>
         </div>
       </EntityModal>
+    </div>
+  );
+}
+
+function SearchableSelect({
+  label,
+  allLabel,
+  searchPlaceholder,
+  noResultsLabel,
+  options,
+  selectedValue,
+  onChange,
+}: {
+  label: string;
+  allLabel: string;
+  searchPlaceholder: string;
+  noResultsLabel: string;
+  options: Array<{ id: string; name: string }>;
+  selectedValue: string;
+  onChange: (value: string) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const selectedOption = useMemo(
+    () => options.find((option) => option.id === selectedValue) ?? null,
+    [options, selectedValue],
+  );
+
+  const normalizedQuery = query.trim().toLowerCase();
+
+  const filteredOptions = useMemo(() => {
+    if (!normalizedQuery) {
+      return options;
+    }
+
+    return options.filter((option) => option.name.toLowerCase().includes(normalizedQuery));
+  }, [options, normalizedQuery]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    function onPointerDown(event: MouseEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+        setQuery("");
+      }
+    }
+
+    window.addEventListener("mousedown", onPointerDown);
+    return () => {
+      window.removeEventListener("mousedown", onPointerDown);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setActiveIndex(0);
+  }, [query, isOpen]);
+
+  function openMenu() {
+    setIsOpen(true);
+    setQuery("");
+    setActiveIndex(0);
+  }
+
+  function closeMenu() {
+    setIsOpen(false);
+    setQuery("");
+  }
+
+  function handleSelect(value: string) {
+    onChange(value);
+    closeMenu();
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (!isOpen && (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Enter")) {
+      event.preventDefault();
+      openMenu();
+      return;
+    }
+
+    if (!isOpen) {
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeMenu();
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      if (filteredOptions.length > 0) {
+        setActiveIndex((current) => Math.min(current + 1, filteredOptions.length - 1));
+      }
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      if (filteredOptions.length > 0) {
+        setActiveIndex((current) => Math.max(current - 1, 0));
+      }
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const option = filteredOptions[activeIndex];
+      if (option) {
+        handleSelect(option.id);
+      }
+    }
+  }
+
+  const displayValue = isOpen ? query : selectedOption?.name ?? allLabel;
+
+  return (
+    <div ref={containerRef} className="space-y-2">
+      <label className="block text-xs text-muted-foreground">
+        <span className="mb-1 block">{label}</span>
+        <div className="relative">
+          <input
+            value={displayValue}
+            onFocus={openMenu}
+            onClick={() => {
+              if (!isOpen) {
+                openMenu();
+              }
+            }}
+            onChange={(event) => {
+              if (!isOpen) {
+                openMenu();
+              }
+
+              setQuery(event.target.value);
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder={searchPlaceholder}
+            className="w-full rounded-xl border border-border bg-card px-3 py-2 pr-20 text-sm text-text"
+            role="combobox"
+            aria-expanded={isOpen}
+            aria-autocomplete="list"
+            aria-controls={`${label.replace(/\s+/g, "-").toLowerCase()}-listbox`}
+          />
+          <div className="absolute inset-y-0 right-2 flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => handleSelect("")}
+              className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground hover:text-text"
+              aria-label={`Clear ${label.toLowerCase()}`}
+            >
+              ×
+            </button>
+            <button
+              type="button"
+              onClick={() => (isOpen ? closeMenu() : openMenu())}
+              className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground hover:text-text"
+              aria-label={`Toggle ${label.toLowerCase()} options`}
+            >
+              ▼
+            </button>
+          </div>
+
+          {isOpen && (
+            <div
+              id={`${label.replace(/\s+/g, "-").toLowerCase()}-listbox`}
+              role="listbox"
+              className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-border bg-card p-1 shadow-lg"
+            >
+              <button
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => handleSelect("")}
+                className={`w-full rounded-lg px-2 py-2 text-left text-sm ${
+                  selectedValue === "" ? "bg-muted text-text" : "text-muted-foreground hover:bg-muted/60"
+                }`}
+              >
+                {allLabel}
+              </button>
+
+              {filteredOptions.length === 0 ? (
+                <p className="px-2 py-2 text-sm text-muted-foreground">{noResultsLabel}</p>
+              ) : (
+                filteredOptions.map((option, index) => {
+                  const isSelected = selectedValue === option.id;
+                  const isActive = index === activeIndex;
+
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => handleSelect(option.id)}
+                      className={`w-full rounded-lg px-2 py-2 text-left text-sm ${
+                        isActive || isSelected ? "bg-muted text-text" : "text-muted-foreground hover:bg-muted/60"
+                      }`}
+                    >
+                      {option.name}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
+      </label>
     </div>
   );
 }
