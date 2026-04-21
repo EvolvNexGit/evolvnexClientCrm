@@ -104,7 +104,7 @@ export async function fetchRecipes(clientId: string): Promise<RecipeRecord[]> {
   const { data, error } = await supabase
     .from("recipes")
     .select(
-      "id, client_id, product_id, ingredient_id, quantity, quantity_unit, created_at, products(name), ingredients(name)",
+      "id, client_id, product_id, ingredient_id, quantity, quantity_unit, created_at, products(name), ingredients(name, quantity, threshold, quantity_unit)",
     )
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
@@ -127,6 +127,12 @@ export async function fetchRecipes(clientId: string): Promise<RecipeRecord[]> {
       created_at: row.created_at ?? "",
       productName: productRaw?.name ?? "Unknown product",
       ingredientName: ingredientRaw?.name ?? "Unknown ingredient",
+      ingredientStock: asNumber(ingredientRaw?.quantity),
+      ingredientThreshold:
+        ingredientRaw?.threshold === null || ingredientRaw?.threshold === undefined
+          ? null
+          : asNumber(ingredientRaw.threshold),
+      ingredientStockUnit: ingredientRaw?.quantity_unit ?? row.quantity_unit,
     };
   });
 }
