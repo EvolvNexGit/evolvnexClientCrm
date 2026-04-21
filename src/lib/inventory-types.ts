@@ -33,6 +33,9 @@ export type RecipeRecord = {
   created_at: string;
   productName: string;
   ingredientName: string;
+  ingredientStock: number;
+  ingredientThreshold: number | null;
+  ingredientStockUnit: InventoryUnit;
 };
 
 export type RecipePayload = {

@@ -18,6 +18,8 @@ type RecipeFormState = {
   quantity_unit: InventoryUnit;
 };
 
+type SortOption = "product" | "ingredient" | "created_at";
+
 const initialForm: RecipeFormState = {
   product_id: "",
   ingredient_id: "",
@@ -25,12 +27,35 @@ const initialForm: RecipeFormState = {
   quantity_unit: "unit",
 };
 
+function isRecipeLowStock(recipe: RecipeRecord) {
+  return recipe.ingredientThreshold !== null && recipe.ingredientStock < recipe.ingredientThreshold;
+}
+
+function isRecipeNegativeStock(recipe: RecipeRecord) {
+  return recipe.ingredientStock < 0;
+}
+
+function formatQuantity(value: number) {
+  if (!Number.isFinite(value)) {
+    return "0";
+  }
+
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
 export default function RecipeTab({ clientId }: { clientId: string }) {
   const recipeState = useRecipes(clientId);
   const productState = useProducts(clientId);
   const ingredientState = useIngredients(clientId);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [productSearchQuery, setProductSearchQuery] = useState("");
+  const [ingredientSearchQuery, setIngredientSearchQuery] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState("");
+  const [selectedIngredient, setSelectedIngredient] = useState("");
+  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>("product");
+  const [collapsedProducts, setCollapsedProducts] = useState<Record<string, boolean>>({});
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState<RecipeRecord | null>(null);
   const [pendingDeleteRecipe, setPendingDeleteRecipe] = useState<RecipeRecord | null>(null);
@@ -41,20 +66,106 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
   const error = recipeState.error || productState.error || ingredientState.error;
   const saving = recipeState.saving;
 
-  const filteredRecipes = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+  const productOptions = useMemo(
+    () => [...productState.products].sort((a, b) => a.name.localeCompare(b.name)),
+    [productState.products],
+  );
 
+  const ingredientOptions = useMemo(
+    () => [...ingredientState.ingredients].sort((a, b) => a.name.localeCompare(b.name)),
+    [ingredientState.ingredients],
+  );
+
+  const filteredProductOptions = useMemo(() => {
+    const query = productSearchQuery.trim().toLowerCase();
     if (!query) {
-      return recipeState.recipes;
+      return productOptions;
     }
 
-    return recipeState.recipes.filter((recipe) => {
-      const haystack = [recipe.productName, recipe.ingredientName, recipe.quantity_unit].join(" ").toLowerCase();
-      return haystack.includes(query);
-    });
-  }, [recipeState.recipes, searchQuery]);
+    return productOptions.filter((product) => product.name.toLowerCase().includes(query));
+  }, [productOptions, productSearchQuery]);
 
-  const hasRows = filteredRecipes.length > 0;
+  const filteredIngredientOptions = useMemo(() => {
+    const query = ingredientSearchQuery.trim().toLowerCase();
+    if (!query) {
+      return ingredientOptions;
+    }
+
+    return ingredientOptions.filter((ingredient) => ingredient.name.toLowerCase().includes(query));
+  }, [ingredientOptions, ingredientSearchQuery]);
+
+  const filteredRecipes = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const next = recipeState.recipes.filter((recipe) => {
+      const matchesSearch =
+        !query ||
+        [recipe.productName, recipe.ingredientName, recipe.quantity_unit, recipe.ingredientStockUnit]
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+      const matchesProduct = !selectedProduct || recipe.product_id === selectedProduct;
+      const matchesIngredient = !selectedIngredient || recipe.ingredient_id === selectedIngredient;
+      const matchesLowStock = !showLowStockOnly || isRecipeLowStock(recipe);
+
+      return matchesSearch && matchesProduct && matchesIngredient && matchesLowStock;
+    });
+
+    next.sort((a, b) => {
+      if (sortBy === "ingredient") {
+        const ingredientCompare = a.ingredientName.localeCompare(b.ingredientName);
+        if (ingredientCompare !== 0) {
+          return ingredientCompare;
+        }
+
+        return a.productName.localeCompare(b.productName);
+      }
+
+      if (sortBy === "created_at") {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+
+      const productCompare = a.productName.localeCompare(b.productName);
+      if (productCompare !== 0) {
+        return productCompare;
+      }
+
+      return a.ingredientName.localeCompare(b.ingredientName);
+    });
+
+    return next;
+  }, [recipeState.recipes, searchQuery, selectedProduct, selectedIngredient, showLowStockOnly, sortBy]);
+
+  const groupedRecipes = useMemo(() => {
+    const groups = new Map<string, { productId: string; productName: string; rows: RecipeRecord[] }>();
+
+    filteredRecipes.forEach((recipe) => {
+      const existing = groups.get(recipe.product_id);
+      if (existing) {
+        existing.rows.push(recipe);
+        return;
+      }
+
+      groups.set(recipe.product_id, {
+        productId: recipe.product_id,
+        productName: recipe.productName,
+        rows: [recipe],
+      });
+    });
+
+    const values = Array.from(groups.values());
+    if (sortBy !== "created_at") {
+      values.sort((a, b) => a.productName.localeCompare(b.productName));
+    }
+
+    return values;
+  }, [filteredRecipes, sortBy]);
+
+  const lowStockRecipeCount = useMemo(
+    () => recipeState.recipes.filter((recipe) => isRecipeLowStock(recipe)).length,
+    [recipeState.recipes],
+  );
+
+  const hasRows = groupedRecipes.length > 0;
 
   function resetForm() {
     setForm(initialForm);
@@ -138,6 +249,13 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
     }
   }
 
+  function toggleProductGroup(productId: string) {
+    setCollapsedProducts((current) => ({
+      ...current,
+      [productId]: !current[productId],
+    }));
+  }
+
   return (
     <div className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -150,13 +268,93 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
         </Button>
       </div>
 
-      <div>
-        <input
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Search by product, ingredient, or unit"
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
-        />
+      <div className="grid gap-3 rounded-xl border border-border bg-background p-3 lg:grid-cols-2">
+        <label className="block text-xs text-muted-foreground">
+          <span className="mb-1 block">Search recipes</span>
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search by product, ingredient, or unit"
+            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
+          />
+        </label>
+
+        <label className="block text-xs text-muted-foreground">
+          <span className="mb-1 block">Sort by</span>
+          <select
+            value={sortBy}
+            onChange={(event) => setSortBy(event.target.value as SortOption)}
+            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
+          >
+            <option value="product">Product name</option>
+            <option value="ingredient">Ingredient name</option>
+            <option value="created_at">Created date</option>
+          </select>
+        </label>
+
+        <div className="space-y-2">
+          <label className="block text-xs text-muted-foreground">
+            <span className="mb-1 block">Product filter</span>
+            <input
+              value={productSearchQuery}
+              onChange={(event) => setProductSearchQuery(event.target.value)}
+              placeholder="Search products"
+              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
+            />
+          </label>
+          <select
+            value={selectedProduct}
+            onChange={(event) => setSelectedProduct(event.target.value)}
+            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
+          >
+            <option value="">All products</option>
+            {filteredProductOptions.map((product) => (
+              <option key={product.id} value={product.id}>
+                {product.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-xs text-muted-foreground">
+            <span className="mb-1 block">Ingredient filter</span>
+            <input
+              value={ingredientSearchQuery}
+              onChange={(event) => setIngredientSearchQuery(event.target.value)}
+              placeholder="Search ingredients"
+              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
+            />
+          </label>
+          <select
+            value={selectedIngredient}
+            onChange={(event) => setSelectedIngredient(event.target.value)}
+            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
+          >
+            <option value="">All ingredients</option>
+            {filteredIngredientOptions.map((ingredient) => (
+              <option key={ingredient.id} value={ingredient.id}>
+                {ingredient.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <label className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2 text-xs text-muted-foreground lg:col-span-2">
+          <span>Show low stock recipes only</span>
+          <input
+            type="checkbox"
+            checked={showLowStockOnly}
+            onChange={(event) => setShowLowStockOnly(event.target.checked)}
+            className="h-4 w-4 accent-primary"
+          />
+        </label>
+
+        <div className="lg:col-span-2">
+          <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-400">
+            Low stock recipes: {lowStockRecipeCount}
+          </span>
+        </div>
       </div>
 
       {actionError && (
@@ -167,52 +365,88 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
         loading={loading}
         error={error}
         empty={!loading && !error && !hasRows}
-        emptyLabel={searchQuery ? "No recipes match your search." : "No recipes yet."}
+        emptyLabel={searchQuery || selectedProduct || selectedIngredient || showLowStockOnly ? "No recipes match current filters." : "No recipes yet."}
       />
 
       {hasRows && !loading && !error && (
-        <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="min-w-full divide-y divide-border text-sm">
-            <thead className="bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-3 py-3">Product</th>
-                <th className="px-3 py-3">Ingredient</th>
-                <th className="px-3 py-3">Quantity</th>
-                <th className="px-3 py-3">Unit</th>
-                <th className="px-3 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filteredRecipes.map((recipe) => (
-                <tr key={recipe.id} className="hover:bg-muted/40">
-                  <td className="px-3 py-3 text-text">{recipe.productName}</td>
-                  <td className="px-3 py-3 text-muted-foreground">{recipe.ingredientName}</td>
-                  <td className="px-3 py-3 text-muted-foreground">{recipe.quantity}</td>
-                  <td className="px-3 py-3 text-muted-foreground">{recipe.quantity_unit}</td>
-                  <td className="px-3 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(recipe)}
-                        className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-text"
-                        disabled={saving}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPendingDeleteRecipe(recipe)}
-                        className="rounded-md border border-primary/50 px-2 py-1 text-xs text-primary"
-                        disabled={saving}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-3">
+          {groupedRecipes.map((group) => {
+            const isCollapsed = Boolean(collapsedProducts[group.productId]);
+            const lowStockInGroup = group.rows.filter((recipe) => isRecipeLowStock(recipe)).length;
+
+            return (
+              <div key={group.productId} className="rounded-xl border border-border bg-background">
+                <button
+                  type="button"
+                  onClick={() => toggleProductGroup(group.productId)}
+                  className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-text">Product: {group.productName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {group.rows.length} ingredients
+                      {lowStockInGroup > 0 ? `, ${lowStockInGroup} low stock` : ""}
+                    </p>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{isCollapsed ? "Expand" : "Collapse"}</span>
+                </button>
+
+                {!isCollapsed && (
+                  <ul className="space-y-2 border-t border-border px-3 py-3">
+                    {group.rows.map((recipe) => {
+                      const isNegative = isRecipeNegativeStock(recipe);
+                      const isLowStock = isRecipeLowStock(recipe);
+
+                      const rowTone = isNegative
+                        ? "border-red-500/40 bg-red-500/10"
+                        : isLowStock
+                          ? "border-amber-500/40 bg-amber-500/10"
+                          : "border-border bg-card";
+                      const stockTone = isNegative
+                        ? "text-red-400"
+                        : isLowStock
+                          ? "text-amber-400"
+                          : "text-muted-foreground";
+
+                      return (
+                        <li key={recipe.id} className={`rounded-lg border px-3 py-3 ${rowTone}`}>
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="space-y-1">
+                              <p className="text-sm text-text">
+                                {recipe.ingredientName} ({formatQuantity(recipe.quantity)} {recipe.quantity_unit})
+                              </p>
+                              <p className={`text-xs ${stockTone}`}>
+                                Stock: {formatQuantity(recipe.ingredientStock)} {recipe.ingredientStockUnit}
+                                {isNegative ? " (negative)" : isLowStock ? " (below threshold)" : ""}
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => openEdit(recipe)}
+                                className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-text"
+                                disabled={saving}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setPendingDeleteRecipe(recipe)}
+                                className="rounded-md border border-primary/50 px-2 py-1 text-xs text-primary"
+                                disabled={saving}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
