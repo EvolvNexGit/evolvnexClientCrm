@@ -44,6 +44,27 @@ function normalizeQuantity(quantity: number) {
   return Math.max(0, Math.floor(quantity));
 }
 
+function extractOrderResult(data: unknown) {
+  const payload = Array.isArray(data) ? data[0] : data;
+
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const record = payload as Record<string, unknown>;
+  const rawBillId = record.bill_id ?? record.billId ?? record.id;
+  const rawTotal = record.total ?? record.final_total ?? record.finalTotal;
+
+  if (rawBillId == null) {
+    return null;
+  }
+
+  return {
+    billId: String(rawBillId),
+    total: asNumber(rawTotal),
+  };
+}
+
 export const orderService = {
   addItem(cart: CartItem[], product: ProductRecord): CartItem[] {
     const existingIndex = cart.findIndex((item) => item.productId === product.id);
@@ -251,48 +272,44 @@ export const orderService = {
     const supabase = getClient();
     const totals = this.calculateTotals(cart, discount);
 
-    const billInsertPayload: Record<string, unknown> = {
-      client_id: clientId,
-      total_amount: totals.subtotal,
-      discount: Math.max(0, asNumber(discount)),
-      final_amount: totals.finalTotal,
-      walk_in_name: walkInDetails.name ?? null,
-    };
-
-    if (customerId) {
-      billInsertPayload.customer_id = customerId;
+    // Keep the warning path warm without blocking checkout when stock is low or negative.
+    try {
+      await this.validateInventory(cart);
+    } catch {
+      // Ignore validation errors here and let billing continue.
     }
 
-    const { data: bill, error: billError } = await supabase
-      .from("bills")
-      .insert(billInsertPayload)
-      .select("id")
-      .single();
+    const { data, error } = await supabase.rpc("create_order_with_inventory", {
+      p_client_id: clientId,
+      p_customer_id: customerId,
+      p_walk_in_name: walkInDetails.name ?? null,
+      p_walk_in_phone: walkInDetails.phone ?? null,
+      p_discount: Math.max(0, asNumber(discount)),
+      p_items: cart.map((item) => ({
+        product_id: item.productId,
+        quantity: item.quantity,
+        price: item.unitPrice,
+      })),
+    });
 
-    if (billError) {
-      throw billError;
+    if (error) {
+      const message =
+        typeof error === "object" && error !== null && "message" in error
+          ? String((error as { message?: unknown }).message ?? "Unable to create order.")
+          : "Unable to create order.";
+
+      throw new Error(message);
     }
 
-    const billId = String(bill.id);
-
-    const itemRows = cart.map((item) => ({
-      bill_id: billId,
-      product_id: item.productId,
-      quantity: item.quantity,
-      price: item.unitPrice,
-      total: item.unitPrice * item.quantity,
-    }));
-
-    const { error: itemsError } = await supabase.from("bill_items").insert(itemRows);
-
-    if (itemsError) {
-      throw itemsError;
+    const orderResult = extractOrderResult(data);
+    if (!orderResult) {
+      throw new Error("Order created but RPC response was missing the bill identifier.");
     }
 
     return {
-      billId,
+      billId: orderResult.billId,
       subtotal: totals.subtotal,
-      finalTotal: totals.finalTotal,
+      finalTotal: orderResult.total > 0 ? orderResult.total : totals.finalTotal,
     };
   },
 };

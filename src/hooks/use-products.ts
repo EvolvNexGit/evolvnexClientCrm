@@ -9,7 +9,11 @@ import {
 } from "@/lib/billing-queries";
 import type { ProductPayload, ProductRecord } from "@/lib/billing-types";
 
-export function useProducts(clientId: string) {
+type UseProductsOptions = {
+  includeInactive?: boolean;
+};
+
+export function useProducts(clientId: string, options?: UseProductsOptions) {
   const [products, setProducts] = useState<ProductRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -19,14 +23,14 @@ export function useProducts(clientId: string) {
     try {
       setLoading(true);
       setError(null);
-      const next = await fetchProducts(clientId);
+      const next = await fetchProducts(clientId, { includeInactive: options?.includeInactive });
       setProducts(next);
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "Unable to load products.");
     } finally {
       setLoading(false);
     }
-  }, [clientId]);
+  }, [clientId, options?.includeInactive]);
 
   useEffect(() => {
     void refresh();
