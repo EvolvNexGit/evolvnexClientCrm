@@ -6,10 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "context:regenerate": "node scripts/regenerate-project-context.js",
-    "context:verify": "node scripts/verify-project-context.js",
-    "context:check": "npm run context:regenerate && npm run context:verify"
+    "lint": "next lint"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
