@@ -12,6 +12,41 @@ export default function BillingCrmTab({
   clientId: string;
   activeSubTab: BillingSubTab;
 }) {
+  const customerState = useCustomers(clientId);
+  const productState = useProducts(clientId, { includeInactive: true });
+  const transactionState = useTransactions(clientId);
+
+  const analytics = useMemo(() => {
+    const totalCustomers = customerState.customers.length;
+    const totalBills = transactionState.transactions.length;
+    const totalRevenue = transactionState.transactions.reduce(
+      (sum, transaction) => sum + transaction.final_amount,
+      0,
+    );
+
+    const customerSpend = new Map<string, number>();
+    transactionState.transactions.forEach((transaction) => {
+      if (!transaction.customerName) {
+        return;
+      }
+
+      const previous = customerSpend.get(transaction.customerName) ?? 0;
+      customerSpend.set(transaction.customerName, previous + transaction.final_amount);
+    });
+
+    const topCustomers = Array.from(customerSpend.entries())
+      .map(([name, amount]) => ({ name, amount }))
+      .sort((left, right) => right.amount - left.amount)
+      .slice(0, 3);
+
+    return {
+      totalCustomers,
+      totalBills,
+      totalRevenue,
+      topCustomers,
+    };
+  }, [customerState.customers, transactionState.transactions]);
+
   return (
     <>
       {activeSubTab === "customer" && <CustomerTab clientId={clientId} />}
