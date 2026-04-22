@@ -3,6 +3,7 @@ import type { TabDefinition } from "@/lib/types";
 const defaultTabs: TabDefinition[] = [
   { id: "summary", label: "Summary", icon: "home", visible: true },
   { id: "appointments", label: "Appointments", icon: "calendar", visible: true },
+  { id: "subscription", label: "Subscription", icon: "chevron", visible: true },
   { id: "billing", label: "Billing", icon: "chevron", visible: true },
   { id: "ingredients", label: "Ingredients", icon: "chevron", visible: true },
   { id: "recipes", label: "Recipes", icon: "chevron", visible: true },
