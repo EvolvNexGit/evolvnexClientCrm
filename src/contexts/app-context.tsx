@@ -96,7 +96,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const nextTabs = await withTimeout(getTabs(resolvedClientId), "Tab loading timed out.");
+    const nextTabs = await withTimeout(
+      getTabs(resolvedClientId, { forceRefresh: true }),
+      "Tab loading timed out.",
+    );
     applyVisibleTabs(nextTabs);
     setClientError(null);
   }
@@ -250,7 +253,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const nextTabs = await getTabs(clientId);
+    const nextTabs = await getTabs(clientId, { forceRefresh: true });
     setTabs(nextTabs.filter((tab) => tab.visible));
   }
 
