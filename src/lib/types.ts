@@ -1,7 +1,13 @@
 export type TabDefinition = {
   id: string;
+  key: string;
+  name: string;
   label: string;
   icon: string;
+  route: string | null;
+  permissions: string[];
+  displayName: string;
+  displayOrder: number;
   visible: boolean;
 };
 

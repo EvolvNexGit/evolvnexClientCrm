@@ -11,8 +11,8 @@ import {
   LogOut,
   Menu,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useApp, useClient } from "@/contexts/app-context";
 import { Button } from "@/components/ui/button";
 import type { BillingSubTab } from "@/lib/billing-types";
@@ -68,8 +68,13 @@ function getTabIcon(tab: TabDefinition) {
   }
 }
 
+const STORAGE_KEY = "dashboard-active-tab";
+const SCROLL_KEY_PREFIX = "dashboard-scroll-";
+
 export function DashboardPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const {
     loading,
     user,
@@ -81,6 +86,9 @@ export function DashboardPage() {
   } = useApp();
   const { clientId, clientError } = useClient();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pendingTabChangeRef = useRef<string | null>(null);
+  const scrollPositionsRef = useRef<Record<string, number>>({});
+  const contentSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -88,10 +96,125 @@ export function DashboardPage() {
     }
   }, [loading, router, user]);
 
+  const tabFromUrl = searchParams.get("tab");
+
+  const getStoredTab = (): string | null => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+    try {
+      return localStorage.getItem(STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  };
+
+  const setStoredTab = (tabKey: string): void => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      localStorage.setItem(STORAGE_KEY, tabKey);
+    } catch {
+      // Silently fail if localStorage is unavailable
+    }
+  };
+
+  const saveScrollPosition = (tabKey: string): void => {
+    if (contentSectionRef.current) {
+      scrollPositionsRef.current[tabKey] = contentSectionRef.current.scrollTop;
+    }
+  };
+
+  const restoreScrollPosition = (tabKey: string): void => {
+    if (contentSectionRef.current && tabKey in scrollPositionsRef.current) {
+      contentSectionRef.current.scrollTop = scrollPositionsRef.current[tabKey];
+    }
+  };
+
   const activeTab = useMemo(
-    () => tabs.find((tab) => tab.id === activeTabId) ?? tabs[0],
+    () => tabs.find((tab) => tab.key === activeTabId) ?? tabs[0],
     [activeTabId, tabs]
   );
+
+  const resolvedTabFromUrl = useMemo(() => {
+    if (!tabs.length) {
+      return null;
+    }
+
+    // Priority: URL param > localStorage > first allowed tab
+    if (tabFromUrl) {
+      const urlTab = tabs.find((tab) => tab.key === tabFromUrl);
+      if (urlTab) {
+        return urlTab;
+      }
+    }
+
+    const storedTab = getStoredTab();
+    if (storedTab) {
+      const stored = tabs.find((tab) => tab.key === storedTab);
+      if (stored) {
+        return stored;
+      }
+    }
+
+    return tabs[0] ?? null;
+  }, [tabFromUrl, tabs]);
+
+  const displayTab =
+    pendingTabChangeRef.current === activeTabId
+      ? activeTab
+      : resolvedTabFromUrl ?? activeTab;
+
+  useEffect(() => {
+    if (!resolvedTabFromUrl) {
+      return;
+    }
+
+    const waitingForUrlUpdate =
+      pendingTabChangeRef.current === activeTabId && tabFromUrl !== activeTabId;
+
+    if (!waitingForUrlUpdate && activeTabId !== resolvedTabFromUrl.key) {
+      setActiveTabId(resolvedTabFromUrl.key);
+      setStoredTab(resolvedTabFromUrl.key);
+    }
+
+    if (tabFromUrl !== resolvedTabFromUrl.key) {
+      router.replace(`${pathname}?tab=${resolvedTabFromUrl.key}` as never, { scroll: false });
+      setStoredTab(resolvedTabFromUrl.key);
+      pendingTabChangeRef.current = null;
+      return;
+    }
+
+    if (pendingTabChangeRef.current === resolvedTabFromUrl.key) {
+      pendingTabChangeRef.current = null;
+    }
+  }, [activeTabId, pathname, resolvedTabFromUrl, router, setActiveTabId, tabFromUrl]);
+
+  useEffect(() => {
+    if (displayTab?.key) {
+      const timer = setTimeout(() => {
+        restoreScrollPosition(displayTab.key);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [displayTab?.key]);
+
+  function handleTabChange(tabKey: string) {
+    if (tabKey === activeTabId) {
+      return;
+    }
+
+    // Save scroll position of current tab
+    if (displayTab?.key) {
+      saveScrollPosition(displayTab.key);
+    }
+
+    pendingTabChangeRef.current = tabKey;
+    setActiveTabId(tabKey);
+    setStoredTab(tabKey);
+    router.push(`${pathname}?tab=${tabKey}` as never, { scroll: false });
+  }
 
   if (loading || !user) {
     return <DashboardScreenLoader />;
@@ -114,7 +237,7 @@ export function DashboardPage() {
         <SidebarContent
           tabs={tabs}
           activeTabId={activeTabId}
-          setActiveTabId={setActiveTabId}
+          onTabChange={handleTabChange}
           onLogout={signOut}
         />
       </aside>
@@ -132,7 +255,7 @@ export function DashboardPage() {
             <SidebarContent
               tabs={tabs}
               activeTabId={activeTabId}
-              setActiveTabId={setActiveTabId}
+              onTabChange={handleTabChange}
               onLogout={signOut}
               onNavigate={() => setMobileOpen(false)}
             />
@@ -175,7 +298,7 @@ export function DashboardPage() {
         </header>
 
         {/* Content */}
-        <section className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <section className="flex-1 px-4 py-6 sm:px-6 lg:px-8 overflow-y-auto" ref={contentSectionRef}>
           <div className="mx-auto flex max-w-6xl flex-col gap-6">
             <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
               <div>
@@ -183,7 +306,7 @@ export function DashboardPage() {
                   Dashboard
                 </p>
                 <h1 className="mt-2 text-3xl font-semibold">
-                  {activeTab?.label ?? "Summary"}
+                  {displayTab?.displayName ?? displayTab?.label ?? "Summary"}
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
                   Client-scoped dashboard with dynamic tab system.
@@ -198,32 +321,32 @@ export function DashboardPage() {
               </Button>
             </div>
 
-            {activeTab?.id === "summary" && (
+            {displayTab?.key === "summary" && (
               <SummaryTab clientId={clientId} />
             )}
-            {activeTab?.id === "appointments" && (
+            {displayTab?.key === "appointments" && (
               <AppointmentsTab clientId={clientId} />
             )}
-            {activeTab?.id === "subscription" && (
+            {displayTab?.key === "subscription" && (
               <SubscriptionTab clientId={clientId} />
             )}
-            {activeTab?.id === "billing" && (
+            {displayTab?.key === "billing" && (
               <BillingTab clientId={clientId} />
             )}
-            {activeTab?.id === "ingredients" && (
+            {displayTab?.key === "ingredients" && (
               <IngredientTab clientId={clientId} />
             )}
-            {activeTab?.id === "recipes" && (
+            {displayTab?.key === "recipes" && (
               <RecipeTab clientId={clientId} />
             )}
             {(
-              activeTab?.id === "customer" ||
-              activeTab?.id === "product" ||
-              activeTab?.id === "transaction"
+              displayTab?.key === "customer" ||
+              displayTab?.key === "product" ||
+              displayTab?.key === "transaction"
             ) && (
-              <BillingCrmTab clientId={clientId} activeSubTab={activeTab.id as BillingSubTab} />
+              <BillingCrmTab clientId={clientId} activeSubTab={displayTab.key as BillingSubTab} />
             )}
-            {!activeTab && <EmptyState />}
+            {!displayTab && <EmptyState />}
           </div>
         </section>
       </main>
@@ -234,13 +357,13 @@ export function DashboardPage() {
 function SidebarContent({
   tabs,
   activeTabId,
-  setActiveTabId,
+  onTabChange,
   onLogout,
   onNavigate,
 }: {
   tabs: TabDefinition[];
   activeTabId: string;
-  setActiveTabId: (tabId: string) => void;
+  onTabChange: (tabKey: string) => void;
   onLogout: () => Promise<void>;
   onNavigate?: () => void;
 }) {
@@ -260,13 +383,13 @@ function SidebarContent({
       <nav className="space-y-2">
         {tabs.map((tab) => {
           const Icon = getTabIcon(tab);
-          const isActive = activeTabId === tab.id;
+          const isActive = activeTabId === tab.key;
 
           return (
-            <div key={tab.id}>
+            <div key={tab.key}>
               <button
                 onClick={() => {
-                  setActiveTabId(tab.id);
+                  onTabChange(tab.key);
                   onNavigate?.();
                 }}
                 className={
@@ -276,7 +399,7 @@ function SidebarContent({
                 }
               >
                 <Icon className="h-4 w-4" />
-                <span className="flex-1 text-sm font-medium">{tab.label}</span>
+                <span className="flex-1 text-sm font-medium">{tab.displayName ?? tab.label}</span>
               </button>
             </div>
           );
