@@ -71,6 +71,36 @@ function getTabIcon(tab: TabDefinition) {
 const STORAGE_KEY = "dashboard-active-tab";
 const SCROLL_KEY_PREFIX = "dashboard-scroll-";
 
+function normalizeDashboardPath(route: string | null | undefined, tabKey: string) {
+  if (!route) {
+    return `/dashboard?tab=${tabKey}`;
+  }
+
+  const trimmedRoute = route.trim();
+
+  if (!trimmedRoute) {
+    return `/dashboard?tab=${tabKey}`;
+  }
+
+  if (trimmedRoute.startsWith("/")) {
+    return trimmedRoute;
+  }
+
+  return `/dashboard/${trimmedRoute.replace(/^\/+/, "")}`;
+}
+
+function pathMatchesTab(pathname: string, tab: TabDefinition) {
+  if (!tab.route) {
+    return false;
+  }
+
+  const normalizedRoute = normalizeDashboardPath(tab.route, tab.key);
+  const routePath = normalizedRoute.split("?")[0].replace(/\/+$/, "");
+  const currentPath = pathname.replace(/\/+$/, "");
+
+  return routePath === currentPath;
+}
+
 export function DashboardPage() {
   const router = useRouter();
   const pathname = usePathname();
@@ -142,6 +172,12 @@ export function DashboardPage() {
       return null;
     }
 
+    const pathTab = tabs.find((tab) => pathMatchesTab(pathname, tab));
+
+    if (pathTab) {
+      return pathTab;
+    }
+
     // Priority: URL param > localStorage > first allowed tab
     if (tabFromUrl) {
       const urlTab = tabs.find((tab) => tab.key === tabFromUrl);
@@ -159,7 +195,7 @@ export function DashboardPage() {
     }
 
     return tabs[0] ?? null;
-  }, [tabFromUrl, tabs]);
+  }, [pathname, tabFromUrl, tabs]);
 
   const displayTab =
     pendingTabChangeRef.current === activeTabId
@@ -201,7 +237,9 @@ export function DashboardPage() {
   }, [displayTab?.key]);
 
   function handleTabChange(tabKey: string) {
-    if (tabKey === activeTabId) {
+    const nextTab = tabs.find((tab) => tab.key === tabKey);
+
+    if (!nextTab || tabKey === activeTabId) {
       return;
     }
 
@@ -213,7 +251,14 @@ export function DashboardPage() {
     pendingTabChangeRef.current = tabKey;
     setActiveTabId(tabKey);
     setStoredTab(tabKey);
-    router.push(`${pathname}?tab=${tabKey}` as never, { scroll: false });
+
+    const nextPath = normalizeDashboardPath(nextTab.route, tabKey);
+    if (nextPath.includes("?tab=")) {
+      router.push(nextPath as never, { scroll: false });
+      return;
+    }
+
+    router.push(nextPath as never, { scroll: false });
   }
 
   if (loading || !user) {
