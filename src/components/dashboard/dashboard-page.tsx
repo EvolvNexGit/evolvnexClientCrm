@@ -15,6 +15,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useApp, useClient } from "@/contexts/app-context";
 import { Button } from "@/components/ui/button";
+import { getDashboardTabPath, isDashboardTabPath } from "@/lib/dashboard-tab-routes";
 import type { BillingSubTab } from "@/lib/billing-types";
 import type { TabDefinition } from "@/lib/types";
 
@@ -71,34 +72,8 @@ function getTabIcon(tab: TabDefinition) {
 const STORAGE_KEY = "dashboard-active-tab";
 const SCROLL_KEY_PREFIX = "dashboard-scroll-";
 
-function normalizeDashboardPath(route: string | null | undefined, tabKey: string) {
-  if (!route) {
-    return `/dashboard?tab=${tabKey}`;
-  }
-
-  const trimmedRoute = route.trim();
-
-  if (!trimmedRoute) {
-    return `/dashboard?tab=${tabKey}`;
-  }
-
-  if (trimmedRoute.startsWith("/")) {
-    return trimmedRoute;
-  }
-
-  return `/dashboard/${trimmedRoute.replace(/^\/+/, "")}`;
-}
-
 function pathMatchesTab(pathname: string, tab: TabDefinition) {
-  if (!tab.route) {
-    return false;
-  }
-
-  const normalizedRoute = normalizeDashboardPath(tab.route, tab.key);
-  const routePath = normalizedRoute.split("?")[0].replace(/\/+$/, "");
-  const currentPath = pathname.replace(/\/+$/, "");
-
-  return routePath === currentPath;
+  return isDashboardTabPath(pathname, tab.key);
 }
 
 export function DashboardPage() {
@@ -215,8 +190,9 @@ export function DashboardPage() {
       setStoredTab(resolvedTabFromUrl.key);
     }
 
-    if (tabFromUrl !== resolvedTabFromUrl.key) {
-      router.replace(`${pathname}?tab=${resolvedTabFromUrl.key}` as never, { scroll: false });
+    const canonicalPath = getDashboardTabPath(resolvedTabFromUrl.key);
+    if (pathname !== canonicalPath) {
+      router.replace(canonicalPath as never, { scroll: false });
       setStoredTab(resolvedTabFromUrl.key);
       pendingTabChangeRef.current = null;
       return;
@@ -252,12 +228,7 @@ export function DashboardPage() {
     setActiveTabId(tabKey);
     setStoredTab(tabKey);
 
-    const nextPath = normalizeDashboardPath(nextTab.route, tabKey);
-    if (nextPath.includes("?tab=")) {
-      router.push(nextPath as never, { scroll: false });
-      return;
-    }
-
+    const nextPath = getDashboardTabPath(tabKey);
     router.push(nextPath as never, { scroll: false });
   }
 
