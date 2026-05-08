@@ -15,6 +15,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useApp, useClient } from "@/contexts/app-context";
 import { Button } from "@/components/ui/button";
+import { getDashboardTabPath, isDashboardTabPath } from "@/lib/dashboard-tab-routes";
 import type { BillingSubTab } from "@/lib/billing-types";
 import type { TabDefinition } from "@/lib/types";
 
@@ -70,6 +71,10 @@ function getTabIcon(tab: TabDefinition) {
 
 const STORAGE_KEY = "dashboard-active-tab";
 const SCROLL_KEY_PREFIX = "dashboard-scroll-";
+
+function pathMatchesTab(pathname: string, tab: TabDefinition) {
+  return isDashboardTabPath(pathname, tab.key);
+}
 
 export function DashboardPage() {
   const router = useRouter();
@@ -142,6 +147,12 @@ export function DashboardPage() {
       return null;
     }
 
+    const pathTab = tabs.find((tab) => pathMatchesTab(pathname, tab));
+
+    if (pathTab) {
+      return pathTab;
+    }
+
     // Priority: URL param > localStorage > first allowed tab
     if (tabFromUrl) {
       const urlTab = tabs.find((tab) => tab.key === tabFromUrl);
@@ -159,7 +170,7 @@ export function DashboardPage() {
     }
 
     return tabs[0] ?? null;
-  }, [tabFromUrl, tabs]);
+  }, [pathname, tabFromUrl, tabs]);
 
   const displayTab =
     pendingTabChangeRef.current === activeTabId
@@ -179,8 +190,9 @@ export function DashboardPage() {
       setStoredTab(resolvedTabFromUrl.key);
     }
 
-    if (tabFromUrl !== resolvedTabFromUrl.key) {
-      router.replace(`${pathname}?tab=${resolvedTabFromUrl.key}` as never, { scroll: false });
+    const canonicalPath = getDashboardTabPath(resolvedTabFromUrl.key);
+    if (pathname !== canonicalPath) {
+      router.replace(canonicalPath as never, { scroll: false });
       setStoredTab(resolvedTabFromUrl.key);
       pendingTabChangeRef.current = null;
       return;
@@ -201,7 +213,9 @@ export function DashboardPage() {
   }, [displayTab?.key]);
 
   function handleTabChange(tabKey: string) {
-    if (tabKey === activeTabId) {
+    const nextTab = tabs.find((tab) => tab.key === tabKey);
+
+    if (!nextTab || tabKey === activeTabId) {
       return;
     }
 
@@ -213,7 +227,9 @@ export function DashboardPage() {
     pendingTabChangeRef.current = tabKey;
     setActiveTabId(tabKey);
     setStoredTab(tabKey);
-    router.push(`${pathname}?tab=${tabKey}` as never, { scroll: false });
+
+    const nextPath = getDashboardTabPath(tabKey);
+    router.push(nextPath as never, { scroll: false });
   }
 
   if (loading || !user) {
