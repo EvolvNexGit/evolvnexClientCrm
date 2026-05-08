@@ -47,7 +47,7 @@ function normalizeTab(row: any): TabDefinition | null {
     name,
     label: displayName,
     icon: String(relatedTab.icon ?? "chevron"),
-    route: relatedTab.route ?? null,
+    route: null,
     permissions: toPermissions(row?.permissions),
     displayName,
     displayOrder: Number.isFinite(displayOrder) ? displayOrder : 0,
@@ -73,7 +73,7 @@ export async function getTabs(
   const { data, error } = await supabase
     .from("client_tab_access")
     .select(
-      "display_order, permissions, display_name, is_enabled, tabs_info!inner(id, name, key, icon, route, is_active)",
+      "display_order, permissions, display_name, is_enabled, tabs_info!inner(id, name, key, icon, is_active)",
     )
     .eq("client_id", clientId)
     .eq("is_enabled", true)
