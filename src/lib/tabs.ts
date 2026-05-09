@@ -3,6 +3,19 @@ import type { TabDefinition } from "@/lib/types";
 
 const tabsCache = new Map<string, TabDefinition[]>();
 
+// Map database tab keys (numeric) to code-based tab keys
+const DB_KEY_TO_CODE_KEY: Record<string, string> = {
+  "001": "summary",
+  "002": "appointments",
+  "003": "subscription",
+  "004": "billing",
+  "005": "ingredients",
+  "006": "recipes",
+  "007": "customer",
+  "008": "product",
+  "009": "transaction",
+};
+
 function toPermissions(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value.map((item) => String(item));
@@ -31,13 +44,15 @@ function normalizeTab(row: any): TabDefinition | null {
     return null;
   }
 
-  const key = String(relatedTab.key ?? relatedTab.id ?? "").trim();
+  const dbKey = String(relatedTab.key ?? relatedTab.id ?? "").trim();
 
-  if (!key) {
+  if (!dbKey) {
     return null;
   }
 
-  const name = String(relatedTab.name ?? key);
+  // Map database key to code-based key
+  const key = DB_KEY_TO_CODE_KEY[dbKey] ?? dbKey;
+  const name = String(relatedTab.name ?? dbKey);
   const displayName = String(row?.display_name ?? name);
   const displayOrder = Number(row?.display_order ?? 0);
 
