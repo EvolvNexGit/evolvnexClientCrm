@@ -105,6 +105,24 @@ export async function getTabs(
     .filter((tab): tab is TabDefinition => tab !== null && tab.visible)
     .sort((left, right) => left.displayOrder - right.displayOrder);
 
+  // Ensure "summary" tab is always present and permanent (visible to all clients)
+  const hasSummaryTab = tabs.some((tab) => tab.id === "summary");
+  if (!hasSummaryTab) {
+    const permanentSummaryTab: TabDefinition = {
+      id: "summary",
+      key: "summary",
+      name: "Summary",
+      label: "Summary",
+      icon: "home",
+      route: null,
+      permissions: [],
+      displayName: "Summary",
+      displayOrder: -1, // Ensure it's always first
+      visible: true,
+    };
+    tabs.unshift(permanentSummaryTab);
+  }
+
   tabsCache.set(clientId, tabs);
   return tabs;
 }
