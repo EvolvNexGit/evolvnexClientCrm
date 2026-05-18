@@ -11,6 +11,7 @@ type TransactionListProps = {
   transactions: TransactionRecord[];
   loading: boolean;
   error: string | null;
+  onUpdateStatus?: (id: string, status: "pending" | "accepted" | "delivered") => Promise<void>;
 };
 
 function formatDate(value: string) {
@@ -29,7 +30,8 @@ function formatCurrency(amount: number) {
   }).format(amount || 0);
 }
 
-export function TransactionList({ transactions, loading, error }: TransactionListProps) {
+export function TransactionList({ transactions, loading, error, onUpdateStatus }: TransactionListProps) {
+  // onUpdateStatus is optional; parent may provide it to persist status changes
   const [expanded, setExpanded] = usePersistentState<string[]>("transaction-list-expanded", []);
   const [searchQuery, setSearchQuery] = usePersistentState("transaction-list-search", "");
   const [customerFilter, setCustomerFilter] = usePersistentState("transaction-list-customer-filter", "all");
@@ -214,6 +216,36 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
                     <div>
                       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Final</div>
                       <div className="text-base font-semibold text-primary">{formatCurrency(transaction.final_amount)}</div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Status</div>
+                      <div className="mt-1 flex items-center gap-1">
+                        {(["pending", "accepted", "delivered"] as const).map((s) => {
+                          const active = transaction.status === s;
+                          return (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (!onUpdateStatus) return;
+                                try {
+                                  await onUpdateStatus(transaction.id, s);
+                                } catch (err) {
+                                  // ignore - parent handles errors
+                                }
+                              }}
+                              className={
+                                active
+                                  ? "rounded-md bg-primary px-2 py-1 text-xs font-medium text-white"
+                                  : "rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground"
+                              }
+                            >
+                              {s[0].toUpperCase() + s.slice(1)}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 
