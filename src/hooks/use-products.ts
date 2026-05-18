@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   createProduct,
   fetchProducts,
+  fetchProductTypes,
   setProductActive,
   updateProduct,
 } from "@/lib/billing-queries";
@@ -15,6 +16,7 @@ type UseProductsOptions = {
 
 export function useProducts(clientId: string, options?: UseProductsOptions) {
   const [products, setProducts] = useState<ProductRecord[]>([]);
+  const [productTypes, setProductTypes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +26,9 @@ export function useProducts(clientId: string, options?: UseProductsOptions) {
       setLoading(true);
       setError(null);
       const next = await fetchProducts(clientId, { includeInactive: options?.includeInactive });
+      const types = await fetchProductTypes(clientId);
       setProducts(next);
+      setProductTypes(types);
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "Unable to load products.");
     } finally {
@@ -77,6 +81,7 @@ export function useProducts(clientId: string, options?: UseProductsOptions) {
 
   return {
     products,
+    productTypes,
     loading,
     saving,
     error,

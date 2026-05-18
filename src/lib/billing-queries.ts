@@ -144,6 +144,24 @@ export async function fetchProducts(clientId: string, options?: { includeInactiv
   }));
 }
 
+export async function fetchProductTypes(clientId: string): Promise<string[]> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select("type")
+    .eq("client_id", clientId)
+    .not("type", "is", null)
+    .order("type", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  // Get unique types
+  const uniqueTypes = [...new Set((data ?? []).map((row: any) => String(row.type ?? "").trim()).filter(Boolean))];
+  return uniqueTypes;
+}
+
 export async function createProduct(clientId: string, payload: ProductPayload): Promise<void> {
   const supabase = getClient();
   const { error } = await supabase.from("products").insert({

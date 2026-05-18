@@ -17,6 +17,7 @@ export default function ProductTab({ clientId }: { clientId: string }) {
 
       <ProductTable
         products={productState.products}
+        productTypes={productState.productTypes}
         loading={productState.loading}
         saving={productState.saving}
         error={productState.error}
