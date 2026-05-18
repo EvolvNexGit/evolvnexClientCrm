@@ -229,7 +229,7 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
                               disabled
                               className={
                                 active
-                                  ? "rounded-md bg-primary px-2 py-1 text-xs font-medium text-white"
+                                  ? "rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white"
                                   : "rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground"
                               }
                             >
