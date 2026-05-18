@@ -285,18 +285,8 @@ export async function fetchTransactions(clientId: string): Promise<TransactionRe
         };
       }),
     };
-
-  export async function updateBillStatus(clientId: string, billId: string, status: "pending" | "accepted" | "delivered") {
-    const supabase = getClient();
-    const { error } = await supabase
-      .from("bills")
-      .update({ status })
-      .eq("client_id", clientId)
-      .eq("id", billId);
-
-    if (error) {
-      throw error;
-    }
-  }
   });
+
 }
+
+

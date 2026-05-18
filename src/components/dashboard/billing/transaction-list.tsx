@@ -11,7 +11,6 @@ type TransactionListProps = {
   transactions: TransactionRecord[];
   loading: boolean;
   error: string | null;
-  onUpdateStatus?: (id: string, status: "pending" | "accepted" | "delivered") => Promise<void>;
 };
 
 function formatDate(value: string) {
@@ -30,7 +29,7 @@ function formatCurrency(amount: number) {
   }).format(amount || 0);
 }
 
-export function TransactionList({ transactions, loading, error, onUpdateStatus }: TransactionListProps) {
+export function TransactionList({ transactions, loading, error }: TransactionListProps) {
   // onUpdateStatus is optional; parent may provide it to persist status changes
   const [expanded, setExpanded] = usePersistentState<string[]>("transaction-list-expanded", []);
   const [searchQuery, setSearchQuery] = usePersistentState("transaction-list-search", "");
@@ -226,15 +225,8 @@ export function TransactionList({ transactions, loading, error, onUpdateStatus }
                             <button
                               key={s}
                               type="button"
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                if (!onUpdateStatus) return;
-                                try {
-                                  await onUpdateStatus(transaction.id, s);
-                                } catch (err) {
-                                  // ignore - parent handles errors
-                                }
-                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              disabled
                               className={
                                 active
                                   ? "rounded-md bg-primary px-2 py-1 text-xs font-medium text-white"
