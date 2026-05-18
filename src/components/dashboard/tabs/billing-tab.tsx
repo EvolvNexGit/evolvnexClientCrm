@@ -16,18 +16,70 @@ function formatCurrency(amount: number) {
   }).format(amount || 0);
 }
 
+const BILLING_SESSION_KEY = (clientId: string) => `billing-session-${clientId}`;
+
+type BillingSessionState = {
+  cart: CartItem[];
+  billingMode: "customer" | "walk-in";
+  customerId: string;
+  customerSearchTerm: string;
+  walkInName: string;
+  walkInPhone: string;
+  discountInput: string;
+  productSearchTerm: string;
+  selectedProductId: string;
+  quantityInput: string;
+};
+
+function saveBillingSession(clientId: string, state: BillingSessionState) {
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem(BILLING_SESSION_KEY(clientId), JSON.stringify(state));
+    } catch {
+      // Silently fail if localStorage is unavailable
+    }
+  }
+}
+
+function loadBillingSession(clientId: string): BillingSessionState | null {
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem(BILLING_SESSION_KEY(clientId));
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch {
+      // Silently fail if parsing fails
+    }
+  }
+  return null;
+}
+
+function clearBillingSession(clientId: string) {
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.removeItem(BILLING_SESSION_KEY(clientId));
+    } catch {
+      // Silently fail
+    }
+  }
+}
+
 export default function BillingTab({ clientId }: { clientId: string }) {
   const productState = useProducts(clientId);
   const customerState = useCustomers(clientId);
 
-  const [productSearchTerm, setProductSearchTerm] = useState("");
+  // Load initial state from session
+  const storedSession = loadBillingSession(clientId);
+
+  const [productSearchTerm, setProductSearchTerm] = useState(storedSession?.productSearchTerm ?? "");
   const [isProductListOpen, setIsProductListOpen] = useState(false);
-  const [selectedProductId, setSelectedProductId] = useState("");
-  const [quantityInput, setQuantityInput] = useState("1");
-  const [discountInput, setDiscountInput] = useState("0");
-  const [billingMode, setBillingMode] = useState<"customer" | "walk-in">("walk-in");
-  const [customerId, setCustomerId] = useState("");
-  const [customerSearchTerm, setCustomerSearchTerm] = useState("");
+  const [selectedProductId, setSelectedProductId] = useState(storedSession?.selectedProductId ?? "");
+  const [quantityInput, setQuantityInput] = useState(storedSession?.quantityInput ?? "1");
+  const [discountInput, setDiscountInput] = useState(storedSession?.discountInput ?? "0");
+  const [billingMode, setBillingMode] = useState<"customer" | "walk-in">(storedSession?.billingMode ?? "walk-in");
+  const [customerId, setCustomerId] = useState(storedSession?.customerId ?? "");
+  const [customerSearchTerm, setCustomerSearchTerm] = useState(storedSession?.customerSearchTerm ?? "");
   const [isCustomerListOpen, setIsCustomerListOpen] = useState(false);
   const [customerActiveIndex, setCustomerActiveIndex] = useState(0);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
@@ -37,9 +89,9 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     email: "",
     dob: "",
   });
-  const [walkInName, setWalkInName] = useState("");
-  const [walkInPhone, setWalkInPhone] = useState("");
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [walkInName, setWalkInName] = useState(storedSession?.walkInName ?? "");
+  const [walkInPhone, setWalkInPhone] = useState(storedSession?.walkInPhone ?? "");
+  const [cart, setCart] = useState<CartItem[]>(storedSession?.cart ?? []);
   const [cartActionError, setCartActionError] = useState<string | null>(null);
   const [inventoryWarnings, setInventoryWarnings] = useState<string[]>([]);
   const [isLowStock, setIsLowStock] = useState(false);
@@ -309,6 +361,35 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     };
   }, [cart]);
 
+  // Save billing session to localStorage whenever state changes
+  useEffect(() => {
+    const sessionState: BillingSessionState = {
+      cart,
+      billingMode,
+      customerId,
+      customerSearchTerm,
+      walkInName,
+      walkInPhone,
+      discountInput,
+      productSearchTerm,
+      selectedProductId,
+      quantityInput,
+    };
+    saveBillingSession(clientId, sessionState);
+  }, [
+    cart,
+    billingMode,
+    customerId,
+    customerSearchTerm,
+    walkInName,
+    walkInPhone,
+    discountInput,
+    productSearchTerm,
+    selectedProductId,
+    quantityInput,
+    clientId,
+  ]);
+
   function handleAddToCart() {
     setCartActionError(null);
     setCreateBillMessage(null);
@@ -378,6 +459,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
       setCustomerId("");
       setWalkInName("");
       setWalkInPhone("");
+      clearBillingSession(clientId);
     } catch (error) {
       setCartActionError(error instanceof Error ? error.message : "Unable to create bill.");
     } finally {
