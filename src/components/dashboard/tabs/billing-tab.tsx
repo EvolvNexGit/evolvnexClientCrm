@@ -500,7 +500,12 @@ export default function BillingTab({ clientId }: { clientId: string }) {
           <label className="text-sm text-muted-foreground">Type</label>
           <select
             value={productTypeFilter}
-            onChange={(event) => setProductTypeFilter(event.target.value)}
+            onChange={(event) => {
+              setProductTypeFilter(event.target.value);
+              setProductSearchTerm("");
+              setSelectedProductId("");
+              setIsProductListOpen(false);
+            }}
             className="w-full rounded-xl border border-border bg-card px-3 py-2 text-base text-text"
           >
             <option value="">All Types</option>
