@@ -20,6 +20,10 @@ function asNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function normalizeCustomerValue(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
 export async function fetchCustomers(clientId: string): Promise<CustomerRecord[]> {
   const supabase = getClient();
   const { data, error } = await supabase
@@ -52,14 +56,41 @@ export async function fetchCustomers(clientId: string): Promise<CustomerRecord[]
 
 export async function createCustomer(clientId: string, payload: CustomerPayload): Promise<CustomerRecord> {
   const supabase = getClient();
+  const normalizedName = normalizeCustomerValue(payload.name);
+  const normalizedPhone = normalizeCustomerValue(payload.phone);
+  const normalizedEmail = normalizeCustomerValue(payload.email);
+  const normalizedDob = normalizeCustomerValue(payload.dob);
+
+  const { data: existingCustomers, error: existingError } = await supabase
+    .from("customers")
+    .select("id, name, phone, email, dob, created_at, is_active")
+    .eq("client_id", clientId);
+
+  if (existingError) {
+    throw existingError;
+  }
+
+  const duplicateCustomer = (existingCustomers ?? []).find((customer: any) => {
+    return (
+      normalizeCustomerValue(customer.name) === normalizedName &&
+      normalizeCustomerValue(customer.phone) === normalizedPhone &&
+      normalizeCustomerValue(customer.email) === normalizedEmail &&
+      normalizeCustomerValue(customer.dob) === normalizedDob
+    );
+  });
+
+  if (duplicateCustomer) {
+    throw new Error("Customer already exists with the same details.");
+  }
+
   const { data, error } = await supabase
     .from("customers")
     .insert({
-    client_id: clientId,
-    name: payload.name,
-    phone: payload.phone ?? null,
-    email: payload.email ?? null,
-    dob: payload.dob ?? null,
+      client_id: clientId,
+      name: payload.name,
+      phone: payload.phone ?? null,
+      email: payload.email ?? null,
+      dob: payload.dob ?? null,
     })
     .select("id, name, phone, email, dob, created_at")
     .single();

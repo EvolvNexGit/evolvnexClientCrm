@@ -3,6 +3,7 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { getSupabaseClient } from "@/lib/supabase";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 
 type ClientInfo = {
   id: string;
@@ -30,8 +31,8 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
   const [tasksLoading, setTasksLoading] = useState(true);
   const [tasksSaving, setTasksSaving] = useState(false);
   const [tasksError, setTasksError] = useState<string | null>(null);
-  const [titleInput, setTitleInput] = useState("");
-  const [descInput, setDescInput] = useState("");
+  const [titleInput, setTitleInput] = usePersistentState("summary-tab-title-input", "");
+  const [descInput, setDescInput] = usePersistentState("summary-tab-desc-input", "");
 
   const totalTasks = tasks.length;
   const completedTasks = useMemo(() => tasks.filter((task) => task.is_completed).length, [tasks]);
@@ -263,40 +264,40 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
     <section className="space-y-4">
       <div className="grid gap-4 md:grid-cols-3">
         <article className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Client ID</h2>
-          <p className="mt-2 text-sm text-text">{clientInfo?.id ?? clientId}</p>
+          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">Client ID</h2>
+          <p className="mt-2 text-base text-text">{clientInfo?.id ?? clientId}</p>
         </article>
         <article className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">CRM User</h2>
-          <p className="mt-2 text-sm text-text">{clientInfo?.crm_user_id ?? "-"}</p>
+          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">CRM User</h2>
+          <p className="mt-2 text-base text-text">{clientInfo?.crm_user_id ?? "-"}</p>
         </article>
         <article className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Task Completion</h2>
-          <p className="mt-2 text-sm text-text">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">Task Completion</h2>
+          <p className="mt-2 text-base text-text">
             {completedTasks}/{totalTasks} ({completionRate}%)
           </p>
         </article>
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-4">
-        <h3 className="text-base font-semibold text-text">Basic Client Information</h3>
-        {clientInfoError && <p className="mt-2 text-xs text-primary">{clientInfoError}</p>}
+        <h3 className="text-lg font-semibold text-text">Basic Client Information</h3>
+        {clientInfoError && <p className="mt-2 text-sm text-primary">{clientInfoError}</p>}
         {!clientInfoError && (
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-border bg-background p-3 text-sm text-muted-foreground">
-              <span className="block text-xs uppercase tracking-wide">Name</span>
+            <div className="rounded-xl border border-border bg-background p-3 text-base text-muted-foreground">
+              <span className="block text-sm uppercase tracking-wide">Name</span>
               <span className="mt-1 block text-text">{clientInfo?.name ?? "-"}</span>
             </div>
-            <div className="rounded-xl border border-border bg-background p-3 text-sm text-muted-foreground">
-              <span className="block text-xs uppercase tracking-wide">Email</span>
+            <div className="rounded-xl border border-border bg-background p-3 text-base text-muted-foreground">
+              <span className="block text-sm uppercase tracking-wide">Email</span>
               <span className="mt-1 block text-text">{clientInfo?.email ?? "-"}</span>
             </div>
-            <div className="rounded-xl border border-border bg-background p-3 text-sm text-muted-foreground">
-              <span className="block text-xs uppercase tracking-wide">Phone</span>
+            <div className="rounded-xl border border-border bg-background p-3 text-base text-muted-foreground">
+              <span className="block text-sm uppercase tracking-wide">Phone</span>
               <span className="mt-1 block text-text">{clientInfo?.phone ?? "-"}</span>
             </div>
-            <div className="rounded-xl border border-border bg-background p-3 text-sm text-muted-foreground">
-              <span className="block text-xs uppercase tracking-wide">WhatsApp</span>
+            <div className="rounded-xl border border-border bg-background p-3 text-base text-muted-foreground">
+              <span className="block text-sm uppercase tracking-wide">WhatsApp</span>
               <span className="mt-1 block text-text">{clientInfo?.whatsapp_number ?? "-"}</span>
             </div>
           </div>
@@ -305,7 +306,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
 
       <div className="rounded-2xl border border-border bg-card p-4">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-base font-semibold text-text">Task Portal</h3>
+          <h3 className="text-lg font-semibold text-text">Task Portal</h3>
           <Button type="button" variant="secondary" onClick={() => void refreshTasks()} disabled={tasksLoading || tasksSaving}>
             Refresh
           </Button>
@@ -316,24 +317,24 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
             value={titleInput}
             onChange={(event) => setTitleInput(event.target.value)}
             placeholder="Task title"
-            className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+            className="rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
           />
           <input
             value={descInput}
             onChange={(event) => setDescInput(event.target.value)}
             placeholder="Task description"
-            className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+            className="rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
           />
           <Button type="submit" disabled={tasksSaving}>
             Add Task
           </Button>
         </form>
 
-        {tasksError && <p className="mt-3 rounded-lg border border-primary/50 bg-primary/10 p-2 text-xs text-primary">{tasksError}</p>}
+        {tasksError && <p className="mt-3 rounded-lg border border-primary/50 bg-primary/10 p-2 text-sm text-primary">{tasksError}</p>}
 
         <div className="mt-4 overflow-x-auto rounded-xl border border-border">
-          <table className="min-w-full divide-y divide-border text-sm">
-            <thead className="bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
+          <table className="min-w-full divide-y divide-border text-base">
+            <thead className="bg-muted text-left text-sm uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-2">Done</th>
                 <th className="px-3 py-2">Title</th>

@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 import type { CustomerPayload, CustomerRecord } from "@/lib/billing-types";
 
 type CustomerTableProps = {
@@ -55,12 +56,18 @@ export function CustomerTable({
   onEdit,
   onDelete,
 }: CustomerTableProps) {
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<CustomerRecord | null>(null);
-  const [form, setForm] = useState<CustomerFormState>(initialForm);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [pendingDeleteCustomer, setPendingDeleteCustomer] = useState<CustomerRecord | null>(null);
+  const [isAddOpen, setIsAddOpen] = usePersistentState("customer-table-is-add-open", false);
+  const [editingCustomer, setEditingCustomer] = usePersistentState<CustomerRecord | null>(
+    "customer-table-editing-customer",
+    null,
+  );
+  const [form, setForm] = usePersistentState<CustomerFormState>("customer-table-form", initialForm);
+  const [actionError, setActionError] = usePersistentState<string | null>("customer-table-action-error", null);
+  const [searchQuery, setSearchQuery] = usePersistentState("customer-table-search", "");
+  const [pendingDeleteCustomer, setPendingDeleteCustomer] = usePersistentState<CustomerRecord | null>(
+    "customer-table-pending-delete",
+    null,
+  );
 
   const filteredCustomers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -189,8 +196,8 @@ export function CustomerTable({
     <div className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-text">Customers</h3>
-          <p className="text-sm text-muted-foreground">Manage customer records and spend history.</p>
+          <h3 className="text-lg font-semibold text-text">Customers</h3>
+          <p className="text-base text-muted-foreground">Manage customer records and spend history.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="secondary" onClick={exportCustomersCsv} disabled={filteredCustomers.length === 0}>
@@ -205,12 +212,12 @@ export function CustomerTable({
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
           placeholder="Search by name, phone, or email"
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
         />
       </div>
 
       {actionError && (
-        <div className="rounded-lg border border-primary/50 bg-primary/10 p-3 text-xs text-primary">{actionError}</div>
+        <div className="rounded-lg border border-primary/50 bg-primary/10 p-3 text-sm text-primary">{actionError}</div>
       )}
 
       <DataState
@@ -222,8 +229,8 @@ export function CustomerTable({
 
       {hasRows && !loading && !error && (
         <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="min-w-full divide-y divide-border text-sm">
-            <thead className="bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
+          <table className="min-w-full divide-y divide-border text-base">
+            <thead className="bg-muted text-left text-sm uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-3">Name</th>
                 <th className="px-3 py-3">Phone</th>
@@ -250,7 +257,7 @@ export function CustomerTable({
                       <button
                         type="button"
                         onClick={() => openEdit(customer)}
-                        className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-text"
+                        className="rounded-md border border-border px-2 py-1 text-sm text-muted-foreground hover:text-text"
                         disabled={saving}
                       >
                         Edit
@@ -258,7 +265,7 @@ export function CustomerTable({
                       <button
                         type="button"
                         onClick={() => setPendingDeleteCustomer(customer)}
-                        className="rounded-md border border-primary/50 px-2 py-1 text-xs text-primary"
+                        className="rounded-md border border-primary/50 px-2 py-1 text-sm text-primary"
                         disabled={saving}
                       >
                         Deactivate
@@ -302,7 +309,7 @@ export function CustomerTable({
         onClose={() => setPendingDeleteCustomer(null)}
       >
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             Deactivate customer <span className="font-semibold text-text">{pendingDeleteCustomer?.name}</span>? The
             record will stay in the database with an end date and inactive status.
           </p>
@@ -335,42 +342,42 @@ function CustomerForm({
 }) {
   return (
     <form className="space-y-3" onSubmit={(event) => void onSubmit(event)}>
-      <label className="block text-sm text-muted-foreground">
+      <label className="block text-base text-muted-foreground">
         <span className="mb-1 block">Name</span>
         <input
           required
           value={form.name}
           onChange={(event) => onChange({ ...form, name: event.target.value })}
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
         />
       </label>
 
-      <label className="block text-sm text-muted-foreground">
+      <label className="block text-base text-muted-foreground">
         <span className="mb-1 block">Phone</span>
         <input
           value={form.phone}
           onChange={(event) => onChange({ ...form, phone: event.target.value })}
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
         />
       </label>
 
-      <label className="block text-sm text-muted-foreground">
+      <label className="block text-base text-muted-foreground">
         <span className="mb-1 block">Email</span>
         <input
           type="email"
           value={form.email}
           onChange={(event) => onChange({ ...form, email: event.target.value })}
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
         />
       </label>
 
-      <label className="block text-sm text-muted-foreground">
+      <label className="block text-base text-muted-foreground">
         <span className="mb-1 block">Date of birth</span>
         <input
           type="date"
           value={form.dob}
           onChange={(event) => onChange({ ...form, dob: event.target.value })}
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
         />
       </label>
 
