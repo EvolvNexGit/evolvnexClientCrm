@@ -284,6 +284,7 @@ export const orderService = {
       p_customer_id: customerId,
       p_walk_in_name: walkInDetails.name ?? null,
       p_walk_in_phone: walkInDetails.phone ?? null,
+      p_status: "ACCEPTED",
       p_discount: Math.max(0, asNumber(discount)),
       p_items: cart.map((item) => ({
         product_id: item.productId,
