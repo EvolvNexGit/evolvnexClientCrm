@@ -328,13 +328,6 @@ export function DashboardPage() {
                   Client-scoped dashboard with dynamic tab system.
                 </p>
               </div>
-
-              <Button onClick={signOut}>
-                <span className="inline-flex items-center gap-2">
-                  <LogOut className="h-4 w-4" />
-                  Logout
-                </span>
-              </Button>
             </div>
 
             {displayTab?.key === "summary" && (

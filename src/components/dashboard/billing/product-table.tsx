@@ -8,6 +8,7 @@ import type { ProductPayload, ProductRecord } from "@/lib/billing-types";
 
 type ProductTableProps = {
   products: ProductRecord[];
+  productTypes: string[];
   loading: boolean;
   error: string | null;
   saving: boolean;
@@ -29,15 +30,16 @@ const initialForm: ProductFormState = {
 };
 
 function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-IN", {
     style: "currency",
-    currency: "USD",
+    currency: "INR",
     maximumFractionDigits: 2,
   }).format(amount || 0);
 }
 
 export function ProductTable({
   products,
+  productTypes,
   loading,
   error,
   saving,
@@ -243,6 +245,7 @@ export function ProductTable({
           onSubmit={submitAdd}
           saving={saving}
           submitLabel="Create Product"
+          availableTypes={productTypes}
         />
       </EntityModal>
 
@@ -257,6 +260,7 @@ export function ProductTable({
           onSubmit={submitEdit}
           saving={saving}
           submitLabel="Save Changes"
+          availableTypes={productTypes}
         />
       </EntityModal>
     </div>
@@ -269,13 +273,17 @@ function ProductForm({
   onSubmit,
   saving,
   submitLabel,
+  availableTypes,
 }: {
   form: ProductFormState;
   onChange: (next: ProductFormState) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
   saving: boolean;
   submitLabel: string;
+  availableTypes: string[];
 }) {
+  const [showNewTypeInput, setShowNewTypeInput] = useState(false);
+
   return (
     <form className="space-y-3" onSubmit={(event) => void onSubmit(event)}>
       <label className="block text-sm text-muted-foreground">
@@ -301,14 +309,54 @@ function ProductForm({
         />
       </label>
 
-      <label className="block text-sm text-muted-foreground">
-        <span className="mb-1 block">Type</span>
-        <input
-          value={form.type}
-          onChange={(event) => onChange({ ...form, type: event.target.value })}
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
-        />
-      </label>
+      <div className="space-y-2">
+        <label className="block text-sm text-muted-foreground">
+          <span className="mb-1 block">Type</span>
+          {!showNewTypeInput ? (
+            <div className="flex gap-2">
+              <select
+                value={form.type}
+                onChange={(event) => onChange({ ...form, type: event.target.value })}
+                className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+              >
+                <option value="">Select a type...</option>
+                {availableTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setShowNewTypeInput(true)}
+                className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:text-text"
+              >
+                + New
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                autoFocus
+                value={form.type}
+                onChange={(event) => onChange({ ...form, type: event.target.value })}
+                placeholder="Enter new type"
+                className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNewTypeInput(false);
+                  onChange({ ...form, type: "" });
+                }}
+                className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:text-text"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </label>
+      </div>
 
       <Button type="submit" className="w-full" disabled={saving}>
         {saving ? "Saving..." : submitLabel}

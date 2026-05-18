@@ -9,9 +9,9 @@ import { orderService, type CartItem } from "@/lib/orderService";
 import type { CustomerPayload } from "@/lib/billing-types";
 
 function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-IN", {
     style: "currency",
-    currency: "USD",
+    currency: "INR",
     maximumFractionDigits: 2,
   }).format(amount || 0);
 }
@@ -20,7 +20,8 @@ export default function BillingTab({ clientId }: { clientId: string }) {
   const productState = useProducts(clientId);
   const customerState = useCustomers(clientId);
 
-  const [searchTerm, setSearchTerm] = useState("");
+  const [productSearchTerm, setProductSearchTerm] = useState("");
+  const [isProductListOpen, setIsProductListOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState("");
   const [quantityInput, setQuantityInput] = useState("1");
   const [discountInput, setDiscountInput] = useState("0");
@@ -50,17 +51,19 @@ export default function BillingTab({ clientId }: { clientId: string }) {
   const loadError = productState.error || customerState.error;
 
   const filteredProducts = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
+    const query = productSearchTerm.trim().toLowerCase();
+    let results = productState.products;
 
-    if (!query) {
-      return productState.products;
+    if (query) {
+      results = results.filter((product) => {
+        const haystack = [product.name, product.type ?? ""].join(" ").toLowerCase();
+        return haystack.includes(query);
+      });
     }
 
-    return productState.products.filter((product) => {
-      const haystack = [product.name, product.type ?? ""].join(" ").toLowerCase();
-      return haystack.includes(query);
-    });
-  }, [productState.products, searchTerm]);
+    // Sort alphabetically by name
+    return results.sort((a, b) => a.name.localeCompare(b.name));
+  }, [productState.products, productSearchTerm]);
 
   const filteredCustomers = useMemo(() => {
     const query = customerSearchTerm.trim().toLowerCase();
@@ -324,7 +327,10 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     }
 
     setCart(nextCart);
+    setProductSearchTerm("");
+    setSelectedProductId("");
     setQuantityInput("1");
+    setIsProductListOpen(false);
   }
 
   function increaseQuantity(productId: string) {
@@ -398,31 +404,38 @@ export default function BillingTab({ clientId }: { clientId: string }) {
         <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs text-emerald-400">{createBillMessage}</div>
       )}
 
-      <div className="grid gap-3 rounded-xl border border-border bg-background p-3 lg:grid-cols-[2fr_1.5fr_120px_auto]">
-        <div className="space-y-2">
-          <label className="text-xs text-muted-foreground">Search product</label>
+      <div className="grid gap-3 rounded-xl border border-border bg-background p-3 lg:grid-cols-[2fr_120px_auto]">
+        <div className="space-y-2 relative">
+          <label className="text-xs text-muted-foreground">Product</label>
           <input
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Filter by name or type"
+            value={productSearchTerm}
+            onChange={(event) => {
+              setProductSearchTerm(event.target.value);
+              setIsProductListOpen(true);
+            }}
+            onFocus={() => setIsProductListOpen(true)}
+            onBlur={() => setTimeout(() => setIsProductListOpen(false), 200)}
+            placeholder="Search product by name or type..."
             className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
           />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-xs text-muted-foreground">Product</label>
-          <select
-            value={selectedProductId}
-            onChange={(event) => setSelectedProductId(event.target.value)}
-            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
-          >
-            <option value="">Select product</option>
-            {filteredProducts.map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.name} {product.type ? `(${product.type})` : ""}
-              </option>
-            ))}
-          </select>
+          {isProductListOpen && filteredProducts.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-10 max-h-60 overflow-y-auto">
+              {filteredProducts.map((product) => (
+                <button
+                  key={product.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedProductId(product.id);
+                    setProductSearchTerm(`${product.name}${product.type ? ` (${product.type})` : ""}`);
+                    setIsProductListOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 hover:bg-muted text-sm text-text border-b border-border last:border-b-0"
+                >
+                  {product.name} {product.type ? `(${product.type})` : ""}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
