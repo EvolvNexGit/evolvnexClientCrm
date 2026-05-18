@@ -506,7 +506,8 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                 <button
                   key={product.id}
                   type="button"
-                  onClick={() => {
+                  onMouseDown={(e) => {
+                    e.preventDefault();
                     setSelectedProductId(product.id);
                     setProductSearchTerm(`${product.name}${product.type ? ` (${product.type})` : ""}`);
                     setIsProductListOpen(false);
