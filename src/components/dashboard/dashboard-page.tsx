@@ -328,13 +328,6 @@ export function DashboardPage() {
                   Client-scoped dashboard with dynamic tab system.
                 </p>
               </div>
-
-              <Button onClick={signOut}>
-                <span className="inline-flex items-center gap-2">
-                  <LogOut className="h-4 w-4" />
-                  Logout
-                </span>
-              </Button>
             </div>
 
             {displayTab?.key === "summary" && (
@@ -422,17 +415,15 @@ function SidebarContent({
         })}
       </nav>
 
-      {activeTabId === "summary" && (
-        <div className="mt-auto border-t border-border pt-4">
-          <button
-            onClick={() => void onLogout()}
-            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-text"
-          >
-            <LogOut className="h-4 w-4" />
-            Logout
-          </button>
-        </div>
-      )}
+      <div className="mt-auto border-t border-border pt-4">
+        <button
+          onClick={() => void onLogout()}
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-text"
+        >
+          <LogOut className="h-4 w-4" />
+          Logout
+        </button>
+      </div>
     </>
   );
 }
