@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 import type { ProductPayload, ProductRecord } from "@/lib/billing-types";
 
 type ProductTableProps = {
@@ -47,11 +48,14 @@ export function ProductTable({
   onEdit,
   onToggle,
 }: ProductTableProps) {
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null);
-  const [form, setForm] = useState<ProductFormState>(initialForm);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [isAddOpen, setIsAddOpen] = usePersistentState("product-table-is-add-open", false);
+  const [editingProduct, setEditingProduct] = usePersistentState<ProductRecord | null>(
+    "product-table-editing-product",
+    null,
+  );
+  const [form, setForm] = usePersistentState<ProductFormState>("product-table-form", initialForm);
+  const [actionError, setActionError] = usePersistentState<string | null>("product-table-action-error", null);
+  const [searchQuery, setSearchQuery] = usePersistentState("product-table-search", "");
 
   const filteredProducts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();

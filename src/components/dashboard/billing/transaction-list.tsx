@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { ChevronDown } from "lucide-react";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { Button } from "@/components/ui/button";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 import type { TransactionRecord } from "@/lib/billing-types";
 
 type TransactionListProps = {
@@ -29,11 +30,11 @@ function formatCurrency(amount: number) {
 }
 
 export function TransactionList({ transactions, loading, error }: TransactionListProps) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [searchQuery, setSearchQuery] = useState("");
-  const [customerFilter, setCustomerFilter] = useState("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [expanded, setExpanded] = usePersistentState<string[]>("transaction-list-expanded", []);
+  const [searchQuery, setSearchQuery] = usePersistentState("transaction-list-search", "");
+  const [customerFilter, setCustomerFilter] = usePersistentState("transaction-list-customer-filter", "all");
+  const [dateFrom, setDateFrom] = usePersistentState("transaction-list-date-from", "");
+  const [dateTo, setDateTo] = usePersistentState("transaction-list-date-to", "");
 
   const customerOptions = useMemo(() => {
     const options = new Set<string>();
@@ -110,15 +111,7 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
   }
 
   function toggle(id: string) {
-    setExpanded((current) => {
-      const next = new Set(current);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
+    setExpanded((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
   }
 
   return (
@@ -191,7 +184,7 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
       {!loading && !error && filteredTransactions.length > 0 && (
         <div className="space-y-3">
           {filteredTransactions.map((transaction) => {
-            const isExpanded = expanded.has(transaction.id);
+            const isExpanded = expanded.includes(transaction.id);
             const displayCustomer = transaction.customerName ?? transaction.walk_in_name ?? "Walk-in";
             return (
               <article key={transaction.id} className="rounded-xl border border-border bg-background p-4">

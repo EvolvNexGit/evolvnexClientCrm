@@ -4,6 +4,7 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronDown, Loader2 } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 
 type AppointmentRow = {
   id: string;
@@ -42,21 +43,27 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [locationFilter, setLocationFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [serviceFilter, setServiceFilter] = useState("all");
-  const [dateFilter, setDateFilter] = useState("");
-  const [dateFilterMode, setDateFilterMode] = useState<"day" | "month" | "year">("day");
-  const [sortBy, setSortBy] = useState<"date" | "status" | "service" | "location">("date");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [expandedIds, setExpandedIds] = usePersistentState<string[]>("appointments-tab-expanded-ids", []);
+  const [locationFilter, setLocationFilter] = usePersistentState("appointments-tab-location-filter", "all");
+  const [statusFilter, setStatusFilter] = usePersistentState("appointments-tab-status-filter", "all");
+  const [serviceFilter, setServiceFilter] = usePersistentState("appointments-tab-service-filter", "all");
+  const [dateFilter, setDateFilter] = usePersistentState("appointments-tab-date-filter", "");
+  const [dateFilterMode, setDateFilterMode] = usePersistentState<"day" | "month" | "year">(
+    "appointments-tab-date-filter-mode",
+    "day",
+  );
+  const [sortBy, setSortBy] = usePersistentState<"date" | "status" | "service" | "location">(
+    "appointments-tab-sort-by",
+    "date",
+  );
+  const [sortOrder, setSortOrder] = usePersistentState<"asc" | "desc">("appointments-tab-sort-order", "asc");
+  const [showAddForm, setShowAddForm] = usePersistentState("appointments-tab-show-add-form", false);
   const [isSaving, setIsSaving] = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
+  const [addError, setAddError] = usePersistentState<string | null>("appointments-tab-add-error", null);
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
   const [pendingStatusChange, setPendingStatusChange] = useState<PendingStatusChange | null>(null);
-  const [statusChangeError, setStatusChangeError] = useState<string | null>(null);
-  const [newAppointment, setNewAppointment] = useState<AppointmentFormState>({
+  const [statusChangeError, setStatusChangeError] = usePersistentState<string | null>("appointments-tab-status-change-error", null);
+  const [newAppointment, setNewAppointment] = usePersistentState<AppointmentFormState>("appointments-tab-new-appointment", {
     name: "",
     phone: "",
     email: "",
@@ -91,15 +98,9 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   }
 
   function toggleExpanded(id: string) {
-    setExpandedIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
+    setExpandedIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    );
   }
 
   function getSlot(startTime: string | null, endTime: string | null) {
@@ -691,7 +692,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
         )}
 
         {displayedAppointments.map((appointment) => {
-          const isExpanded = expandedIds.has(appointment.id);
+            const isExpanded = expandedIds.includes(appointment.id);
           return (
             <article key={appointment.id} className="rounded-2xl bg-muted/40 p-4">
               <button

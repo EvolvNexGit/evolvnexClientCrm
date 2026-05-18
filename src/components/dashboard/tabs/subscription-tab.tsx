@@ -1,7 +1,8 @@
 "use client";
 
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 
 type SubscriptionStatus = "active" | "inactive";
 type BillingCycle = "monthly" | "quarterly" | "yearly";
@@ -107,11 +108,17 @@ function createId() {
 }
 
 export default function SubscriptionTab({ clientId }: { clientId: string }) {
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>(placeholderSubscriptions);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [formState, setFormState] = useState<SubscriptionFormState>(emptyForm);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [subscriptions, setSubscriptions] = usePersistentState<Subscription[]>(
+    `subscription-tab-subscriptions-${clientId}`,
+    placeholderSubscriptions,
+  );
+  const [showAddForm, setShowAddForm] = usePersistentState(`subscription-tab-show-add-form-${clientId}`, false);
+  const [formState, setFormState] = usePersistentState<SubscriptionFormState>(
+    `subscription-tab-form-${clientId}`,
+    emptyForm,
+  );
+  const [formError, setFormError] = usePersistentState<string | null>(`subscription-tab-form-error-${clientId}`, null);
+  const [editingId, setEditingId] = usePersistentState<string | null>(`subscription-tab-editing-id-${clientId}`, null);
 
   const activeCount = useMemo(
     () => subscriptions.filter((subscription) => subscription.status === "active").length,

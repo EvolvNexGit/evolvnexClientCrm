@@ -3,6 +3,7 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { getSupabaseClient } from "@/lib/supabase";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 
 type ClientInfo = {
   id: string;
@@ -30,8 +31,8 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
   const [tasksLoading, setTasksLoading] = useState(true);
   const [tasksSaving, setTasksSaving] = useState(false);
   const [tasksError, setTasksError] = useState<string | null>(null);
-  const [titleInput, setTitleInput] = useState("");
-  const [descInput, setDescInput] = useState("");
+  const [titleInput, setTitleInput] = usePersistentState("summary-tab-title-input", "");
+  const [descInput, setDescInput] = usePersistentState("summary-tab-desc-input", "");
 
   const totalTasks = tasks.length;
   const completedTasks = useMemo(() => tasks.filter((task) => task.is_completed).length, [tasks]);

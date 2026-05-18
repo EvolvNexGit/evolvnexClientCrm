@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 import { useIngredients } from "@/hooks/use-ingredients";
 import type { IngredientPayload, IngredientRecord, InventoryUnit } from "@/lib/inventory-types";
 
@@ -39,12 +40,18 @@ function formatNumber(value: number | null) {
 
 export default function IngredientTab({ clientId }: { clientId: string }) {
   const { ingredients, loading, saving, error, addIngredient, editIngredient, removeIngredient } = useIngredients(clientId);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [editingIngredient, setEditingIngredient] = useState<IngredientRecord | null>(null);
-  const [pendingDeleteIngredient, setPendingDeleteIngredient] = useState<IngredientRecord | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [form, setForm] = useState<IngredientFormState>(initialForm);
+  const [searchQuery, setSearchQuery] = usePersistentState("ingredient-tab-search", "");
+  const [isAddOpen, setIsAddOpen] = usePersistentState("ingredient-tab-is-add-open", false);
+  const [editingIngredient, setEditingIngredient] = usePersistentState<IngredientRecord | null>(
+    "ingredient-tab-editing-ingredient",
+    null,
+  );
+  const [pendingDeleteIngredient, setPendingDeleteIngredient] = usePersistentState<IngredientRecord | null>(
+    "ingredient-tab-pending-delete",
+    null,
+  );
+  const [actionError, setActionError] = usePersistentState<string | null>("ingredient-tab-action-error", null);
+  const [form, setForm] = usePersistentState<IngredientFormState>("ingredient-tab-form", initialForm);
 
   const filteredIngredients = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();

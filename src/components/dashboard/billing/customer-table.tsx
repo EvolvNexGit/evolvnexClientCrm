@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 import type { CustomerPayload, CustomerRecord } from "@/lib/billing-types";
 
 type CustomerTableProps = {
@@ -55,12 +56,18 @@ export function CustomerTable({
   onEdit,
   onDelete,
 }: CustomerTableProps) {
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<CustomerRecord | null>(null);
-  const [form, setForm] = useState<CustomerFormState>(initialForm);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [pendingDeleteCustomer, setPendingDeleteCustomer] = useState<CustomerRecord | null>(null);
+  const [isAddOpen, setIsAddOpen] = usePersistentState("customer-table-is-add-open", false);
+  const [editingCustomer, setEditingCustomer] = usePersistentState<CustomerRecord | null>(
+    "customer-table-editing-customer",
+    null,
+  );
+  const [form, setForm] = usePersistentState<CustomerFormState>("customer-table-form", initialForm);
+  const [actionError, setActionError] = usePersistentState<string | null>("customer-table-action-error", null);
+  const [searchQuery, setSearchQuery] = usePersistentState("customer-table-search", "");
+  const [pendingDeleteCustomer, setPendingDeleteCustomer] = usePersistentState<CustomerRecord | null>(
+    "customer-table-pending-delete",
+    null,
+  );
 
   const filteredCustomers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();

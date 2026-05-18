@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 import { useIngredients } from "@/hooks/use-ingredients";
 import { useProducts } from "@/hooks/use-products";
 import { useRecipes } from "@/hooks/use-recipes";
@@ -48,19 +49,22 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
   const productState = useProducts(clientId);
   const ingredientState = useIngredients(clientId);
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [productSearchQuery, setProductSearchQuery] = useState("");
-  const [ingredientSearchQuery, setIngredientSearchQuery] = useState("");
-  const [selectedProduct, setSelectedProduct] = useState("");
-  const [selectedIngredient, setSelectedIngredient] = useState("");
-  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
-  const [sortBy, setSortBy] = useState<SortOption>("product");
-  const [collapsedProducts, setCollapsedProducts] = useState<Record<string, boolean>>({});
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [editingRecipe, setEditingRecipe] = useState<RecipeRecord | null>(null);
-  const [pendingDeleteRecipe, setPendingDeleteRecipe] = useState<RecipeRecord | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [form, setForm] = useState<RecipeFormState>(initialForm);
+  const [searchQuery, setSearchQuery] = usePersistentState("recipe-tab-search", "");
+  const [productSearchQuery, setProductSearchQuery] = usePersistentState("recipe-tab-product-search", "");
+  const [ingredientSearchQuery, setIngredientSearchQuery] = usePersistentState("recipe-tab-ingredient-search", "");
+  const [selectedProduct, setSelectedProduct] = usePersistentState("recipe-tab-selected-product", "");
+  const [selectedIngredient, setSelectedIngredient] = usePersistentState("recipe-tab-selected-ingredient", "");
+  const [showLowStockOnly, setShowLowStockOnly] = usePersistentState("recipe-tab-show-low-stock-only", false);
+  const [sortBy, setSortBy] = usePersistentState<SortOption>("recipe-tab-sort-by", "product");
+  const [collapsedProducts, setCollapsedProducts] = usePersistentState<Record<string, boolean>>("recipe-tab-collapsed-products", {});
+  const [isAddOpen, setIsAddOpen] = usePersistentState("recipe-tab-is-add-open", false);
+  const [editingRecipe, setEditingRecipe] = usePersistentState<RecipeRecord | null>("recipe-tab-editing-recipe", null);
+  const [pendingDeleteRecipe, setPendingDeleteRecipe] = usePersistentState<RecipeRecord | null>(
+    "recipe-tab-pending-delete-recipe",
+    null,
+  );
+  const [actionError, setActionError] = usePersistentState<string | null>("recipe-tab-action-error", null);
+  const [form, setForm] = usePersistentState<RecipeFormState>("recipe-tab-form", initialForm);
 
   const loading = recipeState.loading || productState.loading || ingredientState.loading;
   const error = recipeState.error || productState.error || ingredientState.error;
