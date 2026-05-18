@@ -504,7 +504,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
             className="w-full rounded-xl border border-border bg-card px-3 py-2 text-base text-text"
           >
             <option value="">All Types</option>
-            {Array.from(new Set(productState.products.map((p) => p.type).filter(Boolean))).sort().map((type) => (
+            {Array.from(new Set(productState.products.map((p) => p.type).filter((type): type is string => type !== null))).sort().map((type) => (
               <option key={type} value={type}>
                 {type}
               </option>
