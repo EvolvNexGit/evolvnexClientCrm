@@ -10,6 +10,8 @@ import {
   Loader2,
   LogOut,
   Menu,
+  PanelLeftClose,
+  PanelRightClose,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -91,6 +93,7 @@ export function DashboardPage() {
   } = useApp();
   const { clientId, clientError } = useClient();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pendingTabChangeRef = useRef<string | null>(null);
   const scrollPositionsRef = useRef<Record<string, number>>({});
   const contentSectionRef = useRef<HTMLElement | null>(null);
@@ -247,14 +250,22 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-text flex">
+    <div className="h-screen overflow-hidden bg-background text-text flex">
       {/* Sidebar */}
-      <aside className="hidden w-72 border-r border-border bg-card px-5 py-6 xl:flex xl:flex-col">
+      <aside
+        className={
+          sidebarCollapsed
+            ? "hidden h-full w-20 border-r border-border bg-card px-3 py-6 xl:flex xl:flex-col xl:overflow-y-auto"
+            : "hidden h-full w-72 border-r border-border bg-card px-5 py-6 xl:flex xl:flex-col xl:overflow-y-auto"
+        }
+      >
         <SidebarContent
           tabs={tabs}
           activeTabId={activeTabId}
           onTabChange={handleTabChange}
           onLogout={signOut}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((current) => !current)}
         />
       </aside>
 
@@ -274,13 +285,15 @@ export function DashboardPage() {
               onTabChange={handleTabChange}
               onLogout={signOut}
               onNavigate={() => setMobileOpen(false)}
+              collapsed={false}
+              onToggleCollapse={() => setSidebarCollapsed((current) => !current)}
             />
           </aside>
         </div>
       )}
 
       {/* Main */}
-      <main className="flex min-h-screen flex-1 flex-col">
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Header */}
         <header className="sticky top-0 z-10 border-b border-border bg-background px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-4">
@@ -314,7 +327,7 @@ export function DashboardPage() {
         </header>
 
         {/* Content */}
-        <section className="flex-1 px-4 py-6 sm:px-6 lg:px-8 overflow-y-auto" ref={contentSectionRef}>
+        <section className="flex-1 min-h-0 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8" ref={contentSectionRef}>
           <div className="mx-auto flex max-w-6xl flex-col gap-6">
             <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
               <div>
@@ -369,24 +382,36 @@ function SidebarContent({
   onTabChange,
   onLogout,
   onNavigate,
+  collapsed,
+  onToggleCollapse,
 }: {
   tabs: TabDefinition[];
   activeTabId: string;
   onTabChange: (tabKey: string) => void;
   onLogout: () => Promise<void>;
   onNavigate?: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }) {
   return (
     <>
-      {/* 🔥 LOGO */}
-      <div className="mb-8">
+      <div className="mb-8 flex items-center justify-between gap-3">
         <Image
           src="/logo.png"
           alt="EvolvNex"
-          width={140}
+          width={collapsed ? 40 : 140}
           height={40}
           className="object-contain"
         />
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          className="hidden rounded-xl border border-border bg-background p-2 text-muted-foreground hover:bg-muted xl:inline-flex"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? <PanelRightClose className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+        </button>
       </div>
 
       <nav className="space-y-2">
@@ -408,7 +433,7 @@ function SidebarContent({
                 }
               >
                 <Icon className="h-4 w-4" />
-                <span className="flex-1 text-base font-medium">{tab.displayName ?? tab.label}</span>
+                {!collapsed && <span className="flex-1 text-base font-medium">{tab.displayName ?? tab.label}</span>}
               </button>
             </div>
           );
@@ -421,7 +446,7 @@ function SidebarContent({
           className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-base font-medium text-muted-foreground hover:bg-muted hover:text-text"
         >
           <LogOut className="h-4 w-4" />
-          Logout
+          {!collapsed && "Logout"}
         </button>
       </div>
     </>
