@@ -30,6 +30,7 @@ function formatCurrency(amount: number) {
 }
 
 export function TransactionList({ transactions, loading, error }: TransactionListProps) {
+  // onUpdateStatus is optional; parent may provide it to persist status changes
   const [expanded, setExpanded] = usePersistentState<string[]>("transaction-list-expanded", []);
   const [searchQuery, setSearchQuery] = usePersistentState("transaction-list-search", "");
   const [customerFilter, setCustomerFilter] = usePersistentState("transaction-list-customer-filter", "all");
@@ -214,6 +215,29 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
                     <div>
                       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Final</div>
                       <div className="text-base font-semibold text-primary">{formatCurrency(transaction.final_amount)}</div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Status</div>
+                      <div className="mt-1 flex items-center gap-1">
+                        {(["pending", "accepted", "delivered"] as const).map((s) => {
+                          const active = transaction.status === s;
+                          return (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={(e) => e.stopPropagation()}
+                              disabled
+                              className={
+                                active
+                                  ? "rounded-md bg-primary px-2 py-1 text-xs font-medium text-white"
+                                  : "rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground"
+                              }
+                            >
+                              {s[0].toUpperCase() + s.slice(1)}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 

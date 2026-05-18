@@ -6,6 +6,7 @@ import { useTransactions } from "@/hooks/use-transactions";
 export default function TransactionTab({ clientId }: { clientId: string }) {
   const transactionState = useTransactions(clientId);
 
+
   return (
     <section className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
