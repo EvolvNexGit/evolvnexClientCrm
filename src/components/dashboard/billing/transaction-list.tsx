@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { Button } from "@/components/ui/button";
+import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import type { TransactionRecord } from "@/lib/billing-types";
 
@@ -11,6 +12,7 @@ type TransactionListProps = {
   transactions: TransactionRecord[];
   loading: boolean;
   error: string | null;
+  onUpdateStatus?: (id: string, status: "pending" | "accepted" | "delivered") => Promise<void>;
 };
 
 function formatDate(value: string) {
@@ -29,13 +31,20 @@ function formatCurrency(amount: number) {
   }).format(amount || 0);
 }
 
-export function TransactionList({ transactions, loading, error }: TransactionListProps) {
+export function TransactionList({ transactions, loading, error, onUpdateStatus }: TransactionListProps) {
   // onUpdateStatus is optional; parent may provide it to persist status changes
   const [expanded, setExpanded] = usePersistentState<string[]>("transaction-list-expanded", []);
   const [searchQuery, setSearchQuery] = usePersistentState("transaction-list-search", "");
   const [customerFilter, setCustomerFilter] = usePersistentState("transaction-list-customer-filter", "all");
   const [dateFrom, setDateFrom] = usePersistentState("transaction-list-date-from", "");
   const [dateTo, setDateTo] = usePersistentState("transaction-list-date-to", "");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingChange, setPendingChange] = useState<{
+    id: string;
+    oldStatus: string | null;
+    newStatus: "pending" | "accepted" | "delivered";
+  } | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const customerOptions = useMemo(() => {
     const options = new Set<string>();
@@ -113,6 +122,10 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
 
   function toggle(id: string) {
     setExpanded((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  }
+
+  function formatStatusLabel(value: string | null | undefined) {
+    return value ? value.toUpperCase() : "(NONE)";
   }
 
   return (
@@ -225,8 +238,12 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
                             <button
                               key={s}
                               type="button"
-                              onClick={(e) => e.stopPropagation()}
-                              disabled
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!onUpdateStatus) return;
+                                setPendingChange({ id: transaction.id, oldStatus: transaction.status ?? null, newStatus: s });
+                                setConfirmOpen(true);
+                              }}
                               className={
                                 active
                                   ? "rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white"
@@ -275,6 +292,56 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
           })}
         </div>
       )}
+
+      <EntityModal
+        open={confirmOpen}
+        title="Confirm status change"
+        onClose={() => {
+          if (isUpdating) return;
+          setConfirmOpen(false);
+          setPendingChange(null);
+        }}
+      >
+        <div className="space-y-4">
+          <p>
+            {pendingChange ? (
+              <>
+                Change status from <strong>{formatStatusLabel(pendingChange.oldStatus)}</strong> to{" "}
+                <strong>{formatStatusLabel(pendingChange.newStatus)}</strong>?
+              </>
+            ) : (
+              "Change status?"
+            )}
+          </p>
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => { if (!isUpdating) { setConfirmOpen(false); setPendingChange(null); } }} disabled={isUpdating}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={async () => {
+                if (!pendingChange || !onUpdateStatus) return;
+                setIsUpdating(true);
+                try {
+                  await onUpdateStatus(pendingChange.id, pendingChange.newStatus);
+                } catch (err) {
+                  // Show a simple alert on error
+                  console.error(err);
+                  // eslint-disable-next-line no-alert
+                  alert(err instanceof Error ? err.message : "Unable to update status.");
+                } finally {
+                  setIsUpdating(false);
+                  setConfirmOpen(false);
+                  setPendingChange(null);
+                }
+              }}
+              disabled={isUpdating}
+            >
+              {isUpdating ? "Changing..." : "Confirm"}
+            </Button>
+          </div>
+        </div>
+      </EntityModal>
     </div>
   );
 }

@@ -2,9 +2,19 @@
 
 import { TransactionList } from "@/components/dashboard/billing/transaction-list";
 import { useTransactions } from "@/hooks/use-transactions";
+import { updateBillStatus } from "@/lib/billing-queries";
 
 export default function TransactionTab({ clientId }: { clientId: string }) {
   const transactionState = useTransactions(clientId);
+
+  async function handleUpdateStatus(id: string, status: "pending" | "accepted" | "delivered") {
+    try {
+      await updateBillStatus(clientId, id, status);
+      await transactionState.refresh();
+    } catch (err) {
+      throw err;
+    }
+  }
 
 
   return (
@@ -20,6 +30,7 @@ export default function TransactionTab({ clientId }: { clientId: string }) {
         transactions={transactionState.transactions}
         loading={transactionState.loading}
         error={transactionState.error}
+        onUpdateStatus={handleUpdateStatus}
       />
     </section>
   );
