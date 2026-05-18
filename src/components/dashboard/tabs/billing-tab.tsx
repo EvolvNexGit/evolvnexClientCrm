@@ -29,6 +29,7 @@ type BillingSessionState = {
   productSearchTerm: string;
   selectedProductId: string;
   quantityInput: string;
+  productTypeFilter: string;
 };
 
 function saveBillingSession(clientId: string, state: BillingSessionState) {
@@ -76,6 +77,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
   const [isProductListOpen, setIsProductListOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState(storedSession?.selectedProductId ?? "");
   const [quantityInput, setQuantityInput] = useState(storedSession?.quantityInput ?? "1");
+  const [productTypeFilter, setProductTypeFilter] = useState(storedSession?.productTypeFilter ?? "");
   const [discountInput, setDiscountInput] = useState(storedSession?.discountInput ?? "0");
   const [billingMode, setBillingMode] = useState<"customer" | "walk-in">(storedSession?.billingMode ?? "walk-in");
   const [customerId, setCustomerId] = useState(storedSession?.customerId ?? "");
@@ -106,6 +108,11 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     const query = productSearchTerm.trim().toLowerCase();
     let results = productState.products;
 
+    // Filter by type if selected
+    if (productTypeFilter) {
+      results = results.filter((product) => product.type === productTypeFilter);
+    }
+
     if (query) {
       results = results.filter((product) => {
         const haystack = [product.name, product.type ?? ""].join(" ").toLowerCase();
@@ -115,7 +122,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
 
     // Sort alphabetically by name
     return results.sort((a, b) => a.name.localeCompare(b.name));
-  }, [productState.products, productSearchTerm]);
+  }, [productState.products, productSearchTerm, productTypeFilter]);
 
   const filteredCustomers = useMemo(() => {
     const query = customerSearchTerm.trim().toLowerCase();
@@ -374,6 +381,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
       productSearchTerm,
       selectedProductId,
       quantityInput,
+      productTypeFilter,
     };
     saveBillingSession(clientId, sessionState);
   }, [
@@ -387,6 +395,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     productSearchTerm,
     selectedProductId,
     quantityInput,
+    productTypeFilter,
     clientId,
   ]);
 
@@ -486,7 +495,22 @@ export default function BillingTab({ clientId }: { clientId: string }) {
         <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-400">{createBillMessage}</div>
       )}
 
-      <div className="grid gap-3 rounded-xl border border-border bg-background p-3 lg:grid-cols-[2fr_120px_auto]">
+      <div className="grid gap-3 rounded-xl border border-border bg-background p-3 lg:grid-cols-[1fr_2fr_120px_auto]">
+        <div className="space-y-2">
+          <label className="text-sm text-muted-foreground">Type</label>
+          <select
+            value={productTypeFilter}
+            onChange={(event) => setProductTypeFilter(event.target.value)}
+            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-base text-text"
+          >
+            <option value="">All Types</option>
+            {Array.from(new Set(productState.products.map((p) => p.type).filter(Boolean))).sort().map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="space-y-2 relative">
           <label className="text-sm text-muted-foreground">Product</label>
           <input
@@ -497,7 +521,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
             }}
             onFocus={() => setIsProductListOpen(true)}
             onBlur={() => setTimeout(() => setIsProductListOpen(false), 200)}
-            placeholder="Search product by name or type..."
+            placeholder="Search product by name..."
             className="w-full rounded-xl border border-border bg-card px-3 py-2 text-base text-text"
           />
           {isProductListOpen && filteredProducts.length > 0 && (
