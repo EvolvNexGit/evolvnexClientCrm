@@ -270,7 +270,12 @@ export async function fetchTransactions(clientId: string): Promise<TransactionRe
       total_amount: asNumber(row.total_amount),
       discount: asNumber(row.discount),
       final_amount: asNumber(row.final_amount),
-      status: row.status ?? null,
+      status: (function normalizeStatus(val: any) {
+        if (val == null) return null;
+        const s = String(val).trim().toLowerCase();
+        if (s === "pending" || s === "accepted" || s === "delivered") return s as "pending" | "accepted" | "delivered";
+        return null;
+      })(row.status),
       walk_in_name: row.walk_in_name ?? null,
       customerName: customerRaw?.name ?? null,
       customerPhone: customerRaw?.phone ?? null,
@@ -287,6 +292,27 @@ export async function fetchTransactions(clientId: string): Promise<TransactionRe
     };
   });
 
+}
+
+export async function updateBillStatus(clientId: string, billId: string, status: "pending" | "accepted" | "delivered") {
+  const supabase = getClient();
+  const dbStatus = (function mapToDb(s: string) {
+    const key = String(s ?? "").trim().toLowerCase();
+    if (key === "pending") return "PENDING";
+    if (key === "accepted") return "ACCEPTED";
+    if (key === "delivered") return "DELIVERED";
+    return s;
+  })(status);
+
+  const { error } = await supabase
+    .from("bills")
+    .update({ status: dbStatus })
+    .eq("client_id", clientId)
+    .eq("id", billId);
+
+  if (error) {
+    throw error;
+  }
 }
 
 
