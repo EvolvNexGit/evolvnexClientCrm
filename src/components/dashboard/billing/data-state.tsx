@@ -10,7 +10,7 @@ type DataStateProps = {
 export function DataState({ loading, error, empty, emptyLabel }: DataStateProps) {
   if (loading) {
     return (
-      <div className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
+      <div className="rounded-xl border border-border bg-card p-5 text-base text-muted-foreground">
         Loading data...
       </div>
     );
@@ -18,7 +18,7 @@ export function DataState({ loading, error, empty, emptyLabel }: DataStateProps)
 
   if (error) {
     return (
-      <div className="rounded-xl border border-primary/50 bg-primary/10 p-5 text-sm text-primary">
+      <div className="rounded-xl border border-primary/50 bg-primary/10 p-5 text-base text-primary">
         {error}
       </div>
     );
@@ -26,7 +26,7 @@ export function DataState({ loading, error, empty, emptyLabel }: DataStateProps)
 
   if (empty) {
     return (
-      <div className="rounded-xl border border-dashed border-border bg-card p-5 text-sm text-muted-foreground">
+      <div className="rounded-xl border border-dashed border-border bg-card p-5 text-base text-muted-foreground">
         {emptyLabel}
       </div>
     );

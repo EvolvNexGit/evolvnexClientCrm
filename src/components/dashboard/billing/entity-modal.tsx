@@ -21,11 +21,11 @@ export function EntityModal({ open, title, onClose, children }: EntityModalProps
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold text-text">{title}</h3>
+          <h3 className="text-xl font-semibold text-text">{title}</h3>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-border px-3 py-1 text-xs text-muted-foreground hover:text-text"
+            className="rounded-lg border border-border px-3 py-1 text-sm text-muted-foreground hover:text-text"
           >
             Close
           </button>

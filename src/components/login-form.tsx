@@ -44,13 +44,13 @@ export function LoginForm() {
     <main className="grid min-h-screen place-items-center bg-dashboard-gradient px-4 py-8">
       <section className="grid w-full max-w-6xl gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-[2rem] border border-white/70 bg-slate-950 p-8 text-white shadow-soft">
-          <div className="mb-10 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.24em] text-slate-300">
+          <div className="mb-10 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm uppercase tracking-[0.24em] text-slate-300">
             Evolvnex CRM
           </div>
-          <h1 className="max-w-xl text-4xl font-semibold leading-tight sm:text-5xl">
+          <h1 className="max-w-xl text-5xl font-semibold leading-tight sm:text-6xl">
             A client-scoped CRM foundation built for future tab logic.
           </h1>
-          <p className="mt-5 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
+          <p className="mt-5 max-w-xl text-base leading-6 text-slate-300 sm:text-lg">
             Supabase Auth, safe client mapping, and dynamic sidebar tabs are wired as reusable
             primitives rather than one-off screens.
           </p>
@@ -61,8 +61,8 @@ export function LoginForm() {
               ["Tabs", "Driven entirely by config"],
             ].map(([title, description]) => (
               <div key={title} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <div className="text-sm font-medium">{title}</div>
-                <div className="mt-1 text-sm text-slate-300">{description}</div>
+                <div className="text-base font-medium">{title}</div>
+                <div className="mt-1 text-base text-slate-300">{description}</div>
               </div>
             ))}
           </div>
@@ -70,15 +70,15 @@ export function LoginForm() {
 
         <div className="rounded-[2rem] border border-white/70 bg-white p-8 shadow-soft">
           <div className="mb-8">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500">
+            <p className="text-base font-medium uppercase tracking-[0.2em] text-slate-500">
               Sign in
             </p>
-            <h2 className="mt-2 text-2xl font-semibold text-slate-950">Welcome back</h2>
-            <p className="mt-2 text-sm text-slate-600">Use your Supabase credentials to continue.</p>
+            <h2 className="mt-2 text-3xl font-semibold text-slate-950">Welcome back</h2>
+            <p className="mt-2 text-base text-slate-600">Use your Supabase credentials to continue.</p>
           </div>
 
           {(authError || formError) && (
-            <div className="mb-5 flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+            <div className="mb-5 flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-base text-rose-700">
               <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
               <span>{formError ?? authError}</span>
             </div>
@@ -86,7 +86,7 @@ export function LoginForm() {
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             <label className="block">
-              <span className="mb-1 block text-sm font-medium text-slate-700">Email</span>
+              <span className="mb-1 block text-base font-medium text-slate-700">Email</span>
               <input
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
@@ -98,7 +98,7 @@ export function LoginForm() {
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-sm font-medium text-slate-700">Password</span>
+              <span className="mb-1 block text-base font-medium text-slate-700">Password</span>
               <div className="relative">
                 <input
                   value={password}

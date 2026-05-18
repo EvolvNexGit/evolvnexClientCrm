@@ -241,8 +241,8 @@ export default function SubscriptionTab({ clientId }: { clientId: string }) {
       <div className="rounded-2xl border border-border bg-card p-5 shadow-soft sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold text-text">Subscription Management</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <h2 className="text-2xl font-semibold text-text">Subscription Management</h2>
+            <p className="mt-1 text-base text-muted-foreground">
               Placeholder-only tab for now. Client scope: {clientId}
             </p>
           </div>
@@ -294,15 +294,15 @@ export default function SubscriptionTab({ clientId }: { clientId: string }) {
       )}
 
       <div className="rounded-2xl border border-border bg-card p-5 shadow-soft sm:p-6">
-        <h3 className="text-lg font-semibold text-text">All Subscriptions</h3>
+        <h3 className="text-xl font-semibold text-text">All Subscriptions</h3>
 
         {subscriptions.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">No subscriptions added yet.</p>
+          <p className="mt-3 text-base text-muted-foreground">No subscriptions added yet.</p>
         ) : (
           <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full divide-y divide-border text-left text-sm">
+            <table className="min-w-full divide-y divide-border text-left text-base">
               <thead>
-                <tr className="text-xs uppercase tracking-wide text-muted-foreground">
+                <tr className="text-sm uppercase tracking-wide text-muted-foreground">
                   <th className="px-3 py-3">Name</th>
                   <th className="px-3 py-3">Plan</th>
                   <th className="px-3 py-3">Price</th>
@@ -325,7 +325,7 @@ export default function SubscriptionTab({ clientId }: { clientId: string }) {
                       <td className="px-3 py-4 text-muted-foreground">{subscription.maxUsers}</td>
                       <td className="px-3 py-4">
                         <span
-                          className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusBadgeClass(
+                          className={`inline-flex rounded-full border px-2.5 py-1 text-sm font-medium ${getStatusBadgeClass(
                             subscription.status,
                           )}`}
                         >
@@ -337,20 +337,20 @@ export default function SubscriptionTab({ clientId }: { clientId: string }) {
                           <button
                             type="button"
                             onClick={() => toggleStatus(subscription.id)}
-                            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-muted"
+                            className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-text hover:bg-muted"
                           >
                             {isActive ? "Deactivate" : "Activate"}
                           </button>
                           <button
                             type="button"
                             onClick={() => openEdit(subscription)}
-                            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-muted"
+                            className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-text hover:bg-muted"
                           >
                             Modify
                           </button>
                         </div>
                         {subscription.notes && (
-                          <p className="mt-2 max-w-[240px] text-xs text-muted-foreground">{subscription.notes}</p>
+                          <p className="mt-2 max-w-[240px] text-sm text-muted-foreground">{subscription.notes}</p>
                         )}
                       </td>
                     </tr>
@@ -368,8 +368,8 @@ export default function SubscriptionTab({ clientId }: { clientId: string }) {
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-border bg-background px-4 py-3">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-text">{value}</p>
+      <p className="text-sm uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1 text-3xl font-semibold text-text">{value}</p>
     </div>
   );
 }
@@ -395,8 +395,8 @@ function SubscriptionForm({
 }) {
   return (
     <form onSubmit={onSubmit} className="rounded-2xl border border-border bg-card p-5 shadow-soft sm:p-6">
-      <h3 className="text-lg font-semibold text-text">{title}</h3>
-      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      <h3 className="text-xl font-semibold text-text">{title}</h3>
+      <p className="mt-1 text-base text-muted-foreground">{description}</p>
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <LabeledField label="Subscription Name">
@@ -404,7 +404,7 @@ function SubscriptionForm({
             type="text"
             value={formState.name}
             onChange={(event) => onChange({ ...formState, name: event.target.value })}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-base text-text outline-none focus:border-primary"
             placeholder="Enter subscription name"
             required
           />
@@ -415,7 +415,7 @@ function SubscriptionForm({
             type="text"
             value={formState.planCode}
             onChange={(event) => onChange({ ...formState, planCode: event.target.value })}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-base text-text outline-none focus:border-primary"
             placeholder="e.g. PRO-100"
             required
           />
@@ -428,7 +428,7 @@ function SubscriptionForm({
             step="1"
             value={formState.amount}
             onChange={(event) => onChange({ ...formState, amount: event.target.value })}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-base text-text outline-none focus:border-primary"
             placeholder="0"
             required
           />
@@ -438,7 +438,7 @@ function SubscriptionForm({
           <select
             value={formState.billingCycle}
             onChange={(event) => onChange({ ...formState, billingCycle: event.target.value as BillingCycle })}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-base text-text outline-none focus:border-primary"
           >
             <option value="monthly">Monthly</option>
             <option value="quarterly">Quarterly</option>
@@ -453,7 +453,7 @@ function SubscriptionForm({
             step="1"
             value={formState.maxUsers}
             onChange={(event) => onChange({ ...formState, maxUsers: event.target.value })}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-base text-text outline-none focus:border-primary"
             placeholder="1"
             required
           />
@@ -464,14 +464,14 @@ function SubscriptionForm({
             type="text"
             value={formState.notes}
             onChange={(event) => onChange({ ...formState, notes: event.target.value })}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-base text-text outline-none focus:border-primary"
             placeholder="Optional notes"
           />
         </LabeledField>
       </div>
 
       {formError && (
-        <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>
+        <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-base text-red-700">{formError}</p>
       )}
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -479,7 +479,7 @@ function SubscriptionForm({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-text hover:bg-muted"
+          className="rounded-lg border border-border px-4 py-2 text-base font-medium text-text hover:bg-muted"
         >
           Cancel
         </button>
@@ -490,8 +490,8 @@ function SubscriptionForm({
 
 function LabeledField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="space-y-1.5 text-sm text-text">
-      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+    <label className="space-y-1.5 text-base text-text">
+      <span className="text-sm font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
       {children}
     </label>
   );

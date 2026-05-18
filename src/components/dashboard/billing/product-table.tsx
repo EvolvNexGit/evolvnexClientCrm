@@ -157,8 +157,8 @@ export function ProductTable({
     <div className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-text">Products</h3>
-          <p className="text-sm text-muted-foreground">All products are listed, including deactivated entries.</p>
+          <h3 className="text-lg font-semibold text-text">Products</h3>
+          <p className="text-base text-muted-foreground">All products are listed, including deactivated entries.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="secondary" onClick={exportProductsCsv} disabled={filteredProducts.length === 0}>
@@ -173,12 +173,12 @@ export function ProductTable({
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
           placeholder="Search by name or type"
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
         />
       </div>
 
       {actionError && (
-        <div className="rounded-lg border border-primary/50 bg-primary/10 p-3 text-xs text-primary">{actionError}</div>
+        <div className="rounded-lg border border-primary/50 bg-primary/10 p-3 text-sm text-primary">{actionError}</div>
       )}
 
       <DataState
@@ -190,8 +190,8 @@ export function ProductTable({
 
       {hasRows && !loading && !error && (
         <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="min-w-full divide-y divide-border text-sm">
-            <thead className="bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
+          <table className="min-w-full divide-y divide-border text-base">
+            <thead className="bg-muted text-left text-sm uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-3">Name</th>
                 <th className="px-3 py-3">Price</th>
@@ -212,7 +212,7 @@ export function ProductTable({
                       <button
                         type="button"
                         onClick={() => openEdit(product)}
-                        className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-text"
+                        className="rounded-md border border-border px-2 py-1 text-sm text-muted-foreground hover:text-text"
                         disabled={saving}
                       >
                         Edit
@@ -220,7 +220,7 @@ export function ProductTable({
                       <button
                         type="button"
                         onClick={() => void onToggle(product.id, !product.is_active)}
-                        className={`rounded-md border px-2 py-1 text-xs ${
+                        className={`rounded-md border px-2 py-1 text-sm ${
                           product.is_active
                             ? "border-primary/50 text-primary"
                             : "border-emerald-500/50 text-emerald-400"
@@ -286,17 +286,17 @@ function ProductForm({
 
   return (
     <form className="space-y-3" onSubmit={(event) => void onSubmit(event)}>
-      <label className="block text-sm text-muted-foreground">
+      <label className="block text-base text-muted-foreground">
         <span className="mb-1 block">Name</span>
         <input
           required
           value={form.name}
           onChange={(event) => onChange({ ...form, name: event.target.value })}
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
         />
       </label>
 
-      <label className="block text-sm text-muted-foreground">
+      <label className="block text-base text-muted-foreground">
         <span className="mb-1 block">Price</span>
         <input
           required
@@ -305,19 +305,19 @@ function ProductForm({
           type="number"
           value={form.price}
           onChange={(event) => onChange({ ...form, price: event.target.value })}
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
         />
       </label>
 
       <div className="space-y-2">
-        <label className="block text-sm text-muted-foreground">
+        <label className="block text-base text-muted-foreground">
           <span className="mb-1 block">Type</span>
           {!showNewTypeInput ? (
             <div className="flex gap-2">
               <select
                 value={form.type}
                 onChange={(event) => onChange({ ...form, type: event.target.value })}
-                className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+                className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
               >
                 <option value="">Select a type...</option>
                 {availableTypes.map((type) => (
@@ -329,7 +329,7 @@ function ProductForm({
               <button
                 type="button"
                 onClick={() => setShowNewTypeInput(true)}
-                className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:text-text"
+                className="rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:text-text"
               >
                 + New
               </button>
@@ -341,7 +341,7 @@ function ProductForm({
                 value={form.type}
                 onChange={(event) => onChange({ ...form, type: event.target.value })}
                 placeholder="Enter new type"
-                className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+                className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
               />
               <button
                 type="button"
@@ -349,7 +349,7 @@ function ProductForm({
                   setShowNewTypeInput(false);
                   onChange({ ...form, type: "" });
                 }}
-                className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:text-text"
+                className="rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:text-text"
               >
                 Cancel
               </button>

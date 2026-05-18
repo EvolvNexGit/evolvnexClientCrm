@@ -160,8 +160,8 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
     <div className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-text">Ingredients</h3>
-          <p className="text-sm text-muted-foreground">Manage ingredient inventory, supplier details, and thresholds.</p>
+          <h3 className="text-lg font-semibold text-text">Ingredients</h3>
+          <p className="text-base text-muted-foreground">Manage ingredient inventory, supplier details, and thresholds.</p>
         </div>
         <Button type="button" onClick={openAdd}>
           Add Ingredient
@@ -173,12 +173,12 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
           placeholder="Search by ingredient or supplier"
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
         />
       </div>
 
       {actionError && (
-        <div className="rounded-lg border border-primary/50 bg-primary/10 p-3 text-xs text-primary">{actionError}</div>
+        <div className="rounded-lg border border-primary/50 bg-primary/10 p-3 text-sm text-primary">{actionError}</div>
       )}
 
       <DataState
@@ -190,8 +190,8 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
 
       {hasRows && !loading && !error && (
         <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="min-w-full divide-y divide-border text-sm">
-            <thead className="bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
+          <table className="min-w-full divide-y divide-border text-base">
+            <thead className="bg-muted text-left text-sm uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-3">Name</th>
                 <th className="px-3 py-3">Quantity</th>
@@ -210,14 +210,14 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
                   <td className="px-3 py-3 text-muted-foreground">{ingredient.quantity_unit}</td>
                   <td className="px-3 py-3 text-muted-foreground">
                     <div>{ingredient.seller_name ?? "-"}</div>
-                    <div className="text-xs">{ingredient.seller_phone ?? ingredient.seller_email ?? ""}</div>
+                    <div className="text-sm">{ingredient.seller_phone ?? ingredient.seller_email ?? ""}</div>
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={() => openEdit(ingredient)}
-                        className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-text"
+                        className="rounded-md border border-border px-2 py-1 text-sm text-muted-foreground hover:text-text"
                         disabled={saving}
                       >
                         Edit
@@ -225,7 +225,7 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
                       <button
                         type="button"
                         onClick={() => setPendingDeleteIngredient(ingredient)}
-                        className="rounded-md border border-primary/50 px-2 py-1 text-xs text-primary"
+                        className="rounded-md border border-primary/50 px-2 py-1 text-sm text-primary"
                         disabled={saving}
                       >
                         Delete
@@ -249,7 +249,7 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
 
       <EntityModal open={Boolean(pendingDeleteIngredient)} title="Confirm ingredient deletion" onClose={() => setPendingDeleteIngredient(null)}>
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             Delete ingredient <span className="font-semibold text-text">{pendingDeleteIngredient?.name}</span>? This action cannot be undone.
           </p>
           <div className="flex items-center justify-end gap-2">
@@ -281,18 +281,18 @@ function IngredientForm({
 }) {
   return (
     <form className="space-y-3" onSubmit={(event) => void onSubmit(event)}>
-      <label className="block text-sm text-muted-foreground">
+      <label className="block text-base text-muted-foreground">
         <span className="mb-1 block">Name</span>
         <input
           required
           value={form.name}
           onChange={(event) => onChange({ ...form, name: event.target.value })}
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
         />
       </label>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block text-sm text-muted-foreground">
+        <label className="block text-base text-muted-foreground">
           <span className="mb-1 block">Quantity</span>
           <input
             required
@@ -301,11 +301,11 @@ function IngredientForm({
             type="number"
             value={form.quantity}
             onChange={(event) => onChange({ ...form, quantity: event.target.value })}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
           />
         </label>
 
-        <label className="block text-sm text-muted-foreground">
+        <label className="block text-base text-muted-foreground">
           <span className="mb-1 block">Threshold</span>
           <input
             min="0"
@@ -313,17 +313,17 @@ function IngredientForm({
             type="number"
             value={form.threshold}
             onChange={(event) => onChange({ ...form, threshold: event.target.value })}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
           />
         </label>
       </div>
 
-      <label className="block text-sm text-muted-foreground">
+      <label className="block text-base text-muted-foreground">
         <span className="mb-1 block">Quantity unit</span>
         <select
           value={form.quantity_unit}
           onChange={(event) => onChange({ ...form, quantity_unit: event.target.value as InventoryUnit })}
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
         >
           {units.map((unit) => (
             <option key={unit} value={unit}>
@@ -333,32 +333,32 @@ function IngredientForm({
         </select>
       </label>
 
-      <label className="block text-sm text-muted-foreground">
+      <label className="block text-base text-muted-foreground">
         <span className="mb-1 block">Seller name</span>
         <input
           value={form.seller_name}
           onChange={(event) => onChange({ ...form, seller_name: event.target.value })}
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
         />
       </label>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block text-sm text-muted-foreground">
+        <label className="block text-base text-muted-foreground">
           <span className="mb-1 block">Seller phone</span>
           <input
             value={form.seller_phone}
             onChange={(event) => onChange({ ...form, seller_phone: event.target.value })}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
           />
         </label>
 
-        <label className="block text-sm text-muted-foreground">
+        <label className="block text-base text-muted-foreground">
           <span className="mb-1 block">Seller email</span>
           <input
             type="email"
             value={form.seller_email}
             onChange={(event) => onChange({ ...form, seller_email: event.target.value })}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
           />
         </label>
       </div>

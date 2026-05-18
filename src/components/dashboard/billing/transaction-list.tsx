@@ -125,8 +125,8 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
     <div className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-text">Transactions</h3>
-          <p className="text-sm text-muted-foreground">Bills with customer and product breakdown.</p>
+          <h3 className="text-lg font-semibold text-text">Transactions</h3>
+          <p className="text-base text-muted-foreground">Bills with customer and product breakdown.</p>
         </div>
         <Button type="button" variant="secondary" onClick={exportTransactionsCsv} disabled={filteredTransactions.length === 0}>
           Export CSV
@@ -134,22 +134,22 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
       </div>
 
       <div className="grid gap-3 rounded-xl border border-border bg-background p-3 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="text-xs text-muted-foreground">
+        <label className="text-sm text-muted-foreground">
           <span className="mb-1 block">Search</span>
           <input
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Bill ID, customer, product"
-            className="w-full rounded-lg border border-border bg-card px-2 py-2 text-sm text-text"
+            className="w-full rounded-lg border border-border bg-card px-2 py-2 text-base text-text"
           />
         </label>
 
-        <label className="text-xs text-muted-foreground">
+        <label className="text-sm text-muted-foreground">
           <span className="mb-1 block">Customer</span>
           <select
             value={customerFilter}
             onChange={(event) => setCustomerFilter(event.target.value)}
-            className="w-full rounded-lg border border-border bg-card px-2 py-2 text-sm text-text"
+            className="w-full rounded-lg border border-border bg-card px-2 py-2 text-base text-text"
           >
             <option value="all">All</option>
             {customerOptions.map((option) => (
@@ -160,23 +160,23 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
           </select>
         </label>
 
-        <label className="text-xs text-muted-foreground">
+        <label className="text-sm text-muted-foreground">
           <span className="mb-1 block">From</span>
           <input
             type="date"
             value={dateFrom}
             onChange={(event) => setDateFrom(event.target.value)}
-            className="w-full rounded-lg border border-border bg-card px-2 py-2 text-sm text-text"
+            className="w-full rounded-lg border border-border bg-card px-2 py-2 text-base text-text"
           />
         </label>
 
-        <label className="text-xs text-muted-foreground">
+        <label className="text-sm text-muted-foreground">
           <span className="mb-1 block">To</span>
           <input
             type="date"
             value={dateTo}
             onChange={(event) => setDateTo(event.target.value)}
-            className="w-full rounded-lg border border-border bg-card px-2 py-2 text-sm text-text"
+            className="w-full rounded-lg border border-border bg-card px-2 py-2 text-base text-text"
           />
         </label>
       </div>
@@ -203,24 +203,24 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
                   <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
                     <div>
                       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Customer</div>
-                      <div className="text-sm font-medium text-text">{displayCustomer}</div>
-                      <div className="text-xs text-muted-foreground">{transaction.customerPhone ?? "-"}</div>
+                      <div className="text-base font-medium text-text">{displayCustomer}</div>
+                      <div className="text-sm text-muted-foreground">{transaction.customerPhone ?? "-"}</div>
                     </div>
                     <div>
                       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Date</div>
-                      <div className="text-sm text-text">{formatDate(transaction.created_at)}</div>
+                      <div className="text-base text-text">{formatDate(transaction.created_at)}</div>
                     </div>
                     <div>
                       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Total</div>
-                      <div className="text-sm text-text">{formatCurrency(transaction.total_amount)}</div>
+                      <div className="text-base text-text">{formatCurrency(transaction.total_amount)}</div>
                     </div>
                     <div>
                       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Discount</div>
-                      <div className="text-sm text-text">{formatCurrency(transaction.discount)}</div>
+                      <div className="text-base text-text">{formatCurrency(transaction.discount)}</div>
                     </div>
                     <div>
                       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Final</div>
-                      <div className="text-sm font-semibold text-primary">{formatCurrency(transaction.final_amount)}</div>
+                      <div className="text-base font-semibold text-primary">{formatCurrency(transaction.final_amount)}</div>
                     </div>
                   </div>
 
@@ -231,8 +231,8 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
 
                 {isExpanded && (
                   <div className="mt-4 overflow-x-auto rounded-lg border border-border">
-                    <table className="min-w-full divide-y divide-border text-sm">
-                      <thead className="bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <table className="min-w-full divide-y divide-border text-base">
+                      <thead className="bg-muted text-left text-sm uppercase tracking-wide text-muted-foreground">
                         <tr>
                           <th className="px-3 py-2">Product</th>
                           <th className="px-3 py-2">Qty</th>

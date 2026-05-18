@@ -49,7 +49,7 @@ const BillingCrmTab = dynamic(() => import("./tabs/billing-crm-tab"), {
 
 function TabLoading() {
   return (
-    <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-border bg-card text-sm text-muted-foreground">
+    <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-border bg-card text-base text-muted-foreground">
       <span className="inline-flex items-center gap-2">
         <Loader2 className="h-4 w-4 animate-spin" />
         Loading tab content
@@ -302,7 +302,7 @@ export function DashboardPage() {
               />
             </div>
 
-            <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
               <div className="rounded-full border border-border bg-card px-3 py-2">
                 Auth ID: {authId ?? "missing"}
               </div>
@@ -318,13 +318,13 @@ export function DashboardPage() {
           <div className="mx-auto flex max-w-6xl flex-col gap-6">
             <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
               <div>
-                <p className="text-sm font-medium uppercase tracking-wider text-primary">
+                <p className="text-base font-medium uppercase tracking-wider text-primary">
                   Dashboard
                 </p>
-                <h1 className="mt-2 text-3xl font-semibold">
+                <h1 className="mt-2 text-4xl font-semibold">
                   {displayTab?.displayName ?? displayTab?.label ?? "Summary"}
                 </h1>
-                <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+                <p className="mt-2 max-w-2xl text-base text-muted-foreground">
                   Client-scoped dashboard with dynamic tab system.
                 </p>
               </div>
@@ -408,7 +408,7 @@ function SidebarContent({
                 }
               >
                 <Icon className="h-4 w-4" />
-                <span className="flex-1 text-sm font-medium">{tab.displayName ?? tab.label}</span>
+                <span className="flex-1 text-base font-medium">{tab.displayName ?? tab.label}</span>
               </button>
             </div>
           );
@@ -418,7 +418,7 @@ function SidebarContent({
       <div className="mt-auto border-t border-border pt-4">
         <button
           onClick={() => void onLogout()}
-          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-text"
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-base font-medium text-muted-foreground hover:bg-muted hover:text-text"
         >
           <LogOut className="h-4 w-4" />
           Logout
@@ -431,7 +431,7 @@ function SidebarContent({
 function DashboardScreenLoader() {
   return (
     <main className="grid min-h-screen place-items-center bg-background px-6">
-      <div className="rounded-xl border border-border bg-card px-6 py-5 text-sm text-muted-foreground shadow-soft">
+      <div className="rounded-xl border border-border bg-card px-6 py-5 text-base text-muted-foreground shadow-soft">
         <span className="inline-flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading workspace
@@ -455,12 +455,12 @@ function ClientFallback({
       <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-8 shadow-soft">
         <div className="flex items-center gap-3 text-primary">
           <AlertCircle className="h-5 w-5" />
-          <h1 className="text-xl font-semibold">Client not mapped</h1>
+          <h1 className="text-2xl font-semibold">Client not mapped</h1>
         </div>
-        <p className="mt-4 text-sm text-muted-foreground">
+        <p className="mt-4 text-base text-muted-foreground">
           {clientError ?? "No client record linked to this user."}
         </p>
-        <div className="mt-6 rounded-xl bg-muted p-4 text-xs text-muted-foreground">
+        <div className="mt-6 rounded-xl bg-muted p-4 text-sm text-muted-foreground">
           Auth ID: {authId ?? "missing"}
         </div>
         <div className="mt-6">
@@ -473,7 +473,7 @@ function ClientFallback({
 
 function EmptyState() {
   return (
-    <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
+    <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center text-base text-muted-foreground">
       No tab content available.
     </div>
   );
