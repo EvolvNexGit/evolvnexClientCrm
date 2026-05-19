@@ -207,7 +207,7 @@ export function TransactionList({ transactions, loading, error, onUpdateStatus }
                   onClick={() => toggle(transaction.id)}
                   className="flex w-full items-center justify-between gap-3 text-left"
                 >
-                  <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
                     <div>
                       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Customer</div>
                       <div className="text-base font-medium text-text">{displayCustomer}</div>
@@ -216,6 +216,10 @@ export function TransactionList({ transactions, loading, error, onUpdateStatus }
                     <div>
                       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Date</div>
                       <div className="text-base text-text">{formatDate(transaction.created_at)}</div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Table Number</div>
+                      <div className="text-base text-text">{transaction.table_number ?? "-"}</div>
                     </div>
                     <div>
                       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Total</div>
@@ -238,7 +242,7 @@ export function TransactionList({ transactions, loading, error, onUpdateStatus }
                             <button
                               key={s}
                               type="button"
-                              onClick={(e) => {
+                              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                                 e.stopPropagation();
                                 if (!onUpdateStatus) return;
                                 setPendingChange({ id: transaction.id, oldStatus: transaction.status ?? null, newStatus: s });

@@ -51,6 +51,7 @@ export type TransactionRecord = {
   walk_in_name: string | null;
   customerName: string | null;
   customerPhone: string | null;
+  table_number?: string | null;
   status?: "pending" | "accepted" | "delivered" | null;
   items: TransactionItem[];
 };
