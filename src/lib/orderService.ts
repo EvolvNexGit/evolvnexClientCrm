@@ -259,7 +259,7 @@ export const orderService = {
     discount: number,
     customerId: string | null,
     walkInDetails: WalkInDetails,
-    tableNumber?: number | null,
+    tableNumber?: string | null,
   ) {
     if (cart.length === 0) {
       throw new Error("Cart is empty.");

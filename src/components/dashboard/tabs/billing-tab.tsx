@@ -463,7 +463,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
           name: billingMode === "walk-in" ? walkInName || null : null,
           phone: billingMode === "walk-in" ? walkInPhone || null : null,
         },
-        tableNumber ? Number(tableNumber) : null,
+        tableNumber || null,
       );
 
       setCreateBillMessage(`Bill ${result.billId} created successfully.`);
@@ -842,9 +842,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
               <input
                 value={tableNumber}
                 onChange={(event) => setTableNumber(event.target.value)}
-                min="0"
-                step="1"
-                type="number"
+                type="text"
                 placeholder="Optional"
                 className="w-28 rounded-md border border-border bg-background px-2 py-1 text-right text-base text-text"
               />
