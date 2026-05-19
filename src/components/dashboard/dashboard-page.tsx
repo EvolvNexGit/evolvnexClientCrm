@@ -10,6 +10,8 @@ import {
   Loader2,
   LogOut,
   Menu,
+  PanelLeftClose,
+  PanelRightClose,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -49,7 +51,7 @@ const BillingCrmTab = dynamic(() => import("./tabs/billing-crm-tab"), {
 
 function TabLoading() {
   return (
-    <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-border bg-card text-sm text-muted-foreground">
+    <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-border bg-card text-base text-muted-foreground">
       <span className="inline-flex items-center gap-2">
         <Loader2 className="h-4 w-4 animate-spin" />
         Loading tab content
@@ -91,6 +93,7 @@ export function DashboardPage() {
   } = useApp();
   const { clientId, clientError } = useClient();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pendingTabChangeRef = useRef<string | null>(null);
   const scrollPositionsRef = useRef<Record<string, number>>({});
   const contentSectionRef = useRef<HTMLElement | null>(null);
@@ -247,14 +250,22 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-text flex">
+    <div className="h-screen overflow-hidden bg-background text-text flex">
       {/* Sidebar */}
-      <aside className="hidden w-72 border-r border-border bg-card px-5 py-6 xl:flex xl:flex-col">
+      <aside
+        className={
+          sidebarCollapsed
+            ? "hidden h-full w-20 border-r border-border bg-card px-3 py-6 xl:flex xl:flex-col xl:overflow-y-auto"
+            : "hidden h-full w-72 border-r border-border bg-card px-5 py-6 xl:flex xl:flex-col xl:overflow-y-auto"
+        }
+      >
         <SidebarContent
           tabs={tabs}
           activeTabId={activeTabId}
           onTabChange={handleTabChange}
           onLogout={signOut}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((current) => !current)}
         />
       </aside>
 
@@ -274,13 +285,15 @@ export function DashboardPage() {
               onTabChange={handleTabChange}
               onLogout={signOut}
               onNavigate={() => setMobileOpen(false)}
+              collapsed={false}
+              onToggleCollapse={() => setSidebarCollapsed((current) => !current)}
             />
           </aside>
         </div>
       )}
 
       {/* Main */}
-      <main className="flex min-h-screen flex-1 flex-col">
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Header */}
         <header className="sticky top-0 z-10 border-b border-border bg-background px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-4">
@@ -302,7 +315,7 @@ export function DashboardPage() {
               />
             </div>
 
-            <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
               <div className="rounded-full border border-border bg-card px-3 py-2">
                 Auth ID: {authId ?? "missing"}
               </div>
@@ -314,27 +327,20 @@ export function DashboardPage() {
         </header>
 
         {/* Content */}
-        <section className="flex-1 px-4 py-6 sm:px-6 lg:px-8 overflow-y-auto" ref={contentSectionRef}>
+        <section className="flex-1 min-h-0 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8" ref={contentSectionRef}>
           <div className="mx-auto flex max-w-6xl flex-col gap-6">
             <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
               <div>
-                <p className="text-sm font-medium uppercase tracking-wider text-primary">
+                <p className="text-base font-medium uppercase tracking-wider text-primary">
                   Dashboard
                 </p>
-                <h1 className="mt-2 text-3xl font-semibold">
+                <h1 className="mt-2 text-4xl font-semibold">
                   {displayTab?.displayName ?? displayTab?.label ?? "Summary"}
                 </h1>
-                <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+                <p className="mt-2 max-w-2xl text-base text-muted-foreground">
                   Client-scoped dashboard with dynamic tab system.
                 </p>
               </div>
-
-              <Button onClick={signOut}>
-                <span className="inline-flex items-center gap-2">
-                  <LogOut className="h-4 w-4" />
-                  Logout
-                </span>
-              </Button>
             </div>
 
             {displayTab?.key === "summary" && (
@@ -376,24 +382,36 @@ function SidebarContent({
   onTabChange,
   onLogout,
   onNavigate,
+  collapsed,
+  onToggleCollapse,
 }: {
   tabs: TabDefinition[];
   activeTabId: string;
   onTabChange: (tabKey: string) => void;
   onLogout: () => Promise<void>;
   onNavigate?: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }) {
   return (
     <>
-      {/* 🔥 LOGO */}
-      <div className="mb-8">
+      <div className="mb-8 flex items-center justify-between gap-3">
         <Image
           src="/logo.png"
           alt="EvolvNex"
-          width={140}
+          width={collapsed ? 40 : 140}
           height={40}
           className="object-contain"
         />
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          className="hidden rounded-xl border border-border bg-background p-2 text-muted-foreground hover:bg-muted xl:inline-flex"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? <PanelRightClose className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+        </button>
       </div>
 
       <nav className="space-y-2">
@@ -415,24 +433,22 @@ function SidebarContent({
                 }
               >
                 <Icon className="h-4 w-4" />
-                <span className="flex-1 text-sm font-medium">{tab.displayName ?? tab.label}</span>
+                {!collapsed && <span className="flex-1 text-base font-medium">{tab.displayName ?? tab.label}</span>}
               </button>
             </div>
           );
         })}
       </nav>
 
-      {activeTabId === "summary" && (
-        <div className="mt-auto border-t border-border pt-4">
-          <button
-            onClick={() => void onLogout()}
-            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-text"
-          >
-            <LogOut className="h-4 w-4" />
-            Logout
-          </button>
-        </div>
-      )}
+      <div className="mt-auto border-t border-border pt-4">
+        <button
+          onClick={() => void onLogout()}
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-base font-medium text-muted-foreground hover:bg-muted hover:text-text"
+        >
+          <LogOut className="h-4 w-4" />
+          {!collapsed && "Logout"}
+        </button>
+      </div>
     </>
   );
 }
@@ -440,7 +456,7 @@ function SidebarContent({
 function DashboardScreenLoader() {
   return (
     <main className="grid min-h-screen place-items-center bg-background px-6">
-      <div className="rounded-xl border border-border bg-card px-6 py-5 text-sm text-muted-foreground shadow-soft">
+      <div className="rounded-xl border border-border bg-card px-6 py-5 text-base text-muted-foreground shadow-soft">
         <span className="inline-flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading workspace
@@ -464,12 +480,12 @@ function ClientFallback({
       <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-8 shadow-soft">
         <div className="flex items-center gap-3 text-primary">
           <AlertCircle className="h-5 w-5" />
-          <h1 className="text-xl font-semibold">Client not mapped</h1>
+          <h1 className="text-2xl font-semibold">Client not mapped</h1>
         </div>
-        <p className="mt-4 text-sm text-muted-foreground">
+        <p className="mt-4 text-base text-muted-foreground">
           {clientError ?? "No client record linked to this user."}
         </p>
-        <div className="mt-6 rounded-xl bg-muted p-4 text-xs text-muted-foreground">
+        <div className="mt-6 rounded-xl bg-muted p-4 text-sm text-muted-foreground">
           Auth ID: {authId ?? "missing"}
         </div>
         <div className="mt-6">
@@ -482,7 +498,7 @@ function ClientFallback({
 
 function EmptyState() {
   return (
-    <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
+    <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center text-base text-muted-foreground">
       No tab content available.
     </div>
   );

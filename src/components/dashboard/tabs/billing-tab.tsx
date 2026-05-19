@@ -16,17 +16,74 @@ function formatCurrency(amount: number) {
   }).format(amount || 0);
 }
 
+const BILLING_SESSION_KEY = (clientId: string) => `billing-session-${clientId}`;
+
+type BillingSessionState = {
+  cart: CartItem[];
+  billingMode: "customer" | "walk-in";
+  customerId: string;
+  customerSearchTerm: string;
+  walkInName: string;
+  walkInPhone: string;
+  discountInput: string;
+  productSearchTerm: string;
+  selectedProductId: string;
+  quantityInput: string;
+  productTypeFilter: string;
+  tableNumber: string;
+};
+
+function saveBillingSession(clientId: string, state: BillingSessionState) {
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem(BILLING_SESSION_KEY(clientId), JSON.stringify(state));
+    } catch {
+      // Silently fail if localStorage is unavailable
+    }
+  }
+}
+
+function loadBillingSession(clientId: string): BillingSessionState | null {
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem(BILLING_SESSION_KEY(clientId));
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch {
+      // Silently fail if parsing fails
+    }
+  }
+  return null;
+}
+
+function clearBillingSession(clientId: string) {
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.removeItem(BILLING_SESSION_KEY(clientId));
+    } catch {
+      // Silently fail
+    }
+  }
+}
+
 export default function BillingTab({ clientId }: { clientId: string }) {
   const productState = useProducts(clientId);
   const customerState = useCustomers(clientId);
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedProductId, setSelectedProductId] = useState("");
-  const [quantityInput, setQuantityInput] = useState("1");
-  const [discountInput, setDiscountInput] = useState("0");
-  const [billingMode, setBillingMode] = useState<"customer" | "walk-in">("walk-in");
-  const [customerId, setCustomerId] = useState("");
-  const [customerSearchTerm, setCustomerSearchTerm] = useState("");
+  // Load initial state from session
+  const storedSession = loadBillingSession(clientId);
+
+  const [productSearchTerm, setProductSearchTerm] = useState(storedSession?.productSearchTerm ?? "");
+  const [isProductListOpen, setIsProductListOpen] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState(storedSession?.selectedProductId ?? "");
+  const [quantityInput, setQuantityInput] = useState(storedSession?.quantityInput ?? "1");
+  const [productTypeFilter, setProductTypeFilter] = useState(storedSession?.productTypeFilter ?? "");
+  const [discountInput, setDiscountInput] = useState(storedSession?.discountInput ?? "0");
+  const [tableNumber, setTableNumber] = useState(storedSession?.tableNumber ?? "");
+  const [billingMode, setBillingMode] = useState<"customer" | "walk-in">(storedSession?.billingMode ?? "walk-in");
+  const [customerId, setCustomerId] = useState(storedSession?.customerId ?? "");
+  const [customerSearchTerm, setCustomerSearchTerm] = useState(storedSession?.customerSearchTerm ?? "");
   const [isCustomerListOpen, setIsCustomerListOpen] = useState(false);
   const [customerActiveIndex, setCustomerActiveIndex] = useState(0);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
@@ -36,9 +93,9 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     email: "",
     dob: "",
   });
-  const [walkInName, setWalkInName] = useState("");
-  const [walkInPhone, setWalkInPhone] = useState("");
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [walkInName, setWalkInName] = useState(storedSession?.walkInName ?? "");
+  const [walkInPhone, setWalkInPhone] = useState(storedSession?.walkInPhone ?? "");
+  const [cart, setCart] = useState<CartItem[]>(storedSession?.cart ?? []);
   const [cartActionError, setCartActionError] = useState<string | null>(null);
   const [inventoryWarnings, setInventoryWarnings] = useState<string[]>([]);
   const [isLowStock, setIsLowStock] = useState(false);
@@ -50,17 +107,24 @@ export default function BillingTab({ clientId }: { clientId: string }) {
   const loadError = productState.error || customerState.error;
 
   const filteredProducts = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
+    const query = productSearchTerm.trim().toLowerCase();
+    let results = productState.products;
 
-    if (!query) {
-      return productState.products;
+    // Filter by type if selected
+    if (productTypeFilter) {
+      results = results.filter((product) => product.type === productTypeFilter);
     }
 
-    return productState.products.filter((product) => {
-      const haystack = [product.name, product.type ?? ""].join(" ").toLowerCase();
-      return haystack.includes(query);
-    });
-  }, [productState.products, searchTerm]);
+    if (query) {
+      results = results.filter((product) => {
+        const haystack = [product.name, product.type ?? ""].join(" ").toLowerCase();
+        return haystack.includes(query);
+      });
+    }
+
+    // Sort alphabetically by name
+    return results.sort((a, b) => a.name.localeCompare(b.name));
+  }, [productState.products, productSearchTerm, productTypeFilter]);
 
   const filteredCustomers = useMemo(() => {
     const query = customerSearchTerm.trim().toLowerCase();
@@ -306,6 +370,39 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     };
   }, [cart]);
 
+  // Save billing session to localStorage whenever state changes
+  useEffect(() => {
+    const sessionState: BillingSessionState = {
+      cart,
+      billingMode,
+      customerId,
+      customerSearchTerm,
+      walkInName,
+      walkInPhone,
+      discountInput,
+      productSearchTerm,
+      selectedProductId,
+      quantityInput,
+      productTypeFilter,
+      tableNumber,
+    };
+    saveBillingSession(clientId, sessionState);
+  }, [
+    cart,
+    billingMode,
+    customerId,
+    customerSearchTerm,
+    walkInName,
+    walkInPhone,
+    discountInput,
+    productSearchTerm,
+    selectedProductId,
+    quantityInput,
+    productTypeFilter,
+    tableNumber,
+    clientId,
+  ]);
+
   function handleAddToCart() {
     setCartActionError(null);
     setCreateBillMessage(null);
@@ -324,7 +421,10 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     }
 
     setCart(nextCart);
+    setProductSearchTerm("");
+    setSelectedProductId("");
     setQuantityInput("1");
+    setIsProductListOpen(false);
   }
 
   function increaseQuantity(productId: string) {
@@ -363,15 +463,18 @@ export default function BillingTab({ clientId }: { clientId: string }) {
           name: billingMode === "walk-in" ? walkInName || null : null,
           phone: billingMode === "walk-in" ? walkInPhone || null : null,
         },
+        tableNumber || null,
       );
 
       setCreateBillMessage(`Bill ${result.billId} created successfully.`);
       setCart([]);
       setDiscountInput("0");
+      setTableNumber("");
       setBillingMode("walk-in");
       setCustomerId("");
       setWalkInName("");
       setWalkInPhone("");
+      clearBillingSession(clientId);
     } catch (error) {
       setCartActionError(error instanceof Error ? error.message : "Unable to create bill.");
     } finally {
@@ -382,51 +485,79 @@ export default function BillingTab({ clientId }: { clientId: string }) {
   return (
     <section className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
       <div>
-        <h2 className="text-lg font-semibold text-text">Billing</h2>
-        <p className="mt-1 text-sm text-muted-foreground">POS-style billing with live totals and inventory warnings.</p>
+        <h2 className="text-xl font-semibold text-text">Billing</h2>
+        <p className="mt-1 text-base text-muted-foreground">POS-style billing with live totals and inventory warnings.</p>
       </div>
 
       {loadError && (
-        <div className="rounded-lg border border-primary/50 bg-primary/10 p-3 text-xs text-primary">{loadError}</div>
+        <div className="rounded-lg border border-primary/50 bg-primary/10 p-3 text-sm text-primary">{loadError}</div>
       )}
 
       {cartActionError && (
-        <div className="rounded-lg border border-primary/50 bg-primary/10 p-3 text-xs text-primary">{cartActionError}</div>
+        <div className="rounded-lg border border-primary/50 bg-primary/10 p-3 text-sm text-primary">{cartActionError}</div>
       )}
 
       {createBillMessage && (
-        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs text-emerald-400">{createBillMessage}</div>
+        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-400">{createBillMessage}</div>
       )}
 
-      <div className="grid gap-3 rounded-xl border border-border bg-background p-3 lg:grid-cols-[2fr_1.5fr_120px_auto]">
+      <div className="grid gap-3 rounded-xl border border-border bg-background p-3 lg:grid-cols-[1fr_2fr_120px_auto]">
         <div className="space-y-2">
-          <label className="text-xs text-muted-foreground">Search product</label>
-          <input
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Filter by name or type"
-            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-xs text-muted-foreground">Product</label>
+          <label className="text-sm text-muted-foreground">Type</label>
           <select
-            value={selectedProductId}
-            onChange={(event) => setSelectedProductId(event.target.value)}
-            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
+            value={productTypeFilter}
+            onChange={(event) => {
+              setProductTypeFilter(event.target.value);
+              setProductSearchTerm("");
+              setSelectedProductId("");
+              setIsProductListOpen(false);
+            }}
+            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-base text-text"
           >
-            <option value="">Select product</option>
-            {filteredProducts.map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.name} {product.type ? `(${product.type})` : ""}
+            <option value="">All Types</option>
+            {Array.from(new Set(productState.products.map((p) => p.type).filter((type): type is string => type !== null))).sort().map((type) => (
+              <option key={type} value={type}>
+                {type}
               </option>
             ))}
           </select>
         </div>
+        <div className="space-y-2 relative">
+          <label className="text-sm text-muted-foreground">Product</label>
+          <input
+            value={productSearchTerm}
+            onChange={(event) => {
+              setProductSearchTerm(event.target.value);
+              setIsProductListOpen(true);
+            }}
+            onFocus={() => setIsProductListOpen(true)}
+            onBlur={() => setTimeout(() => setIsProductListOpen(false), 200)}
+            placeholder="Search product by name..."
+            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-base text-text"
+          />
+          {isProductListOpen && filteredProducts.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-10 max-h-60 overflow-y-auto">
+              {filteredProducts.map((product) => (
+                <button
+                  key={product.id}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setSelectedProductId(product.id);
+                    setProductSearchTerm(`${product.name}${product.type ? ` (${product.type})` : ""}`);
+                    setIsProductListOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 hover:bg-muted text-base text-text border-b border-border last:border-b-0"
+                >
+                  {product.name} {product.type ? `(${product.type})` : ""}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="space-y-2">
-          <label className="text-xs text-muted-foreground">Quantity</label>
+          <label className="text-sm text-muted-foreground">Quantity</label>
           <input
             value={quantityInput}
             onChange={(event) => setQuantityInput(event.target.value)}
@@ -438,7 +569,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
             }}
             min="1"
             type="number"
-            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
+            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-base text-text"
           />
         </div>
 
@@ -451,8 +582,8 @@ export default function BillingTab({ clientId }: { clientId: string }) {
 
       <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
         <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="min-w-full divide-y divide-border text-sm">
-            <thead className="bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
+          <table className="min-w-full divide-y divide-border text-base">
+            <thead className="bg-muted text-left text-sm uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-3">Product</th>
                 <th className="px-3 py-3">Quantity</th>
@@ -464,7 +595,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
             <tbody className="divide-y divide-border">
               {cart.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-sm text-muted-foreground">
+                  <td colSpan={5} className="px-3 py-6 text-center text-base text-muted-foreground">
                     Cart is empty.
                   </td>
                 </tr>
@@ -480,7 +611,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                       }
                       min="0"
                       type="number"
-                      className="w-20 rounded-md border border-border bg-background px-2 py-1 text-sm text-text"
+                      className="w-20 rounded-md border border-border bg-background px-2 py-1 text-base text-text"
                     />
                   </td>
                   <td className="px-3 py-3 text-muted-foreground">{formatCurrency(item.unitPrice)}</td>
@@ -490,21 +621,21 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                       <button
                         type="button"
                         onClick={() => increaseQuantity(item.productId)}
-                        className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-text"
+                        className="rounded-md border border-border px-2 py-1 text-sm text-muted-foreground hover:text-text"
                       >
                         +
                       </button>
                       <button
                         type="button"
                         onClick={() => decreaseQuantity(item.productId)}
-                        className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-text"
+                        className="rounded-md border border-border px-2 py-1 text-sm text-muted-foreground hover:text-text"
                       >
                         -
                       </button>
                       <button
                         type="button"
                         onClick={() => removeItem(item.productId)}
-                        className="rounded-md border border-primary/50 px-2 py-1 text-xs text-primary"
+                        className="rounded-md border border-primary/50 px-2 py-1 text-sm text-primary"
                       >
                         Remove
                       </button>
@@ -518,15 +649,15 @@ export default function BillingTab({ clientId }: { clientId: string }) {
 
         <div className="space-y-3 rounded-xl border border-border bg-background p-4">
           <div className="space-y-2 rounded-lg border border-border bg-card p-3">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Bill for</div>
+            <div className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Bill for</div>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => handleBillingModeChange("customer")}
                 className={
                   billingMode === "customer"
-                    ? "rounded-xl border border-primary bg-primary/10 px-3 py-2 text-sm font-medium text-primary"
-                    : "rounded-xl border border-border bg-background px-3 py-2 text-sm text-text hover:bg-muted"
+                    ? "rounded-xl border border-primary bg-primary/10 px-3 py-2 text-base font-medium text-primary"
+                    : "rounded-xl border border-border bg-background px-3 py-2 text-base text-text hover:bg-muted"
                 }
               >
                 Customer
@@ -536,8 +667,8 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                 onClick={() => handleBillingModeChange("walk-in")}
                 className={
                   billingMode === "walk-in"
-                    ? "rounded-xl border border-primary bg-primary/10 px-3 py-2 text-sm font-medium text-primary"
-                    : "rounded-xl border border-border bg-background px-3 py-2 text-sm text-text hover:bg-muted"
+                    ? "rounded-xl border border-primary bg-primary/10 px-3 py-2 text-base font-medium text-primary"
+                    : "rounded-xl border border-border bg-background px-3 py-2 text-base text-text hover:bg-muted"
                 }
               >
                 Walk-in
@@ -547,7 +678,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
             {billingMode === "customer" ? (
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <label className="block flex-1 text-xs text-muted-foreground">
+                  <label className="block flex-1 text-sm text-muted-foreground">
                     Customer
                     <div className="relative mt-1">
                       <input
@@ -564,9 +695,9 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                         aria-expanded={isCustomerListOpen}
                         aria-controls={customerListboxId}
                         aria-autocomplete="list"
-                        className="w-full rounded-xl border border-border bg-background px-3 py-2 pr-20 text-sm text-text"
+                        className="w-full rounded-xl border border-border bg-background px-3 py-2 pr-20 text-base text-text"
                       />
-                      <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
+                      <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
                         {selectedCustomer ? "Selected" : "Search"}
                       </div>
                     </div>
@@ -590,8 +721,8 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                             }}
                             className="flex w-full flex-col items-start rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-left hover:bg-primary/10"
                           >
-                            <span className="text-sm font-medium text-primary">Create new customer</span>
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-base font-medium text-primary">Create new customer</span>
+                            <span className="text-sm text-muted-foreground">
                               {customerCreateSuggestion ? `Add "${customerCreateSuggestion}" as a new customer.` : "Add a new customer from this search."}
                             </span>
                           </button>
@@ -613,15 +744,15 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                               onMouseEnter={() => setCustomerActiveIndex(index)}
                               className={
                                 isActive
-                                  ? "cursor-pointer px-3 py-2 text-sm bg-primary/10 text-primary"
-                                  : "cursor-pointer px-3 py-2 text-sm text-text hover:bg-muted"
+                                  ? "cursor-pointer px-3 py-2 text-base bg-primary/10 text-primary"
+                                  : "cursor-pointer px-3 py-2 text-base text-text hover:bg-muted"
                               }
                             >
                               <div className="flex items-center justify-between gap-3">
                                 <span className="font-medium">{customer.name}</span>
-                                {isSelected && <span className="text-xs text-muted-foreground">Selected</span>}
+                                {isSelected && <span className="text-sm text-muted-foreground">Selected</span>}
                               </div>
-                              <div className="text-xs text-muted-foreground">
+                              <div className="text-sm text-muted-foreground">
                                 {[customer.phone, customer.email].filter(Boolean).join(" • ") || "No contact details"}
                               </div>
                             </li>
@@ -639,8 +770,8 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                             }}
                             className="flex w-full flex-col items-start rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-left hover:bg-primary/10"
                           >
-                            <span className="text-sm font-medium text-primary">Create new customer</span>
-                            <span className="text-xs text-muted-foreground">Add "{customerCreateSuggestion}" as a new customer.</span>
+                            <span className="text-base font-medium text-primary">Create new customer</span>
+                            <span className="text-sm text-muted-foreground">Add "{customerCreateSuggestion}" as a new customer.</span>
                           </button>
                         </li>
                       )}
@@ -649,7 +780,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                 )}
 
                 {selectedCustomer && customerId && (
-                  <div className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground">
                     <span>
                       Selected customer: <span className="font-medium text-text">{selectedCustomer.name}</span>
                     </span>
@@ -670,27 +801,27 @@ export default function BillingTab({ clientId }: { clientId: string }) {
               </div>
             ) : (
               <div className="grid gap-2 sm:grid-cols-2">
-                <label className="block text-xs text-muted-foreground">
+                <label className="block text-sm text-muted-foreground">
                   Walk-in name
                   <input
                     value={walkInName}
                     onChange={(event) => setWalkInName(event.target.value)}
-                    className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+                    className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
                   />
                 </label>
-                <label className="block text-xs text-muted-foreground">
+                <label className="block text-sm text-muted-foreground">
                   Walk-in phone
                   <input
                     value={walkInPhone}
                     onChange={(event) => setWalkInPhone(event.target.value)}
-                    className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+                    className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
                   />
                 </label>
               </div>
             )}
           </div>
 
-          <div className="space-y-2 rounded-lg border border-border bg-card p-3 text-sm">
+          <div className="space-y-2 rounded-lg border border-border bg-card p-3 text-base">
             <div className="flex items-center justify-between text-muted-foreground">
               <span>Subtotal</span>
               <span>{formatCurrency(totals.subtotal)}</span>
@@ -703,12 +834,22 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                 min="0"
                 step="0.01"
                 type="number"
-                className="w-28 rounded-md border border-border bg-background px-2 py-1 text-right text-sm text-text"
+                className="w-28 rounded-md border border-border bg-background px-2 py-1 text-right text-base text-text"
+              />
+            </label>
+            <label className="flex items-center justify-between text-muted-foreground">
+              <span>Table Number</span>
+              <input
+                value={tableNumber}
+                onChange={(event) => setTableNumber(event.target.value)}
+                type="text"
+                placeholder="Optional"
+                className="w-28 rounded-md border border-border bg-background px-2 py-1 text-right text-base text-text"
               />
             </label>
             <div className="flex items-center justify-between border-t border-border pt-2 text-text">
               <span>Final total</span>
-              <span className="text-base font-semibold">{formatCurrency(totals.finalTotal)}</span>
+              <span className="text-lg font-semibold">{formatCurrency(totals.finalTotal)}</span>
             </div>
           </div>
 
@@ -719,10 +860,10 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                   key={`${warning}-${index}`}
                   className={
                     isOutOfStock
-                      ? "rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 text-xs text-rose-400"
+                      ? "rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 text-sm text-rose-400"
                       : isLowStock
-                        ? "rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-300"
-                        : "rounded-lg border border-border bg-card p-2 text-xs text-muted-foreground"
+                        ? "rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-sm text-amber-300"
+                        : "rounded-lg border border-border bg-card p-2 text-sm text-muted-foreground"
                   }
                 >
                   {warning}
@@ -739,42 +880,42 @@ export default function BillingTab({ clientId }: { clientId: string }) {
 
       <EntityModal open={isCustomerModalOpen} title="Add Customer" onClose={() => setIsCustomerModalOpen(false)}>
         <form className="space-y-3" onSubmit={(event) => void submitCustomerForm(event)}>
-          <label className="block text-sm text-muted-foreground">
+          <label className="block text-base text-muted-foreground">
             <span className="mb-1 block">Name</span>
             <input
               required
               value={customerForm.name}
               onChange={(event) => setCustomerForm((current) => ({ ...current, name: event.target.value }))}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
             />
           </label>
 
-          <label className="block text-sm text-muted-foreground">
+          <label className="block text-base text-muted-foreground">
             <span className="mb-1 block">Phone</span>
             <input
               value={customerForm.phone ?? ""}
               onChange={(event) => setCustomerForm((current) => ({ ...current, phone: event.target.value }))}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
             />
           </label>
 
-          <label className="block text-sm text-muted-foreground">
+          <label className="block text-base text-muted-foreground">
             <span className="mb-1 block">Email</span>
             <input
               type="email"
               value={customerForm.email ?? ""}
               onChange={(event) => setCustomerForm((current) => ({ ...current, email: event.target.value }))}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
             />
           </label>
 
-          <label className="block text-sm text-muted-foreground">
+          <label className="block text-base text-muted-foreground">
             <span className="mb-1 block">Date of birth</span>
             <input
               type="date"
               value={customerForm.dob ?? ""}
               onChange={(event) => setCustomerForm((current) => ({ ...current, dob: event.target.value }))}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
             />
           </label>
 

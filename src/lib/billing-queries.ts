@@ -20,6 +20,10 @@ function asNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function normalizeCustomerValue(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
 export async function fetchCustomers(clientId: string): Promise<CustomerRecord[]> {
   const supabase = getClient();
   const { data, error } = await supabase
@@ -52,14 +56,41 @@ export async function fetchCustomers(clientId: string): Promise<CustomerRecord[]
 
 export async function createCustomer(clientId: string, payload: CustomerPayload): Promise<CustomerRecord> {
   const supabase = getClient();
+  const normalizedName = normalizeCustomerValue(payload.name);
+  const normalizedPhone = normalizeCustomerValue(payload.phone);
+  const normalizedEmail = normalizeCustomerValue(payload.email);
+  const normalizedDob = normalizeCustomerValue(payload.dob);
+
+  const { data: existingCustomers, error: existingError } = await supabase
+    .from("customers")
+    .select("id, name, phone, email, dob, created_at, is_active")
+    .eq("client_id", clientId);
+
+  if (existingError) {
+    throw existingError;
+  }
+
+  const duplicateCustomer = (existingCustomers ?? []).find((customer: any) => {
+    return (
+      normalizeCustomerValue(customer.name) === normalizedName &&
+      normalizeCustomerValue(customer.phone) === normalizedPhone &&
+      normalizeCustomerValue(customer.email) === normalizedEmail &&
+      normalizeCustomerValue(customer.dob) === normalizedDob
+    );
+  });
+
+  if (duplicateCustomer) {
+    throw new Error("Customer already exists with the same details.");
+  }
+
   const { data, error } = await supabase
     .from("customers")
     .insert({
-    client_id: clientId,
-    name: payload.name,
-    phone: payload.phone ?? null,
-    email: payload.email ?? null,
-    dob: payload.dob ?? null,
+      client_id: clientId,
+      name: payload.name,
+      phone: payload.phone ?? null,
+      email: payload.email ?? null,
+      dob: payload.dob ?? null,
     })
     .select("id, name, phone, email, dob, created_at")
     .single();
@@ -144,6 +175,24 @@ export async function fetchProducts(clientId: string, options?: { includeInactiv
   }));
 }
 
+export async function fetchProductTypes(clientId: string): Promise<string[]> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select("type")
+    .eq("client_id", clientId)
+    .not("type", "is", null)
+    .order("type", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  // Get unique types
+  const uniqueTypes = [...new Set((data ?? []).map((row: any) => String(row.type ?? "").trim()).filter(Boolean))];
+  return uniqueTypes;
+}
+
 export async function createProduct(clientId: string, payload: ProductPayload): Promise<void> {
   const supabase = getClient();
   const { error } = await supabase.from("products").insert({
@@ -202,7 +251,7 @@ export async function fetchTransactions(clientId: string): Promise<TransactionRe
   const { data, error } = await supabase
     .from("bills")
     .select(
-      "id, created_at, total_amount, discount, final_amount, walk_in_name, customers(name, phone), bill_items(id, quantity, price, total, products(name))",
+      "id, created_at, total_amount, discount, final_amount, walk_in_name, status, table_number, customers(name, phone), bill_items(id, quantity, price, total, products(name))",
     )
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
@@ -221,6 +270,13 @@ export async function fetchTransactions(clientId: string): Promise<TransactionRe
       total_amount: asNumber(row.total_amount),
       discount: asNumber(row.discount),
       final_amount: asNumber(row.final_amount),
+      table_number: row.table_number ?? null,
+      status: (function normalizeStatus(val: any) {
+        if (val == null) return null;
+        const s = String(val).trim().toLowerCase();
+        if (s === "pending" || s === "accepted" || s === "delivered") return s as "pending" | "accepted" | "delivered";
+        return null;
+      })(row.status),
       walk_in_name: row.walk_in_name ?? null,
       customerName: customerRaw?.name ?? null,
       customerPhone: customerRaw?.phone ?? null,
@@ -236,4 +292,28 @@ export async function fetchTransactions(clientId: string): Promise<TransactionRe
       }),
     };
   });
+
 }
+
+export async function updateBillStatus(clientId: string, billId: string, status: "pending" | "accepted" | "delivered") {
+  const supabase = getClient();
+  const dbStatus = (function mapToDb(s: string) {
+    const key = String(s ?? "").trim().toLowerCase();
+    if (key === "pending") return "PENDING";
+    if (key === "accepted") return "ACCEPTED";
+    if (key === "delivered") return "DELIVERED";
+    return s;
+  })(status);
+
+  const { error } = await supabase
+    .from("bills")
+    .update({ status: dbStatus })
+    .eq("client_id", clientId)
+    .eq("id", billId);
+
+  if (error) {
+    throw error;
+  }
+}
+
+

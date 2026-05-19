@@ -259,6 +259,7 @@ export const orderService = {
     discount: number,
     customerId: string | null,
     walkInDetails: WalkInDetails,
+    tableNumber?: string | null,
   ) {
     if (cart.length === 0) {
       throw new Error("Cart is empty.");
@@ -284,7 +285,9 @@ export const orderService = {
       p_customer_id: customerId,
       p_walk_in_name: walkInDetails.name ?? null,
       p_walk_in_phone: walkInDetails.phone ?? null,
+      p_status: "ACCEPTED",
       p_discount: Math.max(0, asNumber(discount)),
+      p_table_number: tableNumber ?? null,
       p_items: cart.map((item) => ({
         product_id: item.productId,
         quantity: item.quantity,

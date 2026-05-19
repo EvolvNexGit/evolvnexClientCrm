@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 import { useIngredients } from "@/hooks/use-ingredients";
 import { useProducts } from "@/hooks/use-products";
 import { useRecipes } from "@/hooks/use-recipes";
@@ -48,19 +49,22 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
   const productState = useProducts(clientId);
   const ingredientState = useIngredients(clientId);
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [productSearchQuery, setProductSearchQuery] = useState("");
-  const [ingredientSearchQuery, setIngredientSearchQuery] = useState("");
-  const [selectedProduct, setSelectedProduct] = useState("");
-  const [selectedIngredient, setSelectedIngredient] = useState("");
-  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
-  const [sortBy, setSortBy] = useState<SortOption>("product");
-  const [collapsedProducts, setCollapsedProducts] = useState<Record<string, boolean>>({});
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [editingRecipe, setEditingRecipe] = useState<RecipeRecord | null>(null);
-  const [pendingDeleteRecipe, setPendingDeleteRecipe] = useState<RecipeRecord | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [form, setForm] = useState<RecipeFormState>(initialForm);
+  const [searchQuery, setSearchQuery] = usePersistentState("recipe-tab-search", "");
+  const [productSearchQuery, setProductSearchQuery] = usePersistentState("recipe-tab-product-search", "");
+  const [ingredientSearchQuery, setIngredientSearchQuery] = usePersistentState("recipe-tab-ingredient-search", "");
+  const [selectedProduct, setSelectedProduct] = usePersistentState("recipe-tab-selected-product", "");
+  const [selectedIngredient, setSelectedIngredient] = usePersistentState("recipe-tab-selected-ingredient", "");
+  const [showLowStockOnly, setShowLowStockOnly] = usePersistentState("recipe-tab-show-low-stock-only", false);
+  const [sortBy, setSortBy] = usePersistentState<SortOption>("recipe-tab-sort-by", "product");
+  const [collapsedProducts, setCollapsedProducts] = usePersistentState<Record<string, boolean>>("recipe-tab-collapsed-products", {});
+  const [isAddOpen, setIsAddOpen] = usePersistentState("recipe-tab-is-add-open", false);
+  const [editingRecipe, setEditingRecipe] = usePersistentState<RecipeRecord | null>("recipe-tab-editing-recipe", null);
+  const [pendingDeleteRecipe, setPendingDeleteRecipe] = usePersistentState<RecipeRecord | null>(
+    "recipe-tab-pending-delete-recipe",
+    null,
+  );
+  const [actionError, setActionError] = usePersistentState<string | null>("recipe-tab-action-error", null);
+  const [form, setForm] = usePersistentState<RecipeFormState>("recipe-tab-form", initialForm);
 
   const loading = recipeState.loading || productState.loading || ingredientState.loading;
   const error = recipeState.error || productState.error || ingredientState.error;
@@ -260,8 +264,8 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
     <div className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-text">Recipes</h3>
-          <p className="text-sm text-muted-foreground">Link products to ingredients with required quantities.</p>
+          <h3 className="text-lg font-semibold text-text">Recipes</h3>
+          <p className="text-base text-muted-foreground">Link products to ingredients with required quantities.</p>
         </div>
         <Button type="button" onClick={openAdd}>
           Add Recipe
@@ -269,22 +273,22 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
       </div>
 
       <div className="grid gap-3 rounded-xl border border-border bg-background p-3 lg:grid-cols-2">
-        <label className="block text-xs text-muted-foreground">
+        <label className="block text-sm text-muted-foreground">
           <span className="mb-1 block">Search recipes</span>
           <input
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search by product, ingredient, or unit"
-            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
+            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-base text-text"
           />
         </label>
 
-        <label className="block text-xs text-muted-foreground">
+        <label className="block text-sm text-muted-foreground">
           <span className="mb-1 block">Sort by</span>
           <select
             value={sortBy}
             onChange={(event) => setSortBy(event.target.value as SortOption)}
-            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
+            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-base text-text"
           >
             <option value="product">Product name</option>
             <option value="ingredient">Ingredient name</option>
@@ -293,19 +297,19 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
         </label>
 
         <div className="space-y-2">
-          <label className="block text-xs text-muted-foreground">
+          <label className="block text-sm text-muted-foreground">
             <span className="mb-1 block">Product filter</span>
             <input
               value={productSearchQuery}
               onChange={(event) => setProductSearchQuery(event.target.value)}
               placeholder="Search products"
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
+              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-base text-text"
             />
           </label>
           <select
             value={selectedProduct}
             onChange={(event) => setSelectedProduct(event.target.value)}
-            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
+            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-base text-text"
           >
             <option value="">All products</option>
             {filteredProductOptions.map((product) => (
@@ -317,19 +321,19 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
         </div>
 
         <div className="space-y-2">
-          <label className="block text-xs text-muted-foreground">
+          <label className="block text-sm text-muted-foreground">
             <span className="mb-1 block">Ingredient filter</span>
             <input
               value={ingredientSearchQuery}
               onChange={(event) => setIngredientSearchQuery(event.target.value)}
               placeholder="Search ingredients"
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
+              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-base text-text"
             />
           </label>
           <select
             value={selectedIngredient}
             onChange={(event) => setSelectedIngredient(event.target.value)}
-            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
+            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-base text-text"
           >
             <option value="">All ingredients</option>
             {filteredIngredientOptions.map((ingredient) => (
@@ -340,7 +344,7 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
           </select>
         </div>
 
-        <label className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2 text-xs text-muted-foreground lg:col-span-2">
+        <label className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2 text-sm text-muted-foreground lg:col-span-2">
           <span>Show low stock recipes only</span>
           <input
             type="checkbox"
@@ -351,14 +355,14 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
         </label>
 
         <div className="lg:col-span-2">
-          <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-400">
+          <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-sm text-amber-400">
             Low stock recipes: {lowStockRecipeCount}
           </span>
         </div>
       </div>
 
       {actionError && (
-        <div className="rounded-lg border border-primary/50 bg-primary/10 p-3 text-xs text-primary">{actionError}</div>
+        <div className="rounded-lg border border-primary/50 bg-primary/10 p-3 text-sm text-primary">{actionError}</div>
       )}
 
       <DataState
@@ -382,13 +386,13 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
                   className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left"
                 >
                   <div>
-                    <p className="text-sm font-semibold text-text">Product: {group.productName}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-base font-semibold text-text">Product: {group.productName}</p>
+                    <p className="text-sm text-muted-foreground">
                       {group.rows.length} ingredients
                       {lowStockInGroup > 0 ? `, ${lowStockInGroup} low stock` : ""}
                     </p>
                   </div>
-                  <span className="text-xs text-muted-foreground">{isCollapsed ? "Expand" : "Collapse"}</span>
+                  <span className="text-sm text-muted-foreground">{isCollapsed ? "Expand" : "Collapse"}</span>
                 </button>
 
                 {!isCollapsed && (
@@ -412,10 +416,10 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
                         <li key={recipe.id} className={`rounded-lg border px-3 py-3 ${rowTone}`}>
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div className="space-y-1">
-                              <p className="text-sm text-text">
+                              <p className="text-base text-text">
                                 {recipe.ingredientName} ({formatQuantity(recipe.quantity)} {recipe.quantity_unit})
                               </p>
-                              <p className={`text-xs ${stockTone}`}>
+                              <p className={`text-sm ${stockTone}`}>
                                 Stock: {formatQuantity(recipe.ingredientStock)} {recipe.ingredientStockUnit}
                                 {isNegative ? " (negative)" : isLowStock ? " (below threshold)" : ""}
                               </p>
@@ -424,7 +428,7 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
                               <button
                                 type="button"
                                 onClick={() => openEdit(recipe)}
-                                className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-text"
+                                className="rounded-md border border-border px-2 py-1 text-sm text-muted-foreground hover:text-text"
                                 disabled={saving}
                               >
                                 Edit
@@ -432,7 +436,7 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
                               <button
                                 type="button"
                                 onClick={() => setPendingDeleteRecipe(recipe)}
-                                className="rounded-md border border-primary/50 px-2 py-1 text-xs text-primary"
+                                className="rounded-md border border-primary/50 px-2 py-1 text-sm text-primary"
                                 disabled={saving}
                               >
                                 Delete
@@ -476,7 +480,7 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
 
       <EntityModal open={Boolean(pendingDeleteRecipe)} title="Confirm recipe deletion" onClose={() => setPendingDeleteRecipe(null)}>
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             Delete recipe for <span className="font-semibold text-text">{pendingDeleteRecipe?.productName}</span> and{' '}
             <span className="font-semibold text-text">{pendingDeleteRecipe?.ingredientName}</span>? This action cannot be undone.
           </p>
@@ -513,13 +517,13 @@ function RecipeForm({
 }) {
   return (
     <form className="space-y-3" onSubmit={(event) => void onSubmit(event)}>
-      <label className="block text-sm text-muted-foreground">
+      <label className="block text-base text-muted-foreground">
         <span className="mb-1 block">Product</span>
         <select
           required
           value={form.product_id}
           onChange={(event) => onChange({ ...form, product_id: event.target.value })}
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
         >
           <option value="">Select product</option>
           {products.map((product) => (
@@ -530,13 +534,13 @@ function RecipeForm({
         </select>
       </label>
 
-      <label className="block text-sm text-muted-foreground">
+      <label className="block text-base text-muted-foreground">
         <span className="mb-1 block">Ingredient</span>
         <select
           required
           value={form.ingredient_id}
           onChange={(event) => onChange({ ...form, ingredient_id: event.target.value })}
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
         >
           <option value="">Select ingredient</option>
           {ingredients.map((ingredient) => (
@@ -548,7 +552,7 @@ function RecipeForm({
       </label>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block text-sm text-muted-foreground">
+        <label className="block text-base text-muted-foreground">
           <span className="mb-1 block">Quantity</span>
           <input
             required
@@ -557,16 +561,16 @@ function RecipeForm({
             type="number"
             value={form.quantity}
             onChange={(event) => onChange({ ...form, quantity: event.target.value })}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
           />
         </label>
 
-        <label className="block text-sm text-muted-foreground">
+        <label className="block text-base text-muted-foreground">
           <span className="mb-1 block">Unit</span>
           <select
             value={form.quantity_unit}
             onChange={(event) => onChange({ ...form, quantity_unit: event.target.value as InventoryUnit })}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
           >
             {units.map((unit) => (
               <option key={unit} value={unit}>
