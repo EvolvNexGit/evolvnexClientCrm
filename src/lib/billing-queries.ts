@@ -251,7 +251,7 @@ export async function fetchTransactions(clientId: string): Promise<TransactionRe
   const { data, error } = await supabase
     .from("bills")
     .select(
-      "id, created_at, total_amount, discount, final_amount, walk_in_name, status, customers(name, phone), bill_items(id, quantity, price, total, products(name))",
+      "id, created_at, total_amount, discount, final_amount, walk_in_name, status, table_number, customers(name, phone), bill_items(id, quantity, price, total, products(name))",
     )
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
@@ -270,6 +270,7 @@ export async function fetchTransactions(clientId: string): Promise<TransactionRe
       total_amount: asNumber(row.total_amount),
       discount: asNumber(row.discount),
       final_amount: asNumber(row.final_amount),
+      table_number: row.table_number ?? null,
       status: (function normalizeStatus(val: any) {
         if (val == null) return null;
         const s = String(val).trim().toLowerCase();
