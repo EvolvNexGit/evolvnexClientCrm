@@ -30,6 +30,7 @@ type BillingSessionState = {
   selectedProductId: string;
   quantityInput: string;
   productTypeFilter: string;
+  tableNumber: string;
 };
 
 function saveBillingSession(clientId: string, state: BillingSessionState) {
@@ -79,6 +80,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
   const [quantityInput, setQuantityInput] = useState(storedSession?.quantityInput ?? "1");
   const [productTypeFilter, setProductTypeFilter] = useState(storedSession?.productTypeFilter ?? "");
   const [discountInput, setDiscountInput] = useState(storedSession?.discountInput ?? "0");
+  const [tableNumber, setTableNumber] = useState(storedSession?.tableNumber ?? "");
   const [billingMode, setBillingMode] = useState<"customer" | "walk-in">(storedSession?.billingMode ?? "walk-in");
   const [customerId, setCustomerId] = useState(storedSession?.customerId ?? "");
   const [customerSearchTerm, setCustomerSearchTerm] = useState(storedSession?.customerSearchTerm ?? "");
@@ -382,6 +384,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
       selectedProductId,
       quantityInput,
       productTypeFilter,
+      tableNumber,
     };
     saveBillingSession(clientId, sessionState);
   }, [
@@ -396,6 +399,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     selectedProductId,
     quantityInput,
     productTypeFilter,
+    tableNumber,
     clientId,
   ]);
 
@@ -459,11 +463,13 @@ export default function BillingTab({ clientId }: { clientId: string }) {
           name: billingMode === "walk-in" ? walkInName || null : null,
           phone: billingMode === "walk-in" ? walkInPhone || null : null,
         },
+        tableNumber ? Number(tableNumber) : null,
       );
 
       setCreateBillMessage(`Bill ${result.billId} created successfully.`);
       setCart([]);
       setDiscountInput("0");
+      setTableNumber("");
       setBillingMode("walk-in");
       setCustomerId("");
       setWalkInName("");
@@ -828,6 +834,18 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                 min="0"
                 step="0.01"
                 type="number"
+                className="w-28 rounded-md border border-border bg-background px-2 py-1 text-right text-base text-text"
+              />
+            </label>
+            <label className="flex items-center justify-between text-muted-foreground">
+              <span>Table Number</span>
+              <input
+                value={tableNumber}
+                onChange={(event) => setTableNumber(event.target.value)}
+                min="0"
+                step="1"
+                type="number"
+                placeholder="Optional"
                 className="w-28 rounded-md border border-border bg-background px-2 py-1 text-right text-base text-text"
               />
             </label>
