@@ -20,6 +20,13 @@ function asNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function normalizeTransactionStatus(val: unknown): "pending" | "accepted" | "delivered" | null {
+  if (val == null) return null;
+  const s = String(val).trim().toLowerCase();
+  if (s === "pending" || s === "accepted" || s === "delivered") return s;
+  return null;
+}
+
 function normalizeCustomerValue(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase();
 }
@@ -250,9 +257,7 @@ export async function fetchTransactions(clientId: string): Promise<TransactionRe
   const supabase = getClient();
   const { data, error } = await supabase
     .from("bills")
-    .select(
-      "id, created_at, total_amount, discount, final_amount, walk_in_name, status, table_number, customers(name, phone), bill_items(id, quantity, price, total, products(name))",
-    )
+    .select(TRANSACTION_SELECT_QUERY)
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
 
@@ -260,39 +265,39 @@ export async function fetchTransactions(clientId: string): Promise<TransactionRe
     throw error;
   }
 
-  return (data ?? []).map((row: any) => {
-    const customerRaw = Array.isArray(row.customers) ? row.customers[0] : row.customers;
-    const billItems = Array.isArray(row.bill_items) ? row.bill_items : [];
+  return (data ?? []).map(mapTransactionRowToRecord);
 
-    return {
-      id: String(row.id),
-      created_at: row.created_at ?? "",
-      total_amount: asNumber(row.total_amount),
-      discount: asNumber(row.discount),
-      final_amount: asNumber(row.final_amount),
-      table_number: row.table_number ?? null,
-      status: (function normalizeStatus(val: any) {
-        if (val == null) return null;
-        const s = String(val).trim().toLowerCase();
-        if (s === "pending" || s === "accepted" || s === "delivered") return s as "pending" | "accepted" | "delivered";
-        return null;
-      })(row.status),
-      walk_in_name: row.walk_in_name ?? null,
-      customerName: customerRaw?.name ?? null,
-      customerPhone: customerRaw?.phone ?? null,
-      items: billItems.map((item: any) => {
-        const productRaw = Array.isArray(item.products) ? item.products[0] : item.products;
-        return {
-          id: String(item.id),
-          quantity: asNumber(item.quantity),
-          price: asNumber(item.price),
-          total: asNumber(item.total),
-          productName: productRaw?.name ?? "Unknown product",
-        };
-      }),
-    };
-  });
+}
 
+export const TRANSACTION_SELECT_QUERY =
+  "id, created_at, total_amount, discount, final_amount, walk_in_name, status, table_number, customers(name, phone), bill_items(id, quantity, price, total, products(name))";
+
+export function mapTransactionRowToRecord(row: any): TransactionRecord {
+  const customerRaw = Array.isArray(row.customers) ? row.customers[0] : row.customers;
+  const billItems = Array.isArray(row.bill_items) ? row.bill_items : [];
+
+  return {
+    id: String(row.id),
+    created_at: row.created_at ?? "",
+    total_amount: asNumber(row.total_amount),
+    discount: asNumber(row.discount),
+    final_amount: asNumber(row.final_amount),
+    table_number: row.table_number ?? null,
+    status: normalizeTransactionStatus(row.status),
+    walk_in_name: row.walk_in_name ?? null,
+    customerName: customerRaw?.name ?? null,
+    customerPhone: customerRaw?.phone ?? null,
+    items: billItems.map((item: any) => {
+      const productRaw = Array.isArray(item.products) ? item.products[0] : item.products;
+      return {
+        id: String(item.id),
+        quantity: asNumber(item.quantity),
+        price: asNumber(item.price),
+        total: asNumber(item.total),
+        productName: productRaw?.name ?? "Unknown product",
+      };
+    }),
+  };
 }
 
 export async function updateBillStatus(clientId: string, billId: string, status: "pending" | "accepted" | "delivered") {
@@ -315,5 +320,4 @@ export async function updateBillStatus(clientId: string, billId: string, status:
     throw error;
   }
 }
-
 

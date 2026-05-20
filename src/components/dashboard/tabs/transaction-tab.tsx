@@ -1,11 +1,13 @@
 "use client";
 
 import { TransactionList } from "@/components/dashboard/billing/transaction-list";
+import { useRealtimeTransactions } from "@/hooks/use-realtime-transactions";
 import { useTransactions } from "@/hooks/use-transactions";
 import { updateBillStatus } from "@/lib/billing-queries";
 
 export default function TransactionTab({ clientId }: { clientId: string }) {
   const transactionState = useTransactions(clientId);
+  const realtimeTransactions = useRealtimeTransactions(transactionState.transactions, clientId);
 
   async function handleUpdateStatus(id: string, status: "pending" | "accepted" | "delivered") {
     try {
@@ -27,7 +29,7 @@ export default function TransactionTab({ clientId }: { clientId: string }) {
       </div>
 
       <TransactionList
-        transactions={transactionState.transactions}
+        transactions={realtimeTransactions}
         loading={transactionState.loading}
         error={transactionState.error}
         onUpdateStatus={handleUpdateStatus}
