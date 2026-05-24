@@ -12,6 +12,7 @@ import {
   Menu,
   PanelLeftClose,
   PanelRightClose,
+  Tag,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -49,6 +50,10 @@ const BillingCrmTab = dynamic(() => import("./tabs/billing-crm-tab"), {
   loading: () => <TabLoading />,
 });
 
+const PromosTab = dynamic(() => import("./tabs/promos-tab"), {
+  loading: () => <TabLoading />,
+});
+
 function TabLoading() {
   return (
     <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-border bg-card text-base text-muted-foreground">
@@ -66,6 +71,8 @@ function getTabIcon(tab: TabDefinition) {
       return Home;
     case "calendar":
       return CalendarDays;
+    case "tag":
+      return Tag;
     default:
       return ChevronRight;
   }
@@ -354,6 +361,9 @@ export function DashboardPage() {
             )}
             {displayTab?.key === "billing" && (
               <BillingTab clientId={clientId} />
+            )}
+            {displayTab?.key === "promos" && (
+              <PromosTab clientId={clientId} />
             )}
             {displayTab?.key === "ingredients" && (
               <IngredientTab clientId={clientId} />

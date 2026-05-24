@@ -14,6 +14,7 @@ const DB_KEY_TO_CODE_KEY: Record<string, string> = {
   "007": "customer",
   "008": "product",
   "009": "transaction",
+  "010": "promos",
 };
 
 function toPermissions(value: unknown): string[] {
