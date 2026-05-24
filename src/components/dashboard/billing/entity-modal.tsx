@@ -7,9 +7,10 @@ type EntityModalProps = {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  contentClassName?: string;
 };
 
-export function EntityModal({ open, title, onClose, children }: EntityModalProps) {
+export function EntityModal({ open, title, onClose, children, contentClassName }: EntityModalProps) {
   if (!open) {
     return null;
   }
@@ -17,7 +18,7 @@ export function EntityModal({ open, title, onClose, children }: EntityModalProps
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4" onClick={onClose}>
       <div
-        className="w-full max-w-lg rounded-2xl border border-border bg-card p-5 shadow-soft"
+        className={`w-full rounded-2xl border border-border bg-card p-5 shadow-soft ${contentClassName ?? "max-w-lg"}`}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between gap-3">

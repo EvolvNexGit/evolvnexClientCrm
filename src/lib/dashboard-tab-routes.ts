@@ -3,6 +3,7 @@ export const DASHBOARD_TAB_ROUTES: Record<string, string> = {
   appointments: "/dashboard/appointments",
   subscription: "/dashboard/subscription",
   billing: "/dashboard/billing",
+  promos: "/dashboard/promos",
   ingredients: "/dashboard/ingredients",
   recipes: "/dashboard/recipes",
   customer: "/dashboard/customer",
