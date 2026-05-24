@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 import { useProducts } from "@/hooks/use-products";
 import { useCustomers } from "@/hooks/use-customers";
+import { usePromotions } from "@/hooks/use-promotions";
 import { orderService, type CartItem } from "@/lib/orderService";
 import type { CustomerPayload } from "@/lib/billing-types";
+import type { PromotionRecord } from "@/lib/promotion-types";
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -14,6 +16,124 @@ function formatCurrency(amount: number) {
     currency: "INR",
     maximumFractionDigits: 2,
   }).format(amount || 0);
+}
+
+function formatNumberInput(amount: number) {
+  return Number.isFinite(amount) ? amount.toFixed(2) : "0.00";
+}
+
+function parseDateOrNull(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function titleCase(value: string) {
+  return value
+    .toLowerCase()
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function getPromoDiscountAmount(
+  promo: PromotionRecord,
+  subtotal: number,
+  cart: CartItem[],
+  productsById: Map<string, { id: string; name: string; type: string | null; price: number }>,
+) {
+  switch (promo.promo_type) {
+    case "PERCENTAGE": {
+      const percentage = promo.discount_percentage ?? 0;
+      const baseAmount = (subtotal * percentage) / 100;
+      const cappedAmount = promo.max_discount_amount == null ? baseAmount : Math.min(baseAmount, promo.max_discount_amount);
+      return Math.max(0, cappedAmount);
+    }
+    case "FLAT":
+    case "CASHBACK":
+      return Math.max(0, promo.discount_flat_amount ?? 0);
+    case "FREE_ITEM": {
+      const freeProduct = promo.free_product_id ? productsById.get(promo.free_product_id) : null;
+      const unitPrice = freeProduct?.price ?? cart[0]?.unitPrice ?? 0;
+      const quantity = promo.free_item_quantity ?? 0;
+      return Math.max(0, unitPrice * quantity);
+    }
+    case "BUY_X_GET_Y": {
+      const buyProduct = promo.buy_product_id ? productsById.get(promo.buy_product_id) : null;
+      const targetProduct = promo.get_product_id ? productsById.get(promo.get_product_id) : buyProduct;
+      const unitPrice = targetProduct?.price ?? cart[0]?.unitPrice ?? 0;
+      const quantity = promo.get_quantity ?? 0;
+      return Math.max(0, unitPrice * quantity);
+    }
+    case "FREE_DELIVERY":
+      return 0;
+    case "HAPPY_HOUR":
+    case "FIRST_ORDER":
+    case "LOYALTY":
+    case "SUBSCRIPTION":
+      if (promo.discount_percentage != null) {
+        return Math.max(0, (subtotal * promo.discount_percentage) / 100);
+      }
+      if (promo.discount_flat_amount != null) {
+        return Math.max(0, promo.discount_flat_amount);
+      }
+      return 0;
+    default:
+      return 0;
+  }
+}
+
+function getPromoEligibilityReason(
+  promo: PromotionRecord,
+  subtotal: number,
+  cart: CartItem[],
+  productsById: Map<string, { id: string; name: string; type: string | null; price: number }>,
+) {
+  if (promo.status !== "ACTIVE") {
+    return "Inactive";
+  }
+
+  const startDate = parseDateOrNull(promo.start_date);
+  const endDate = parseDateOrNull(promo.end_date);
+  const now = new Date();
+
+  if (startDate && startDate > now) {
+    return "Starts later";
+  }
+
+  if (endDate && endDate < now) {
+    return "Expired";
+  }
+
+  if (promo.total_usage_limit != null && promo.current_usage_count != null && promo.current_usage_count >= promo.total_usage_limit) {
+    return "Usage limit reached";
+  }
+
+  if (promo.min_order_amount != null && subtotal < promo.min_order_amount) {
+    return `Min order ${formatCurrency(promo.min_order_amount)}`;
+  }
+
+  const cartProductIds = new Set(cart.map((item) => item.productId));
+  const cartProductTypes = new Set(cart.map((item) => item.type).filter((value): value is string => Boolean(value)));
+
+  if (promo.targetProductIds.length > 0 && !promo.targetProductIds.some((id) => cartProductIds.has(id))) {
+    return "Not in cart";
+  }
+
+  if (promo.targetProductTypes.length > 0 && !promo.targetProductTypes.some((type) => cartProductTypes.has(type))) {
+    return "Wrong product type";
+  }
+
+  const discountAmount = getPromoDiscountAmount(promo, subtotal, cart, productsById);
+  if (discountAmount <= 0) {
+    return "No discount value";
+  }
+
+  return null;
 }
 
 const BILLING_SESSION_KEY = (clientId: string) => `billing-session-${clientId}`;
@@ -26,6 +146,8 @@ type BillingSessionState = {
   walkInName: string;
   walkInPhone: string;
   discountInput: string;
+  selectedPromoId: string;
+  discountMode: "manual" | "promos";
   productSearchTerm: string;
   selectedProductId: string;
   quantityInput: string;
@@ -70,6 +192,7 @@ function clearBillingSession(clientId: string) {
 export default function BillingTab({ clientId }: { clientId: string }) {
   const productState = useProducts(clientId);
   const customerState = useCustomers(clientId);
+  const promotionState = usePromotions(clientId);
 
   // Load initial state from session
   const storedSession = loadBillingSession(clientId);
@@ -102,9 +225,16 @@ export default function BillingTab({ clientId }: { clientId: string }) {
   const [isOutOfStock, setIsOutOfStock] = useState(false);
   const [isCreatingBill, setIsCreatingBill] = useState(false);
   const [createBillMessage, setCreateBillMessage] = useState<string | null>(null);
+  const [selectedPromoId, setSelectedPromoId] = useState(storedSession?.selectedPromoId ?? "");
+  const [discountMode, setDiscountMode] = useState<"manual" | "promos">(storedSession?.discountMode ?? "manual");
 
-  const loading = productState.loading || customerState.loading;
-  const loadError = productState.error || customerState.error;
+  const loading = productState.loading || customerState.loading || promotionState.loading;
+  const loadError = productState.error || customerState.error || promotionState.error;
+
+  const productsById = useMemo(
+    () => new Map(productState.products.map((product) => [product.id, product] as const)),
+    [productState.products],
+  );
 
   const filteredProducts = useMemo(() => {
     const query = productSearchTerm.trim().toLowerCase();
@@ -144,6 +274,35 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     [customerId, customerState.customers],
   );
 
+  const subtotal = useMemo(() => orderService.calculateTotals(cart, 0).subtotal, [cart]);
+
+  const eligiblePromotions = useMemo(() => {
+    return promotionState.promotions
+      .filter((promotion) => getPromoEligibilityReason(promotion, subtotal, cart, productsById) == null)
+      .sort((left, right) => {
+        const leftPriority = left.priority ?? 0;
+        const rightPriority = right.priority ?? 0;
+        if (leftPriority !== rightPriority) {
+          return rightPriority - leftPriority;
+        }
+
+        return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+      });
+  }, [cart, productsById, promotionState.promotions, subtotal]);
+
+  const selectedPromotion = useMemo(
+    () => promotionState.promotions.find((promotion) => promotion.id === selectedPromoId) ?? null,
+    [promotionState.promotions, selectedPromoId],
+  );
+
+  const selectedPromoDiscount = useMemo(() => {
+    if (!selectedPromotion) {
+      return 0;
+    }
+
+    return getPromoDiscountAmount(selectedPromotion, subtotal, cart, productsById);
+  }, [cart, productsById, selectedPromotion, subtotal]);
+
   const discountValue = Number(discountInput || 0);
   const totals = useMemo(() => orderService.calculateTotals(cart, discountValue), [cart, discountValue]);
 
@@ -164,6 +323,19 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     }
 
     setCustomerId("");
+  }
+
+  function clearSelectedPromo() {
+    setSelectedPromoId("");
+  }
+
+  function applyPromo(promotion: PromotionRecord) {
+    const discountAmount = getPromoDiscountAmount(promotion, subtotal, cart, productsById);
+    setSelectedPromoId(promotion.id);
+    setDiscountInput(formatNumberInput(discountAmount));
+    setDiscountMode("manual");
+    setCartActionError(null);
+    setCreateBillMessage(null);
   }
 
   function openCustomerCombobox() {
@@ -380,6 +552,8 @@ export default function BillingTab({ clientId }: { clientId: string }) {
       walkInName,
       walkInPhone,
       discountInput,
+      selectedPromoId,
+      discountMode,
       productSearchTerm,
       selectedProductId,
       quantityInput,
@@ -395,6 +569,8 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     walkInName,
     walkInPhone,
     discountInput,
+    selectedPromoId,
+    discountMode,
     productSearchTerm,
     selectedProductId,
     quantityInput,
@@ -402,6 +578,14 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     tableNumber,
     clientId,
   ]);
+
+  useEffect(() => {
+    if (!selectedPromotion) {
+      return;
+    }
+
+    setDiscountInput(formatNumberInput(selectedPromoDiscount));
+  }, [selectedPromoDiscount, selectedPromotion]);
 
   function handleAddToCart() {
     setCartActionError(null);
@@ -425,6 +609,14 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     setSelectedProductId("");
     setQuantityInput("1");
     setIsProductListOpen(false);
+
+    if (selectedPromoId) {
+      const nextPromotion = promotionState.promotions.find((promotion) => promotion.id === selectedPromoId) ?? null;
+      if (nextPromotion) {
+        const nextSubtotal = orderService.calculateTotals(nextCart, 0).subtotal;
+        setDiscountInput(formatNumberInput(getPromoDiscountAmount(nextPromotion, nextSubtotal, nextCart, productsById)));
+      }
+    }
   }
 
   function increaseQuantity(productId: string) {
@@ -449,6 +641,27 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     setCart(orderService.removeItem(cart, productId));
   }
 
+  function handleManualDiscountChange(value: string) {
+    clearSelectedPromo();
+    setDiscountInput(value);
+  }
+
+  function getPromoBadge(promo: PromotionRecord) {
+    if (promo.promo_type === "PERCENTAGE" && promo.discount_percentage != null) {
+      return `${promo.discount_percentage}% off`;
+    }
+
+    if ((promo.promo_type === "FLAT" || promo.promo_type === "CASHBACK") && promo.discount_flat_amount != null) {
+      return formatCurrency(promo.discount_flat_amount);
+    }
+
+    if (promo.promo_type === "FREE_ITEM" && promo.free_item_quantity != null) {
+      return `${promo.free_item_quantity} free item${promo.free_item_quantity > 1 ? "s" : ""}`;
+    }
+
+    return titleCase(promo.promo_type);
+  }
+
   async function handleCreateBill() {
     setCartActionError(null);
     setCreateBillMessage(null);
@@ -469,6 +682,8 @@ export default function BillingTab({ clientId }: { clientId: string }) {
       setCreateBillMessage(`Bill ${result.billId} created successfully.`);
       setCart([]);
       setDiscountInput("0");
+      setSelectedPromoId("");
+      setDiscountMode("manual");
       setTableNumber("");
       setBillingMode("walk-in");
       setCustomerId("");
@@ -821,22 +1036,109 @@ export default function BillingTab({ clientId }: { clientId: string }) {
             )}
           </div>
 
-          <div className="space-y-2 rounded-lg border border-border bg-card p-3 text-base">
+          <div className="space-y-3 rounded-lg border border-border bg-card p-3 text-base">
             <div className="flex items-center justify-between text-muted-foreground">
               <span>Subtotal</span>
               <span>{formatCurrency(totals.subtotal)}</span>
             </div>
-            <label className="flex items-center justify-between text-muted-foreground">
-              <span>Discount</span>
-              <input
-                value={discountInput}
-                onChange={(event) => setDiscountInput(event.target.value)}
-                min="0"
-                step="0.01"
-                type="number"
-                className="w-28 rounded-md border border-border bg-background px-2 py-1 text-right text-base text-text"
-              />
-            </label>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setDiscountMode("manual")}
+                className={
+                  discountMode === "manual"
+                    ? "rounded-full border border-primary bg-primary/10 px-3 py-1 text-sm font-medium text-primary"
+                    : "rounded-full border border-border bg-background px-3 py-1 text-sm text-text"
+                }
+              >
+                Manual discount
+              </button>
+              <button
+                type="button"
+                onClick={() => setDiscountMode("promos")}
+                className={
+                  discountMode === "promos"
+                    ? "rounded-full border border-primary bg-primary/10 px-3 py-1 text-sm font-medium text-primary"
+                    : "rounded-full border border-border bg-background px-3 py-1 text-sm text-text"
+                }
+              >
+                Eligible promos
+              </button>
+            </div>
+
+            {discountMode === "promos" ? (
+              <div className="space-y-2 rounded-xl border border-border bg-background p-3">
+                {eligiblePromotions.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">No eligible promos for the current cart.</div>
+                ) : (
+                  eligiblePromotions.map((promotion) => {
+                    const discountAmount = getPromoDiscountAmount(promotion, subtotal, cart, productsById);
+                    const isSelected = promotion.id === selectedPromoId;
+
+                    return (
+                      <button
+                        key={promotion.id}
+                        type="button"
+                        onClick={() => applyPromo(promotion)}
+                        className={
+                          isSelected
+                            ? "flex w-full flex-col items-start gap-1 rounded-xl border border-primary bg-primary/10 px-3 py-3 text-left"
+                            : "flex w-full flex-col items-start gap-1 rounded-xl border border-border bg-card px-3 py-3 text-left hover:bg-muted/50"
+                        }
+                      >
+                        <div className="flex w-full items-center justify-between gap-3">
+                          <span className="font-medium text-text">{promotion.name}</span>
+                          <span className="rounded-full border border-border bg-background px-2 py-1 text-xs text-muted-foreground">
+                            {getPromoBadge(promotion)}
+                          </span>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {promotion.code ? `${promotion.code} • ` : ""}
+                          {formatCurrency(discountAmount)} discount
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            ) : (
+              <label className="flex items-center justify-between text-muted-foreground">
+                <span>Discount</span>
+                <input
+                  value={discountInput}
+                  onChange={(event) => handleManualDiscountChange(event.target.value)}
+                  min="0"
+                  step="0.01"
+                  type="number"
+                  className="w-28 rounded-md border border-border bg-background px-2 py-1 text-right text-base text-text"
+                />
+              </label>
+            )}
+
+            {selectedPromotion && (
+              <div className="rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-sm text-primary">
+                Applied promo: <span className="font-medium">{selectedPromotion.name}</span> ({formatCurrency(selectedPromoDiscount)})
+              </div>
+            )}
+
+            {selectedPromotion && (
+              <button
+                type="button"
+                onClick={() => {
+                  clearSelectedPromo();
+                  setDiscountInput("0");
+                }}
+                className="text-left text-sm text-muted-foreground hover:text-text"
+              >
+                Clear applied promo
+              </button>
+            )}
+
+            {discountMode === "manual" && (
+              <div className="text-xs text-muted-foreground">Use a promo from the promos tab or enter a manual discount.</div>
+            )}
+
             <label className="flex items-center justify-between text-muted-foreground">
               <span>Table Number</span>
               <input
