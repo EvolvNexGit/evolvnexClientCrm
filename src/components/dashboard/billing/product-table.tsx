@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Download, Filter, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
@@ -56,18 +57,21 @@ export function ProductTable({
   const [form, setForm] = usePersistentState<ProductFormState>("product-table-form", initialForm);
   const [actionError, setActionError] = usePersistentState<string | null>("product-table-action-error", null);
   const [searchQuery, setSearchQuery] = usePersistentState("product-table-search", "");
+  const [statusFilter, setStatusFilter] = usePersistentState("product-table-status-filter", "");
+  const [productTypeFilter, setProductTypeFilter] = usePersistentState("product-table-type-filter", "");
 
   const filteredProducts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) {
-      return products;
-    }
 
     return products.filter((product) => {
       const haystack = [product.name, product.type ?? ""].join(" ").toLowerCase();
-      return haystack.includes(query);
+      const matchesQuery = !query || haystack.includes(query);
+      const matchesStatus = !statusFilter ? true : statusFilter === "active" ? product.is_active : !product.is_active;
+      const matchesType = !productTypeFilter ? true : (product.type ?? "") === productTypeFilter;
+
+      return matchesQuery && matchesStatus && matchesType;
     });
-  }, [products, searchQuery]);
+  }, [products, searchQuery, statusFilter, productTypeFilter]);
 
   const hasRows = useMemo(() => filteredProducts.length > 0, [filteredProducts]);
 
@@ -158,27 +162,69 @@ export function ProductTable({
   }
 
   return (
-    <div className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold text-text">Products</h3>
-          <p className="text-base text-muted-foreground">All products are listed, including deactivated entries.</p>
+    <div className="space-y-4 rounded-[28px] border border-white/10 bg-[#080808] p-5 text-white shadow-[0_20px_60px_rgba(0,0,0,0.45)] sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-1">
+          <div className="text-sm font-semibold uppercase tracking-[0.3em] text-red-500">Dashboard</div>
+          <h3 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Products</h3>
+          <p className="max-w-2xl text-sm text-white/70 sm:text-base">Manage all your products live.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" onClick={exportProductsCsv} disabled={filteredProducts.length === 0}>
-            Export CSV
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={exportProductsCsv}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-black/30 text-white/80 transition hover:border-white/20 hover:bg-white/5 hover:text-white"
+            aria-label="Download products CSV"
+            title="Download CSV"
+          >
+            <Download className="h-5 w-5" />
+          </button>
+          <Button type="button" onClick={openAdd} className="h-11 rounded-2xl bg-red-600 px-6 text-base font-semibold text-white hover:bg-red-500">
+            Add product
           </Button>
-          <Button type="button" onClick={openAdd}>Add Product</Button>
         </div>
       </div>
 
-      <div>
-        <input
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Search by name or type"
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
-        />
+      <div className="grid gap-3 lg:grid-cols-[1.7fr_0.8fr_0.8fr]">
+        <label className="relative block text-sm text-white/70">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" />
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search by product name or type"
+            className="h-11 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-text placeholder:text-muted-foreground outline-none transition focus:border-red-500/60 focus:ring-2 focus:ring-red-500/20"
+          />
+        </label>
+
+        <label className="relative block text-sm text-white/70">
+          <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" />
+          <select
+            value={productTypeFilter}
+            onChange={(e) => setProductTypeFilter(e.target.value)}
+            className="h-11 w-full appearance-none rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-text outline-none transition focus:border-red-500/60 focus:ring-2 focus:ring-red-500/20"
+          >
+            <option value="">All types</option>
+            {productTypes.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="relative block text-sm text-white/70">
+          <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="h-11 w-full appearance-none rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-text outline-none transition focus:border-red-500/60 focus:ring-2 focus:ring-red-500/20"
+          >
+            <option value="">Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Not Active</option>
+          </select>
+        </label>
       </div>
 
       {actionError && (
@@ -193,30 +239,37 @@ export function ProductTable({
       />
 
       {hasRows && !loading && !error && (
-        <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="min-w-full divide-y divide-border text-base">
-            <thead className="bg-muted text-left text-sm uppercase tracking-wide text-muted-foreground">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-white/10 text-base">
+            <thead className="bg-black/20 text-left text-sm uppercase tracking-[0.2em] text-white/45">
               <tr>
                 <th className="px-3 py-3">Name</th>
                 <th className="px-3 py-3">Price</th>
                 <th className="px-3 py-3">Type</th>
                 <th className="px-3 py-3">Status</th>
-                <th className="px-3 py-3">Actions</th>
+                <th className="px-3 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-white/10">
               {filteredProducts.map((product) => (
-                <tr key={product.id} className="hover:bg-muted/40">
-                  <td className="px-3 py-3 text-text">{product.name}</td>
-                  <td className="px-3 py-3 text-muted-foreground">{formatCurrency(product.price)}</td>
-                  <td className="px-3 py-3 text-muted-foreground">{product.type ?? "-"}</td>
-                  <td className="px-3 py-3 text-muted-foreground">{product.is_active ? "Active" : "Inactive"}</td>
-                  <td className="px-3 py-3">
-                    <div className="flex flex-wrap gap-2">
+                <tr key={product.id} className="hover:bg-white/[0.03]">
+                  <td className="px-4 py-4">
+                    <div className="font-medium text-white">{product.name}</div>
+                    <div className="text-xs text-white/55">{product.type ?? "-"}</div>
+                  </td>
+                  <td className="px-4 py-4 text-white/80">{formatCurrency(product.price)}</td>
+                  <td className="px-4 py-4 text-white/70">{product.type ?? "-"}</td>
+                  <td className="px-4 py-4">
+                    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                      product.is_active ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-red-500/30 bg-red-500/10 text-red-300"
+                    }`}>{product.is_active ? "ACTIVE" : "NOT ACTIVE"}</span>
+                  </td>
+                  <td className="px-4 py-4 text-right">
+                    <div className="flex justify-end items-center gap-2 min-w-[160px]">
                       <button
                         type="button"
                         onClick={() => openEdit(product)}
-                        className="rounded-md border border-border px-2 py-1 text-sm text-muted-foreground hover:text-text"
+                        className="inline-flex items-center justify-center w-24 gap-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white/70 transition hover:border-white/20 hover:text-white"
                         disabled={saving}
                       >
                         Edit
@@ -224,14 +277,12 @@ export function ProductTable({
                       <button
                         type="button"
                         onClick={() => void onToggle(product.id, !product.is_active)}
-                        className={`rounded-md border px-2 py-1 text-sm ${
-                          product.is_active
-                            ? "border-primary/50 text-primary"
-                            : "border-emerald-500/50 text-emerald-400"
+                        className={`inline-flex items-center justify-center w-24 gap-1 rounded-xl border px-3 py-2 text-xs font-semibold uppercase tracking-wide ${
+                          product.is_active ? "border-red-500/30 bg-red-500/10 text-red-300" : "border-white/10 bg-black/10 text-white/80"
                         }`}
                         disabled={saving}
                       >
-                        {product.is_active ? "Deactivate" : "Activate"}
+                        {product.is_active ? "DEACTIVATE" : "ACTIVATE"}
                       </button>
                     </div>
                   </td>
