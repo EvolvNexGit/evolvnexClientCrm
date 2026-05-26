@@ -102,7 +102,7 @@ export function TransactionList({ transactions, loading, error, onUpdateStatus }
 
         return [
           transaction.id,
-          transaction.created_at,
+          formatUtcToIst(transaction.created_at),
           displayCustomer,
           transaction.customerPhone ?? "",
           String(transaction.total_amount),

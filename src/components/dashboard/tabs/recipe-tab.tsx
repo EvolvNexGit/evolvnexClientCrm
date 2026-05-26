@@ -10,6 +10,7 @@ import { useIngredients } from "@/hooks/use-ingredients";
 import { useProducts } from "@/hooks/use-products";
 import { useRecipes } from "@/hooks/use-recipes";
 import type { InventoryUnit, RecipePayload, RecipeRecord } from "@/lib/inventory-types";
+import { formatUtcToIst } from "@/lib/time-utils";
 
 const units: InventoryUnit[] = ["g", "kg", "ml", "l", "unit"];
 
@@ -170,7 +171,7 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
         formatQuantity(recipe.ingredientStock),
         recipe.ingredientStockUnit,
         isRecipeNegativeStock(recipe) ? "negative" : isRecipeLowStock(recipe) ? "low_stock" : "normal",
-        recipe.created_at,
+        formatUtcToIst(recipe.created_at),
       ]),
     ];
 

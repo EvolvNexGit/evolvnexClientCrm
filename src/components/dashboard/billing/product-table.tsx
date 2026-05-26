@@ -7,6 +7,7 @@ import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import type { ProductPayload, ProductRecord } from "@/lib/billing-types";
+import { formatUtcToIst } from "@/lib/time-utils";
 
 type ProductTableProps = {
   products: ProductRecord[];
@@ -96,7 +97,7 @@ export function ProductTable({
         String(product.price),
         product.type ?? "",
         product.is_active ? "Active" : "Inactive",
-        product.created_at,
+        formatUtcToIst(product.created_at),
       ]),
     ];
     downloadCsv("products.csv", rows);

@@ -100,12 +100,12 @@ export function CustomerTable({
   function exportCustomersCsv() {
     const rows = [
       ["Name", "Phone", "Email", "DOB", "Created", "Orders", "Total Spent"],
-        ...filteredCustomers.map((customer) => [
+      ...filteredCustomers.map((customer) => [
         customer.name,
         customer.phone ?? "",
         customer.email ?? "",
         customer.dob ?? "",
-        customer.created_at,
+        formatUtcToIst(customer.created_at),
         String(customer.totalOrders),
         String(customer.totalSpent),
       ]),
