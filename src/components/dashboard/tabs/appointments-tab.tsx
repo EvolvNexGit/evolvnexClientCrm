@@ -1,10 +1,22 @@
 "use client";
 
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, ChevronDown, Loader2 } from "lucide-react";
-import { getSupabaseClient } from "@/lib/supabase";
+import {
+  CalendarDays,
+  ChevronDown,
+  Clock3,
+  Edit3,
+  Filter,
+  Loader2,
+  MapPin,
+  Plus,
+  Search,
+  X,
+} from "lucide-react";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 import { usePersistentState } from "@/hooks/use-persistent-state";
+import { formatUtcToIst } from "@/lib/time-utils";
+import { getSupabaseClient } from "@/lib/supabase";
 
 type AppointmentRow = {
   id: string;
@@ -12,6 +24,7 @@ type AppointmentRow = {
   phone: string | null;
   email: string | null;
   service: string | null;
+  staff_name: string | null;
   location: string | null;
   date: string | null;
   start_time: string | null;
@@ -25,6 +38,7 @@ type AppointmentFormState = {
   phone: string;
   email: string;
   service: string;
+  staff_name: string;
   location: string;
   date: string;
   start_time: string;
@@ -39,6 +53,125 @@ type PendingStatusChange = {
   nextStatus: "tentative" | "booked" | "cancelled" | "completed";
 };
 
+type ModalMode = "add" | "edit" | "reschedule" | null;
+
+type GroupKey = "today" | "tomorrow" | "upcoming" | "past";
+
+const initialForm: AppointmentFormState = {
+  name: "",
+  phone: "",
+  email: "",
+  service: "",
+  staff_name: "",
+  location: "",
+  date: "",
+  start_time: "",
+  end_time: "",
+  status: "tentative",
+  remark: "",
+};
+
+function toNullable(value: string) {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function formatTimeRange(date: string | null, startTime: string | null, endTime?: string | null) {
+  if (!date || !startTime) return "-";
+
+  const toHHMM = (isoDateTime: string) => {
+    // If already a full ISO datetime, parse directly; otherwise assume it's a time like HH:mm or HH:mm:ss
+    const input = String(isoDateTime).trim();
+    let d: Date;
+    if (input.includes("T") || input.endsWith("Z")) {
+      d = new Date(input);
+    } else if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(input)) {
+      // time-only, combine with provided date
+      d = new Date(`${date}T${input}${input.endsWith("Z") ? "" : ":00Z"}`);
+    } else {
+      d = new Date(input);
+    }
+
+    if (Number.isNaN(d.getTime())) return isoDateTime;
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(d);
+  };
+
+  const startCombined = startTime && (startTime.includes("T") || startTime.endsWith("Z")) ? startTime : `${date}T${startTime}:00Z`;
+  const startPart = toHHMM(startCombined);
+  if (!endTime) return startPart;
+
+  const endCombined = endTime && (endTime.includes("T") || endTime.endsWith("Z")) ? endTime : `${date}T${endTime}:00Z`;
+  const endPart = toHHMM(endCombined);
+
+  return `${startPart} - ${endPart}`;
+}
+
+function getDuration(startTime: string | null, endTime: string | null) {
+  if (!startTime || !endTime) {
+    return "-";
+  }
+
+  const [startHours = 0, startMinutes = 0] = startTime.split(":").map(Number);
+  const [endHours = 0, endMinutes = 0] = endTime.split(":").map(Number);
+  const minutes = endHours * 60 + endMinutes - (startHours * 60 + startMinutes);
+
+  if (minutes <= 0) {
+    return "-";
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (hours > 0 && remainingMinutes > 0) {
+    return `${hours}h ${remainingMinutes}m`;
+  }
+
+  if (hours > 0) {
+    return `${hours}h`;
+  }
+
+  return `${remainingMinutes}m`;
+}
+
+function getInitials(name: string | null) {
+  if (!name) {
+    return "?";
+  }
+
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "?";
+}
+
+function getGroupKey(date: string | null): GroupKey {
+  if (!date) {
+    return "upcoming";
+  }
+
+  const today = formatUtcToIst(new Date().toISOString()).slice(0, 10);
+  const tomorrowDate = new Date();
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const tomorrow = formatUtcToIst(tomorrowDate.toISOString()).slice(0, 10);
+
+  if (date === today) {
+    return "today";
+  }
+
+  if (date === tomorrow) {
+    return "tomorrow";
+  }
+
+  return date < today ? "past" : "upcoming";
+}
+
 export default function AppointmentsTab({ clientId }: { clientId: string }) {
   const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,6 +180,8 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   const [locationFilter, setLocationFilter] = usePersistentState("appointments-tab-location-filter", "all");
   const [statusFilter, setStatusFilter] = usePersistentState("appointments-tab-status-filter", "all");
   const [serviceFilter, setServiceFilter] = usePersistentState("appointments-tab-service-filter", "all");
+  const [staffFilter, setStaffFilter] = usePersistentState("appointments-tab-staff-filter", "all");
+  const [searchQuery, setSearchQuery] = usePersistentState("appointments-tab-search-query", "");
   const [dateFilter, setDateFilter] = usePersistentState("appointments-tab-date-filter", "");
   const [dateFilterMode, setDateFilterMode] = usePersistentState<"day" | "month" | "year">(
     "appointments-tab-date-filter-mode",
@@ -57,44 +192,55 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     "date",
   );
   const [sortOrder, setSortOrder] = usePersistentState<"asc" | "desc">("appointments-tab-sort-order", "asc");
-  const [showAddForm, setShowAddForm] = usePersistentState("appointments-tab-show-add-form", false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
+  const [modalMode, setModalMode] = useState<ModalMode>(null);
+  const [editingAppointment, setEditingAppointment] = useState<AppointmentRow | null>(null);
   const [addError, setAddError] = usePersistentState<string | null>("appointments-tab-add-error", null);
+  const [isSaving, setIsSaving] = useState(false);
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
   const [pendingStatusChange, setPendingStatusChange] = useState<PendingStatusChange | null>(null);
   const [statusChangeError, setStatusChangeError] = usePersistentState<string | null>("appointments-tab-status-change-error", null);
-  const [newAppointment, setNewAppointment] = usePersistentState<AppointmentFormState>("appointments-tab-new-appointment", {
-    name: "",
-    phone: "",
-    email: "",
-    service: "",
-    location: "",
-    date: "",
-    start_time: "",
-    end_time: "",
-    status: "tentative",
-    remark: "",
-  });
+  const [form, setForm] = usePersistentState<AppointmentFormState>("appointments-tab-form", initialForm);
   const dateInputRef = useRef<HTMLInputElement | null>(null);
 
-  function toNullable(value: string) {
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : null;
+  function resetForm() {
+    setForm(initialForm);
+    setAddError(null);
   }
 
-  function resetNewAppointmentForm() {
-    setNewAppointment({
-      name: "",
-      phone: "",
-      email: "",
-      service: "",
-      location: "",
-      date: "",
-      start_time: "",
-      end_time: "",
-      status: "tentative",
-      remark: "",
+  function openAddModal() {
+    setEditingAppointment(null);
+    resetForm();
+    setModalMode("add");
+  }
+
+  function openEditModal(appointment: AppointmentRow, mode: Exclude<ModalMode, "add" | null>) {
+    setEditingAppointment(appointment);
+    setForm({
+      name: appointment.name ?? "",
+      phone: appointment.phone ?? "",
+      email: appointment.email ?? "",
+      service: appointment.service ?? "",
+      staff_name: appointment.staff_name ?? "",
+      location: appointment.location ?? "",
+      date: appointment.date ?? "",
+      start_time: appointment.start_time ?? "",
+      end_time: appointment.end_time ?? "",
+      status: appointment.status ?? "tentative",
+      remark: appointment.remark ?? "",
     });
+    setModalMode(mode);
+  }
+
+  function clearAllFiltersAndSort() {
+    setLocationFilter("all");
+    setStatusFilter("all");
+    setServiceFilter("all");
+    setStaffFilter("all");
+    setDateFilter("");
+    setDateFilterMode("day");
+    setSortBy("date");
+    setSortOrder("asc");
   }
 
   function toggleExpanded(id: string) {
@@ -103,21 +249,129 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     );
   }
 
-  function getSlot(startTime: string | null, endTime: string | null) {
-    function formatTime(value: string | null) {
-      if (!value) {
-        return "-";
+  function matchesDateFilter(appointmentDate: string | null) {
+    if (!dateFilter) {
+      return true;
+    }
+
+    if (!appointmentDate) {
+      return false;
+    }
+
+    if (dateFilterMode === "day") {
+      return appointmentDate === dateFilter;
+    }
+
+    return appointmentDate.startsWith(dateFilter);
+  }
+
+  async function handleSaveAppointment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAddError(null);
+
+    if (!form.date) {
+      setAddError("Date is required.");
+      return;
+    }
+
+    const client = getSupabaseClient();
+    if (!client) {
+      setAddError("Missing Supabase environment variables.");
+      return;
+    }
+
+    const payload = {
+      name: toNullable(form.name),
+      phone: toNullable(form.phone),
+      email: toNullable(form.email),
+      service: toNullable(form.service),
+      staff_name: toNullable(form.staff_name),
+      location: toNullable(form.location),
+      date: form.date,
+      start_time: toNullable(form.start_time),
+      end_time: toNullable(form.end_time),
+      status: form.status,
+      remark: toNullable(form.remark),
+    };
+
+    try {
+      setIsSaving(true);
+
+      if (!editingAppointment) {
+        const { data, error: insertError } = await client
+          .from("appointments")
+          .insert({ client_id: clientId, ...payload })
+          .select("id, name, phone, email, service, staff_name, location, date, start_time, end_time, status, remark")
+          .single();
+
+        if (insertError) {
+          throw insertError;
+        }
+
+        if (data) {
+          setAppointments((current) => [data as AppointmentRow, ...current]);
+        }
+      } else {
+        const { error: updateError } = await client.from("appointments").update(payload).eq("id", editingAppointment.id);
+        if (updateError) {
+          throw updateError;
+        }
+
+        setAppointments((current) =>
+          current.map((appointment) =>
+            appointment.id === editingAppointment.id ? { ...appointment, ...payload } : appointment,
+          ),
+        );
       }
 
-      const [hours = "00", minutes = "00"] = value.split(":");
-      return `${hours}:${minutes}`;
+      setModalMode(null);
+      setEditingAppointment(null);
+      resetForm();
+    } catch (saveError) {
+      setAddError(saveError instanceof Error ? saveError.message : "Unable to save appointment.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleStatusChange(appointmentId: string, nextStatus: AppointmentRow["status"]) {
+    if (updatingIds.has(appointmentId)) {
+      return;
     }
 
-    if (!startTime && !endTime) {
-      return "-";
+    const client = getSupabaseClient();
+    if (!client) {
+      return;
     }
 
-    return `${formatTime(startTime)} - ${formatTime(endTime)}`;
+    try {
+      setUpdatingIds((current) => new Set(current).add(appointmentId));
+      const { error: updateError } = await client.from("appointments").update({ status: nextStatus }).eq("id", appointmentId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setAppointments((current) => current.map((appointment) => (appointment.id === appointmentId ? { ...appointment, status: nextStatus } : appointment)));
+    } catch (changeError) {
+      setStatusChangeError(changeError instanceof Error ? changeError.message : "Failed to update appointment status.");
+    } finally {
+      setUpdatingIds((current) => {
+        const next = new Set(current);
+        next.delete(appointmentId);
+        return next;
+      });
+    }
+  }
+
+  async function confirmStatusChange() {
+    if (!pendingStatusChange) {
+      return;
+    }
+
+    const { appointmentId, nextStatus } = pendingStatusChange;
+    await handleStatusChange(appointmentId, nextStatus);
+    setPendingStatusChange(null);
   }
 
   function openDatePicker() {
@@ -140,137 +394,6 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     input.click();
   }
 
-  function clearAllFiltersAndSort() {
-    setLocationFilter("all");
-    setStatusFilter("all");
-    setServiceFilter("all");
-    setDateFilter("");
-    setDateFilterMode("day");
-    setSortBy("date");
-    setSortOrder("asc");
-  }
-
-  async function handleAddAppointment(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setAddError(null);
-
-    if (!newAppointment.date) {
-      setAddError("Date is required.");
-      return;
-    }
-
-    const client = getSupabaseClient();
-    if (!client) {
-      setAddError("Missing Supabase environment variables.");
-      return;
-    }
-
-    try {
-      setIsSaving(true);
-
-      const payload = {
-        client_id: clientId,
-        name: toNullable(newAppointment.name),
-        phone: toNullable(newAppointment.phone),
-        email: toNullable(newAppointment.email),
-        service: toNullable(newAppointment.service),
-        location: toNullable(newAppointment.location),
-        date: newAppointment.date,
-        start_time: toNullable(newAppointment.start_time),
-        end_time: toNullable(newAppointment.end_time),
-        status: newAppointment.status,
-        remark: toNullable(newAppointment.remark),
-      };
-
-      const { data, error } = await client
-        .from("appointments")
-        .insert(payload)
-        .select("id, name, phone, email, service, location, date, start_time, end_time, status, remark")
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      if (data) {
-        setAppointments((current) => [data as AppointmentRow, ...current]);
-      }
-
-      resetNewAppointmentForm();
-      setShowAddForm(false);
-    } catch (saveError) {
-      setAddError(saveError instanceof Error ? saveError.message : "Unable to add appointment.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function handleStatusChange(appointmentId: string, newStatus: AppointmentRow["status"]) {
-    if (updatingIds.has(appointmentId)) {
-      return;
-    }
-
-    const client = getSupabaseClient();
-    if (!client) {
-      return;
-    }
-
-    try {
-      setUpdatingIds((current) => new Set(current).add(appointmentId));
-
-      const { error } = await client
-        .from("appointments")
-        .update({ status: newStatus })
-        .eq("id", appointmentId);
-
-      if (error) {
-        throw error;
-      }
-
-      setAppointments((current) =>
-        current.map((apt) => (apt.id === appointmentId ? { ...apt, status: newStatus } : apt)),
-      );
-    } catch (err) {
-      setStatusChangeError(err instanceof Error ? err.message : "Failed to update appointment status.");
-    } finally {
-      setUpdatingIds((current) => {
-        const next = new Set(current);
-        next.delete(appointmentId);
-        return next;
-      });
-    }
-  }
-
-  async function confirmStatusChange() {
-    if (!pendingStatusChange) {
-      return;
-    }
-
-    const { appointmentId, nextStatus } = pendingStatusChange;
-    await handleStatusChange(appointmentId, nextStatus);
-    setPendingStatusChange(null);
-  }
-
-  function matchesDateFilter(appointmentDate: string | null) {
-    if (!dateFilter) {
-      return true;
-    }
-
-    if (!appointmentDate) {
-      return false;
-    }
-
-    if (dateFilterMode === "day") {
-      return appointmentDate === dateFilter;
-    }
-
-    if (dateFilterMode === "month") {
-      return appointmentDate.startsWith(dateFilter);
-    }
-
-    return appointmentDate.startsWith(dateFilter);
-  }
-
   useEffect(() => {
     let isMounted = true;
     const supabaseClient = getSupabaseClient();
@@ -286,21 +409,15 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     async function loadAppointments() {
       try {
         setLoading(true);
-        const client = supabaseClient;
-
-        if (!client) {
-          throw new Error("Missing Supabase environment variables.");
-        }
-
-        const { data, error } = await client
+        const { data, error: fetchError } = await supabaseClient
           .from("appointments")
-          .select("id, name, phone, email, service, location, date, start_time, end_time, status, remark")
+          .select("id, name, phone, email, service, staff_name, location, date, start_time, end_time, status, remark")
           .eq("client_id", clientId)
           .order("date", { ascending: true, nullsFirst: false })
           .order("start_time", { ascending: true, nullsFirst: false });
 
-        if (error) {
-          throw error;
+        if (fetchError) {
+          throw fetchError;
         }
 
         if (!isMounted) {
@@ -333,64 +450,118 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     [appointments],
   );
 
-  const statusOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          appointments
-            .map((item) => item.status)
-            .filter((item): item is NonNullable<AppointmentRow["status"]> => Boolean(item)),
-        ),
-      ),
-    [appointments],
-  );
-
   const serviceOptions = useMemo(
     () => Array.from(new Set(appointments.map((item) => item.service).filter((item): item is string => Boolean(item)))),
     [appointments],
   );
 
-  const displayedAppointments = useMemo(() => {
-    const filtered = appointments.filter((appointment) => {
+  const staffOptions = useMemo(
+    () => Array.from(new Set(appointments.map((item) => item.staff_name).filter((item): item is string => Boolean(item)))),
+    [appointments],
+  );
+
+  const statusOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          appointments.map((item) => item.status).filter((item): item is NonNullable<AppointmentRow["status"]> => Boolean(item)),
+        ),
+      ),
+    [appointments],
+  );
+
+  const filteredAppointments = useMemo(() => {
+    const query = formSearchString(searchQuery).toLowerCase();
+
+    return appointments.filter((appointment) => {
+      const haystack = [
+        appointment.name,
+        appointment.phone,
+        appointment.email,
+        appointment.service,
+        appointment.staff_name,
+        appointment.location,
+        appointment.status,
+        appointment.remark,
+        appointment.date,
+        appointment.start_time,
+        appointment.end_time,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      const matchesSearch = !query || haystack.includes(query);
       const matchesLocation = locationFilter === "all" || appointment.location === locationFilter;
       const matchesStatus = statusFilter === "all" || appointment.status === statusFilter;
       const matchesService = serviceFilter === "all" || appointment.service === serviceFilter;
+      const matchesStaff = staffFilter === "all" || appointment.staff_name === staffFilter;
       const matchesDate = matchesDateFilter(appointment.date);
-      return matchesLocation && matchesStatus && matchesService && matchesDate;
-    });
 
-    const sorted = [...filtered].sort((a, b) => {
+      return matchesSearch && matchesLocation && matchesStatus && matchesService && matchesStaff && matchesDate;
+    });
+  }, [appointments, dateFilter, dateFilterMode, locationFilter, serviceFilter, staffFilter, statusFilter, searchQuery]);
+
+  const displayedAppointments = useMemo(() => {
+    const next = [...filteredAppointments].sort((left, right) => {
       const direction = sortOrder === "asc" ? 1 : -1;
 
-      if (sortBy === "date") {
-        const left = a.date ?? "";
-        const right = b.date ?? "";
-        return left.localeCompare(right) * direction;
-      }
-
       if (sortBy === "status") {
-        const left = a.status ?? "";
-        const right = b.status ?? "";
-        return left.localeCompare(right) * direction;
+        return (left.status ?? "").localeCompare(right.status ?? "") * direction;
       }
 
       if (sortBy === "service") {
-        const left = a.service ?? "";
-        const right = b.service ?? "";
-        return left.localeCompare(right) * direction;
+        return (left.service ?? "").localeCompare(right.service ?? "") * direction;
       }
 
-      const left = a.location ?? "";
-      const right = b.location ?? "";
-      return left.localeCompare(right) * direction;
+      if (sortBy === "location") {
+        return (left.location ?? "").localeCompare(right.location ?? "") * direction;
+      }
+
+      const dateCompare = (left.date ?? "").localeCompare(right.date ?? "") * direction;
+      if (dateCompare !== 0) {
+        return dateCompare;
+      }
+
+      return (left.start_time ?? "").localeCompare(right.start_time ?? "") * direction;
     });
 
-    return sorted;
-  }, [appointments, dateFilter, dateFilterMode, locationFilter, serviceFilter, sortBy, sortOrder, statusFilter]);
+    return next;
+  }, [filteredAppointments, sortBy, sortOrder]);
+
+  const groupedAppointments = useMemo(() => {
+    const groups: Record<GroupKey, AppointmentRow[]> = {
+      today: [],
+      tomorrow: [],
+      upcoming: [],
+      past: [],
+    };
+
+    displayedAppointments.forEach((appointment) => {
+      groups[getGroupKey(appointment.date)].push(appointment);
+    });
+
+    return groups;
+  }, [displayedAppointments]);
+
+  const summaryCounts = useMemo(() => {
+    const groups: Record<GroupKey, number> = {
+      today: 0,
+      tomorrow: 0,
+      upcoming: 0,
+      past: 0,
+    };
+
+    appointments.forEach((appointment) => {
+      groups[getGroupKey(appointment.date)] += 1;
+    });
+
+    return groups;
+  }, [appointments]);
 
   if (loading) {
     return (
-      <div className="flex min-h-[240px] items-center justify-center rounded-3xl border border-border bg-card text-base text-muted-foreground">
+      <div className="flex min-h-[240px] items-center justify-center rounded-3xl border border-white/10 bg-[#080808] text-base text-white/60 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
         <span className="inline-flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" />
           Fetching appointments
@@ -401,365 +572,544 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
   if (error) {
     return (
-      <div className="rounded-3xl border border-rose-500/40 bg-card p-6 text-base text-rose-400">
+      <div className="rounded-3xl border border-rose-500/40 bg-[#080808] p-6 text-base text-rose-400 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
         Unable to load appointments: {error}
       </div>
     );
   }
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-6 text-foreground shadow-sm">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-semibold text-foreground">Appointments</h2>
-          <p className="mt-1 text-base text-muted-foreground">Filtered by client_id and ready for RLS.</p>
+    <section className="space-y-5 rounded-[28px] border border-white/10 bg-[#080808] p-5 text-white shadow-[0_20px_60px_rgba(0,0,0,0.45)] sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-1">
+          <div className="text-sm font-semibold uppercase tracking-[0.3em] text-red-500">Dashboard</div>
+          <h3 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Appointments</h3>
+          <p className="max-w-2xl text-sm text-white/70 sm:text-base">Client-scoped dashboard with dynamic tab system.</p>
         </div>
+
         <div className="flex items-center gap-3">
-          <div className="text-sm text-muted-foreground">{displayedAppointments.length} / {appointments.length} record(s)</div>
           <button
             type="button"
-            onClick={() => {
-              setAddError(null);
-              setShowAddForm((current) => !current);
-            }}
-            className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            onClick={() => setShowFilters((current) => !current)}
+            className="inline-flex h-11 items-center gap-2 rounded-2xl border border-white/10 bg-black/30 px-4 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/5 hover:text-white"
           >
-            {showAddForm ? "Close" : "Add appointment"}
+            <Filter className="h-4 w-4" />
+            Filters
+          </button>
+          <button
+            type="button"
+            onClick={openAddModal}
+            className="inline-flex h-11 items-center gap-2 rounded-2xl bg-red-600 px-5 text-sm font-semibold text-white transition hover:bg-red-500"
+          >
+            <Plus className="h-4 w-4" />
+            Add appointment
           </button>
         </div>
       </div>
 
-      {showAddForm && (
-        <form onSubmit={handleAddAppointment} className="mt-4 rounded-2xl border border-border bg-muted/40 p-4 text-foreground">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <input
-              value={newAppointment.name}
-              onChange={(event) => setNewAppointment((current) => ({ ...current, name: event.target.value }))}
-              placeholder="Name"
-              className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-            />
-            <input
-              value={newAppointment.phone}
-              onChange={(event) => setNewAppointment((current) => ({ ...current, phone: event.target.value }))}
-              placeholder="Phone"
-              className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-            />
-            <input
-              value={newAppointment.email}
-              onChange={(event) => setNewAppointment((current) => ({ ...current, email: event.target.value }))}
-              type="email"
-              placeholder="Email"
-              className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-            />
-            <input
-              value={newAppointment.service}
-              onChange={(event) => setNewAppointment((current) => ({ ...current, service: event.target.value }))}
-              placeholder="Service"
-              className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-            />
-            <input
-              value={newAppointment.location}
-              onChange={(event) => setNewAppointment((current) => ({ ...current, location: event.target.value }))}
-              placeholder="Location"
-              className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-            />
+      <div className="grid gap-3 lg:grid-cols-4">
+        {[
+          { key: "today" as const, label: "Today", accent: "bg-red-500", count: summaryCounts.today },
+          { key: "tomorrow" as const, label: "Tomorrow", accent: "bg-purple-600", count: summaryCounts.tomorrow },
+          { key: "upcoming" as const, label: "Upcoming", accent: "bg-blue-600", count: summaryCounts.upcoming },
+          { key: "past" as const, label: "Total", accent: "bg-slate-700", count: appointments.length },
+        ].map((card) => (
+          <article key={card.key} className="rounded-2xl border border-white/10 bg-[#111111] p-4 shadow-[0_12px_28px_rgba(0,0,0,0.25)]">
+            <div className="flex items-center gap-3">
+              <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${card.accent}`}>
+                <CalendarDays className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <div className="text-sm text-white/60">{card.label}</div>
+                <div className="text-3xl font-semibold text-white">{card.count}</div>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      {showFilters && (
+        <div className="grid gap-3 rounded-2xl border border-white/10 bg-[#111111] p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <label className="space-y-1 text-sm text-white/70 xl:col-span-2">
+            <span className="block text-white/60">Search</span>
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search customer name or phone"
+                className="w-full bg-transparent text-sm text-text outline-none placeholder:text-muted-foreground"
+              />
+            </div>
+          </label>
+
+          <label className="space-y-1 text-sm text-white/70">
+            <span className="block text-white/60">Location</span>
             <select
-              value={newAppointment.status}
-              onChange={(event) =>
-                setNewAppointment((current) => ({
-                  ...current,
-                  status: event.target.value as "tentative" | "booked" | "cancelled" | "completed",
-                }))
-              }
-              className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground"
+              value={locationFilter}
+              onChange={(event) => setLocationFilter(event.target.value)}
+              className="w-full rounded-xl border border-border bg-background px-2 py-2 text-sm text-text"
             >
-              <option value="tentative">tentative</option>
-              <option value="booked">booked</option>
-              <option value="cancelled">cancelled</option>
-              <option value="completed">completed</option>
+              <option value="all">All</option>
+              {locationOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
             </select>
-            <input
-              value={newAppointment.date}
-              onChange={(event) => setNewAppointment((current) => ({ ...current, date: event.target.value }))}
-              type="date"
-              required
-              className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground"
-            />
-            <input
-              value={newAppointment.start_time}
-              onChange={(event) => setNewAppointment((current) => ({ ...current, start_time: event.target.value }))}
-              type="time"
-              className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground"
-            />
-            <input
-              value={newAppointment.end_time}
-              onChange={(event) => setNewAppointment((current) => ({ ...current, end_time: event.target.value }))}
-              type="time"
-              className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground"
-            />
-            <textarea
-              value={newAppointment.remark}
-              onChange={(event) => setNewAppointment((current) => ({ ...current, remark: event.target.value }))}
-              placeholder="Remark"
-              className="min-h-20 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground sm:col-span-2 lg:col-span-3"
-            />
-          </div>
+          </label>
 
-          {addError && <p className="mt-3 text-sm text-rose-700">{addError}</p>}
+          <label className="space-y-1 text-sm text-white/70">
+            <span className="block text-white/60">Date</span>
+            <div className="space-y-2">
+              <select
+                value={dateFilterMode}
+                onChange={(event) => {
+                  setDateFilterMode(event.target.value as "day" | "month" | "year");
+                  setDateFilter("");
+                }}
+                className="w-full rounded-xl border border-border bg-background px-2 py-2 text-sm text-text"
+              >
+                <option value="day">Day</option>
+                <option value="month">Month</option>
+                <option value="year">Year</option>
+              </select>
 
-          <div className="mt-3 flex items-center gap-2">
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="rounded-xl border border-border bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              {dateFilterMode === "year" ? (
+                <input
+                  value={dateFilter}
+                  onChange={(event) => setDateFilter(event.target.value.replace(/[^\d]/g, "").slice(0, 4))}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="YYYY"
+                  className="w-full rounded-xl border border-border bg-background px-2 py-2 text-sm text-text placeholder:text-muted-foreground"
+                  aria-label="Filter by year"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={openDatePicker}
+                  className="inline-flex w-full items-center gap-2 rounded-xl border border-border bg-background px-2 py-2 text-left text-sm text-text"
+                >
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  <span>{dateFilter || (dateFilterMode === "day" ? "Select date" : "Select month")}</span>
+                </button>
+              )}
+
+              {dateFilter && (
+                <button
+                  type="button"
+                  onClick={() => setDateFilter("")}
+                  className="rounded-xl border border-border bg-background px-2 py-2 text-sm text-muted-foreground"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {dateFilterMode !== "year" && (
+              <input
+                ref={dateInputRef}
+                value={dateFilter}
+                onChange={(event) => setDateFilter(event.target.value)}
+                type={dateFilterMode === "day" ? "date" : "month"}
+                className="sr-only"
+                aria-label={dateFilterMode === "day" ? "Select date" : "Select month"}
+              />
+            )}
+          </label>
+
+          <label className="space-y-1 text-sm text-white/70">
+            <span className="block text-white/60">Status</span>
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="w-full rounded-xl border border-border bg-background px-2 py-2 text-sm text-text"
             >
-              {isSaving ? "Saving..." : "Save appointment"}
-            </button>
+              <option value="all">All</option>
+              {statusOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-1 text-sm text-white/70">
+            <span className="block text-white/60">Service</span>
+            <select
+              value={serviceFilter}
+              onChange={(event) => setServiceFilter(event.target.value)}
+              className="w-full rounded-xl border border-border bg-background px-2 py-2 text-sm text-text"
+            >
+              <option value="all">All</option>
+              {serviceOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-1 text-sm text-white/70">
+            <span className="block text-white/60">Staff</span>
+            <select
+              value={staffFilter}
+              onChange={(event) => setStaffFilter(event.target.value)}
+              className="w-full rounded-xl border border-border bg-background px-2 py-2 text-sm text-text"
+            >
+              <option value="all">All</option>
+              {staffOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="sm:col-span-2 lg:col-span-3 xl:col-span-6">
+            <div className="mb-1 text-sm text-white/60">Actions</div>
             <button
               type="button"
-              onClick={() => {
-                setAddError(null);
-                resetNewAppointmentForm();
-              }}
-              className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground hover:bg-muted"
+              onClick={clearAllFiltersAndSort}
+              className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium text-text hover:bg-muted"
             >
-              Reset form
+              Clear all filters and sorting
             </button>
           </div>
-        </form>
+        </div>
       )}
 
-      <div className="mt-4 grid gap-3 rounded-2xl border border-border bg-muted/40 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <label className="text-sm text-muted-foreground">
-          <span className="mb-1 block">Location</span>
-          <select
-            value={locationFilter}
-            onChange={(event) => setLocationFilter(event.target.value)}
-            className="w-full rounded-xl border border-border bg-background px-2 py-2 text-sm text-foreground"
-          >
-            <option value="all">All</option>
-            {locationOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="text-sm text-muted-foreground">
-          <span className="mb-1 block">Date</span>
-          <div className="space-y-2">
-            <select
-              value={dateFilterMode}
-              onChange={(event) => {
-                setDateFilterMode(event.target.value as "day" | "month" | "year");
-                setDateFilter("");
-              }}
-              className="w-full rounded-xl border border-border bg-background px-2 py-2 text-sm text-foreground"
-            >
-              <option value="day">Day</option>
-              <option value="month">Month</option>
-              <option value="year">Year</option>
-            </select>
-
-            {dateFilterMode === "year" ? (
-              <input
-                value={dateFilter}
-                onChange={(event) => setDateFilter(event.target.value.replace(/[^\d]/g, "").slice(0, 4))}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                placeholder="YYYY"
-                className="w-full rounded-xl border border-border bg-background px-2 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-                aria-label="Filter by year"
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={openDatePicker}
-                className="inline-flex w-full items-center gap-2 rounded-xl border border-border bg-background px-2 py-2 text-left text-sm text-foreground"
-              >
-                <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                <span>
-                  {dateFilter || (dateFilterMode === "day" ? "Select date" : "Select month")}
-                </span>
-              </button>
-            )}
-
-            {dateFilter && (
-              <button
-                type="button"
-                onClick={() => setDateFilter("")}
-                className="rounded-xl border border-border bg-background px-2 py-2 text-sm text-muted-foreground"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-
-          {dateFilterMode !== "year" && (
-            <input
-              ref={dateInputRef}
-              value={dateFilter}
-              onChange={(event) => setDateFilter(event.target.value)}
-              type={dateFilterMode === "day" ? "date" : "month"}
-              className="sr-only"
-              aria-label={dateFilterMode === "day" ? "Select date" : "Select month"}
-            />
-          )}
-        </label>
-
-        <label className="text-sm text-muted-foreground">
-          <span className="mb-1 block">Status</span>
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            className="w-full rounded-xl border border-border bg-background px-2 py-2 text-sm text-foreground"
-          >
-            <option value="all">All</option>
-            {statusOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="text-sm text-muted-foreground">
-          <span className="mb-1 block">Service</span>
-          <select
-            value={serviceFilter}
-            onChange={(event) => setServiceFilter(event.target.value)}
-            className="w-full rounded-xl border border-border bg-background px-2 py-2 text-sm text-foreground"
-          >
-            <option value="all">All</option>
-            {serviceOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="text-sm text-muted-foreground">
-          <span className="mb-1 block">Sort By</span>
-          <select
-            value={sortBy}
-            onChange={(event) => setSortBy(event.target.value as "date" | "status" | "service" | "location")}
-            className="w-full rounded-xl border border-border bg-background px-2 py-2 text-sm text-foreground"
-          >
-            <option value="date">Date</option>
-            <option value="status">Status</option>
-            <option value="service">Service</option>
-            <option value="location">Location</option>
-          </select>
-        </label>
-
-        <label className="text-sm text-muted-foreground">
-          <span className="mb-1 block">Sort Order</span>
-          <select
-            value={sortOrder}
-            onChange={(event) => setSortOrder(event.target.value as "asc" | "desc")}
-            className="w-full rounded-xl border border-border bg-background px-2 py-2 text-sm text-foreground"
-          >
-            <option value="asc">Ascending</option>
-            <option value="desc">Descending</option>
-          </select>
-        </label>
-
-        <div className="text-sm text-muted-foreground sm:col-span-2 lg:col-span-3 xl:col-span-6">
-          <span className="mb-1 block">Actions</span>
-          <button
-            type="button"
-            onClick={clearAllFiltersAndSort}
-            className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-          >
-            Clear all filters and sorting
-          </button>
+      {statusChangeError && (
+        <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-400">
+          {statusChangeError}
         </div>
-      </div>
+      )}
 
-      <div className="mt-6 space-y-3">
-        {statusChangeError && (
-          <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-400">
-            {statusChangeError}
-          </div>
-        )}
-
-        {displayedAppointments.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-border p-6 text-base text-muted-foreground">
+      <div className="space-y-4">
+        {displayedAppointments.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-white/10 bg-[#111111] p-6 text-base text-white/60">
             No appointments found for the selected filters.
           </div>
-        )}
+        ) : null}
 
-        {displayedAppointments.map((appointment) => {
-            const isExpanded = expandedIds.includes(appointment.id);
+        {(["today", "tomorrow", "upcoming", "past"] as const).map((groupKey) => {
+          const groupItems = groupedAppointments[groupKey];
+          if (groupItems.length === 0) {
+            return null;
+          }
+
+          const groupLabel = groupKey.charAt(0).toUpperCase() + groupKey.slice(1);
+
           return (
-            <article key={appointment.id} className="rounded-2xl bg-muted/40 p-4">
-              <button
-                type="button"
-                onClick={() => toggleExpanded(appointment.id)}
-                className="flex w-full items-center justify-between gap-4 text-left"
-              >
-                <div className="grid flex-1 grid-cols-2 gap-3 text-sm text-muted-foreground lg:grid-cols-4">
-                  <div>
-                    <div className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Name</div>
-                    <div className="text-base font-semibold text-foreground">{appointment.name ?? "Unnamed appointment"}</div>
-                  </div>
-                  <div>
-                    <div className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Date</div>
-                    <div className="text-base text-foreground">{appointment.date ?? "-"}</div>
-                  </div>
-                  <div>
-                    <div className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Slot</div>
-                    <div className="text-base text-foreground">{getSlot(appointment.start_time, appointment.end_time)}</div>
-                  </div>
-                  <div>
-                    <div className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Status</div>
-                    <select
-                      value={appointment.status ?? "tentative"}
-                      onChange={(event) => {
-                        event.stopPropagation();
-                        setStatusChangeError(null);
-                        setPendingStatusChange({
-                          appointmentId: appointment.id,
-                          appointmentName: appointment.name ?? "Unnamed appointment",
-                          nextStatus: event.target.value as "tentative" | "booked" | "cancelled" | "completed",
-                        });
-                      }}
-                      disabled={updatingIds.has(appointment.id)}
-                      className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+            <section key={groupKey} className="space-y-3 rounded-2xl border border-white/10 bg-[#111111] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-white/80">
+                  <CalendarDays className="h-4 w-4 text-red-500" />
+                  <span className="font-semibold">{groupLabel}</span>
+                  <span className="text-sm text-white/50">• {groupItems.length} appointments</span>
+                </div>
+                <button type="button" className="text-sm text-white/50 hover:text-white">
+                  View all
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {groupItems.map((appointment) => {
+                  const isExpanded = expandedIds.includes(appointment.id);
+                  const statusTone =
+                    appointment.status === "booked"
+                      ? "bg-blue-500/20 text-blue-300"
+                      : appointment.status === "completed"
+                        ? "bg-emerald-500/20 text-emerald-300"
+                        : appointment.status === "cancelled"
+                          ? "bg-rose-500/20 text-rose-300"
+                          : "bg-amber-500/20 text-amber-300";
+
+                  return (
+                    <article
+                      key={appointment.id}
+                      className="rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-white/20 hover:bg-black/30"
                     >
-                      <option value="tentative">tentative</option>
-                      <option value="booked">booked</option>
-                      <option value="cancelled">cancelled</option>
-                      <option value="completed">completed</option>
-                    </select>
-                  </div>
-                </div>
+                      <div className="flex items-center gap-4">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(appointment.id)}
+                          className="grid flex-1 grid-cols-[96px_56px_1fr_240px_auto] items-center gap-4 text-left"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="text-xl font-semibold text-white">
+                              {formatTimeRange(appointment.date, appointment.start_time, appointment.end_time)}
+                            </div>
+                          </div>
 
-                <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition ${isExpanded ? "rotate-180" : "rotate-0"}`} />
-              </button>
+                          <div className="flex items-center justify-center">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-sm font-semibold text-white">
+                              {getInitials(appointment.name)}
+                            </div>
+                          </div>
 
-              {isExpanded && (
-                <div className="mt-4 grid gap-2 border-t border-border pt-4 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-3">
-                  <div>ID: {appointment.id}</div>
-                  <div>Phone: {appointment.phone ?? "-"}</div>
-                  <div>Email: {appointment.email ?? "-"}</div>
-                  <div>Service: {appointment.service ?? "-"}</div>
-                  <div>Location: {appointment.location ?? "-"}</div>
-                  <div>Remark: {appointment.remark ?? "-"}</div>
-                </div>
-              )}
-            </article>
+                          <div className="min-w-0">
+                            <div className="truncate text-base font-semibold text-white">
+                              {appointment.name ?? "Unnamed appointment"}
+                            </div>
+                            <div className="truncate text-sm text-white/55">{appointment.phone ?? "-"}</div>
+                          </div>
+
+                          <div className="hidden min-w-0 lg:block">
+                            <div className="truncate text-base font-semibold text-white">{appointment.service ?? "-"}</div>
+                            <div className="flex items-center gap-1 text-sm text-white/55">
+                              <MapPin className="h-3.5 w-3.5" />
+                              {appointment.location ?? "-"}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-end">
+                            <span className={`rounded-xl px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusTone}`}>
+                              {appointment.status ?? "tentative"}
+                            </span>
+                          </div>
+                        </button>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(appointment, "reschedule")}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:border-white/20 hover:text-white"
+                            title="Reschedule"
+                            aria-label="Reschedule appointment"
+                          >
+                            <Clock3 className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(appointment, "edit")}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:border-white/20 hover:text-white"
+                            title="Edit"
+                            aria-label="Edit appointment"
+                          >
+                            <Edit3 className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPendingStatusChange({
+                                appointmentId: appointment.id,
+                                appointmentName: appointment.name ?? "Unnamed appointment",
+                                nextStatus: "cancelled",
+                              });
+                            }}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:border-rose-500/30 hover:text-rose-300"
+                            title="Cancel"
+                            aria-label="Cancel appointment"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleExpanded(appointment.id)}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:border-white/20 hover:text-white"
+                            aria-label={isExpanded ? "Collapse details" : "Expand details"}
+                          >
+                            <ChevronDown className={`h-4 w-4 transition ${isExpanded ? "rotate-180" : "rotate-0"}`} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="mt-4 grid gap-2 border-t border-white/10 pt-4 text-sm text-white/60 sm:grid-cols-2 lg:grid-cols-4">
+                          <div>Customer: {appointment.name ?? "-"}</div>
+                          <div>Phone: {appointment.phone ?? "-"}</div>
+                          <div>Email: {appointment.email ?? "-"}</div>
+                          <div>Service: {appointment.service ?? "-"}</div>
+                          <div>Staff: {appointment.staff_name ?? "-"}</div>
+                          <div>Location: {appointment.location ?? "-"}</div>
+                          <div>Slot: {getDuration(appointment.start_time, appointment.end_time)}</div>
+                          <div>Date: {appointment.date ?? "-"}</div>
+                          <div className="sm:col-span-2 lg:col-span-4">Remark: {appointment.remark ?? "-"}</div>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
           );
         })}
       </div>
 
       <EntityModal
-        open={Boolean(pendingStatusChange)}
-        title="Confirm status change"
-        onClose={() => setPendingStatusChange(null)}
+        open={modalMode !== null}
+        title={modalMode === "reschedule" ? "Reschedule Appointment" : modalMode === "edit" ? "Edit Appointment" : "Add New Appointment"}
+        onClose={() => {
+          setModalMode(null);
+          setEditingAppointment(null);
+          resetForm();
+        }}
       >
+        <form onSubmit={handleSaveAppointment} className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-1 text-sm text-muted-foreground sm:col-span-2">
+              <span>Customer *</span>
+              <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <input
+                  value={form.name}
+                  onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                  placeholder="Search customer name or phone"
+                  className="flex-1 bg-transparent text-sm text-text outline-none placeholder:text-muted-foreground"
+                />
+              </div>
+            </label>
+
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span>Phone</span>
+              <input
+                value={form.phone}
+                onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
+                placeholder="Phone"
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted-foreground"
+              />
+            </label>
+
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span>Email</span>
+              <input
+                value={form.email}
+                onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+                type="email"
+                placeholder="Email"
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted-foreground"
+              />
+            </label>
+
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span>Service *</span>
+              <input
+                value={form.service}
+                onChange={(event) => setForm((current) => ({ ...current, service: event.target.value }))}
+                placeholder="Select service"
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted-foreground"
+              />
+            </label>
+
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span>Staff</span>
+              <input
+                value={form.staff_name}
+                onChange={(event) => setForm((current) => ({ ...current, staff_name: event.target.value }))}
+                placeholder="Select staff"
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted-foreground"
+              />
+            </label>
+
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span>Location *</span>
+              <input
+                value={form.location}
+                onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))}
+                placeholder="Select location"
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted-foreground"
+              />
+            </label>
+
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span>Date *</span>
+              <input
+                value={form.date}
+                onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
+                type="date"
+                required
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+              />
+            </label>
+
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span>Time *</span>
+              <input
+                value={form.start_time}
+                onChange={(event) => setForm((current) => ({ ...current, start_time: event.target.value }))}
+                type="time"
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+              />
+            </label>
+
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span>End Time</span>
+              <input
+                value={form.end_time}
+                onChange={(event) => setForm((current) => ({ ...current, end_time: event.target.value }))}
+                type="time"
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+              />
+            </label>
+
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span>Duration</span>
+              <input
+                readOnly
+                value={getDuration(form.start_time, form.end_time)}
+                placeholder="Auto from time range"
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted-foreground"
+              />
+            </label>
+
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span>Status *</span>
+              <select
+                value={form.status}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    status: event.target.value as AppointmentFormState["status"],
+                  }))
+                }
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+              >
+                <option value="tentative">Tentative</option>
+                <option value="booked">Booked</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="completed">Completed</option>
+              </select>
+            </label>
+
+            <label className="space-y-1 text-sm text-muted-foreground sm:col-span-2">
+              <span>Notes</span>
+              <textarea
+                value={form.remark}
+                onChange={(event) => setForm((current) => ({ ...current, remark: event.target.value }))}
+                placeholder="Add notes about the appointment"
+                className="min-h-24 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted-foreground"
+              />
+            </label>
+          </div>
+
+          {addError && <p className="text-sm text-rose-400">{addError}</p>}
+
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setModalMode(null);
+                setEditingAppointment(null);
+                resetForm();
+              }}
+              className="rounded-xl border border-border bg-background px-4 py-2 text-sm text-foreground hover:bg-muted"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="rounded-xl border border-border bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSaving ? "Saving..." : "Save appointment"}
+            </button>
+          </div>
+        </form>
+      </EntityModal>
+
+      <EntityModal open={Boolean(pendingStatusChange)} title="Confirm status change" onClose={() => setPendingStatusChange(null)}>
         <div className="space-y-4">
           <p className="text-base text-muted-foreground">
             Change status for <span className="font-semibold text-text">{pendingStatusChange?.appointmentName}</span> to{" "}
@@ -786,4 +1136,8 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       </EntityModal>
     </section>
   );
+}
+
+function formSearchString(value: string) {
+  return value.trim();
 }
