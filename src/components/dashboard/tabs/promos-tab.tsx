@@ -230,11 +230,13 @@ function formatMoney(value: number | null | undefined) {
   }).format(value ?? 0);
 }
 
+import { formatUtcToIst } from "@/lib/time-utils";
+
 function formatDateRange(startDate: string, endDate: string | null) {
   const start = new Date(startDate);
   const end = endDate ? new Date(endDate) : null;
-  const startLabel = Number.isNaN(start.getTime()) ? startDate : start.toLocaleString();
-  const endLabel = end && !Number.isNaN(end.getTime()) ? end.toLocaleString() : null;
+  const startLabel = Number.isNaN(start.getTime()) ? startDate : formatUtcToIst(startDate, { withSeconds: false });
+  const endLabel = end && !Number.isNaN(end.getTime()) ? formatUtcToIst(endDate, { withSeconds: false }) : null;
 
   return endLabel ? `${startLabel} - ${endLabel}` : `${startLabel} onward`;
 }

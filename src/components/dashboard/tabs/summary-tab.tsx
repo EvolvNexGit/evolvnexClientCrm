@@ -4,6 +4,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react
 import { Button } from "@/components/ui/button";
 import { getSupabaseClient } from "@/lib/supabase";
 import { usePersistentState } from "@/hooks/use-persistent-state";
+import { formatUtcToIst } from "@/lib/time-utils";
 
 type ClientInfo = {
   id: string;
@@ -247,18 +248,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
     }
   }
 
-  function formatDate(value: string | null) {
-    if (!value) {
-      return "-";
-    }
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return value;
-    }
-
-    return date.toLocaleString();
-  }
+  // display dates in IST using shared helper
 
   return (
     <section className="space-y-4">
@@ -371,7 +361,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
                     {task.title}
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">{task.desc ?? "-"}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{formatDate(task.created_at)}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{formatUtcToIst(task.created_at)}</td>
                 </tr>
               ))}
             </tbody>

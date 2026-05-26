@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import type { TransactionRecord } from "@/lib/billing-types";
+import { formatUtcToIst } from "@/lib/time-utils";
 
 type TransactionListProps = {
   transactions: TransactionRecord[];
@@ -15,13 +16,7 @@ type TransactionListProps = {
   onUpdateStatus?: (id: string, status: "pending" | "accepted" | "delivered") => Promise<void>;
 };
 
-function formatDate(value: string) {
-  if (!value) {
-    return "-";
-  }
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
-}
+
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -215,7 +210,7 @@ export function TransactionList({ transactions, loading, error, onUpdateStatus }
                     </div>
                     <div>
                       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Date</div>
-                      <div className="text-base text-text">{formatDate(transaction.created_at)}</div>
+                      <div className="text-base text-text">{formatUtcToIst(transaction.created_at)}</div>
                     </div>
                     <div>
                       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Table Number</div>
