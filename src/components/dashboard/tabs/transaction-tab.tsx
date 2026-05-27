@@ -1,8 +1,10 @@
 "use client";
 
 import { TransactionList } from "@/components/dashboard/billing/transaction-list";
+import { Button } from "@/components/ui/button";
 import { useTransactions } from "@/hooks/use-transactions";
 import { updateBillStatus } from "@/lib/billing-queries";
+import { triggerOrderAlert } from "@/lib/order-notifications";
 
 export default function TransactionTab({ clientId }: { clientId: string }) {
   const transactionState = useTransactions(clientId);
@@ -24,6 +26,19 @@ export default function TransactionTab({ clientId }: { clientId: string }) {
           <h2 className="text-xl font-semibold text-text">Billing CRM</h2>
           <p className="mt-1 text-base text-muted-foreground">Client scope: {clientId}</p>
         </div>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() =>
+            triggerOrderAlert({
+              orderId: `test-${Date.now()}`,
+              tableNumber: "4",
+              finalAmount: 420,
+            })
+          }
+        >
+          Test Notification
+        </Button>
       </div>
 
       <TransactionList
