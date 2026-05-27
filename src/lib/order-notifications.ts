@@ -5,6 +5,7 @@ const ORDER_IDS_KEY_PREFIX = "crm-order-notification-known-ids";
 const MAX_STORED_ORDER_IDS = 400;
 
 type BrowserWindowWithAudio = Window & {
+  AudioContext?: typeof AudioContext;
   webkitAudioContext?: typeof AudioContext;
 };
 
@@ -147,7 +148,6 @@ export function showOrderNotification(payload: OrderNotificationPayload) {
     const notification = new window.Notification("New Order", {
       body,
       tag: `new-order-${payload.orderId}`,
-      renotify: false,
     });
 
     notification.onclick = () => {
