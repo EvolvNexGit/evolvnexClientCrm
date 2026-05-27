@@ -6,7 +6,7 @@ import { useTransactions } from "@/hooks/use-transactions";
 import { updateBillStatus } from "@/lib/billing-queries";
 import { triggerOrderAlert } from "@/lib/order-notifications";
 
-const TEST_NOTIFICATION_TABLE = "4";
+const TEST_NOTIFICATION_TABLE_NUMBER = "4";
 const TEST_NOTIFICATION_AMOUNT = 420;
 
 export default function TransactionTab({ clientId }: { clientId: string }) {
@@ -35,7 +35,7 @@ export default function TransactionTab({ clientId }: { clientId: string }) {
           onClick={() =>
             triggerOrderAlert({
               orderId: `test-${Date.now()}`,
-              tableNumber: TEST_NOTIFICATION_TABLE,
+              tableNumber: TEST_NOTIFICATION_TABLE_NUMBER,
               finalAmount: TEST_NOTIFICATION_AMOUNT,
             })
           }

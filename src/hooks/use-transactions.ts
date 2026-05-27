@@ -58,6 +58,10 @@ export function useTransactions(clientId: string) {
           filter: `client_id=eq.${clientId}`,
         },
         (payload) => {
+          const persistKnownOrders = () => {
+            saveKnownOrderIds(clientId, knownOrderIdsRef.current);
+          };
+
           if (payload.eventType !== "INSERT") {
             void refresh();
             return;
@@ -72,20 +76,18 @@ export function useTransactions(clientId: string) {
 
           if (!hasHydratedRef.current) {
             knownOrderIdsRef.current.add(orderId);
-            saveKnownOrderIds(clientId, knownOrderIdsRef.current);
+            persistKnownOrders();
             void refresh();
             return;
           }
 
           if (knownOrderIdsRef.current.has(orderId)) {
-            knownOrderIdsRef.current.add(orderId);
-            saveKnownOrderIds(clientId, knownOrderIdsRef.current);
             void refresh();
             return;
           }
 
           knownOrderIdsRef.current.add(orderId);
-          saveKnownOrderIds(clientId, knownOrderIdsRef.current);
+          persistKnownOrders();
           triggerOrderAlert({
             orderId,
             tableNumber: inserted?.table_number != null ? String(inserted.table_number) : null,
