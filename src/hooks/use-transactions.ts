@@ -70,7 +70,14 @@ export function useTransactions(clientId: string) {
             return;
           }
 
-          if (knownOrderIdsRef.current.has(orderId) || !hasHydratedRef.current) {
+          if (!hasHydratedRef.current) {
+            knownOrderIdsRef.current.add(orderId);
+            saveKnownOrderIds(clientId, knownOrderIdsRef.current);
+            void refresh();
+            return;
+          }
+
+          if (knownOrderIdsRef.current.has(orderId)) {
             knownOrderIdsRef.current.add(orderId);
             saveKnownOrderIds(clientId, knownOrderIdsRef.current);
             void refresh();

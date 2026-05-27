@@ -3,6 +3,12 @@
 const PERMISSION_REQUESTED_KEY = "crm-order-notification-permission-requested";
 const ORDER_IDS_KEY_PREFIX = "crm-order-notification-known-ids";
 const MAX_STORED_ORDER_IDS = 400;
+const ALERT_TONE_FREQUENCY_HZ = 880;
+const ALERT_TONE_MIN_GAIN = 0.0001;
+const ALERT_TONE_MAX_GAIN = 0.18;
+const ALERT_TONE_ATTACK_SECONDS = 0.01;
+const ALERT_TONE_DECAY_SECONDS = 0.28;
+const ALERT_TONE_TOTAL_SECONDS = 0.3;
 
 type BrowserWindowWithAudio = Window & {
   AudioContext?: typeof AudioContext;
@@ -115,15 +121,15 @@ export function playOrderAlertSound() {
     const gain = audioContext.createGain();
 
     oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
-    gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.18, audioContext.currentTime + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.28);
+    oscillator.frequency.setValueAtTime(ALERT_TONE_FREQUENCY_HZ, audioContext.currentTime);
+    gain.gain.setValueAtTime(ALERT_TONE_MIN_GAIN, audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(ALERT_TONE_MAX_GAIN, audioContext.currentTime + ALERT_TONE_ATTACK_SECONDS);
+    gain.gain.exponentialRampToValueAtTime(ALERT_TONE_MIN_GAIN, audioContext.currentTime + ALERT_TONE_DECAY_SECONDS);
 
     oscillator.connect(gain);
     gain.connect(audioContext.destination);
     oscillator.start();
-    oscillator.stop(audioContext.currentTime + 0.3);
+    oscillator.stop(audioContext.currentTime + ALERT_TONE_TOTAL_SECONDS);
     oscillator.onended = () => {
       void audioContext.close().catch(() => undefined);
     };
