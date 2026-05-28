@@ -15,7 +15,11 @@ import {
 } from "lucide-react";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 import { usePersistentState } from "@/hooks/use-persistent-state";
-import { formatUtcToIst } from "@/lib/time-utils";
+import {
+  formatAppointmentDuration,
+  formatAppointmentTimeRange,
+  formatUtcToIst,
+} from "@/lib/time-utils";
 import { getSupabaseClient } from "@/lib/supabase";
 
 type AppointmentRow = {
@@ -74,68 +78,6 @@ const initialForm: AppointmentFormState = {
 function toNullable(value: string) {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
-}
-
-function formatTimeRange(date: string | null, startTime: string | null, endTime?: string | null) {
-  if (!date || !startTime) return "-";
-
-  const toHHMM = (isoDateTime: string) => {
-    // If already a full ISO datetime, parse directly; otherwise assume it's a time like HH:mm or HH:mm:ss
-    const input = String(isoDateTime).trim();
-    let d: Date;
-    if (input.includes("T") || input.endsWith("Z")) {
-      d = new Date(input);
-    } else if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(input)) {
-      // time-only, combine with provided date
-      d = new Date(`${date}T${input}${input.endsWith("Z") ? "" : ":00Z"}`);
-    } else {
-      d = new Date(input);
-    }
-
-    if (Number.isNaN(d.getTime())) return isoDateTime;
-    return new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Asia/Kolkata",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).format(d);
-  };
-
-  const startCombined = startTime && (startTime.includes("T") || startTime.endsWith("Z")) ? startTime : `${date}T${startTime}:00Z`;
-  const startPart = toHHMM(startCombined);
-  if (!endTime) return startPart;
-
-  const endCombined = endTime && (endTime.includes("T") || endTime.endsWith("Z")) ? endTime : `${date}T${endTime}:00Z`;
-  const endPart = toHHMM(endCombined);
-
-  return `${startPart} - ${endPart}`;
-}
-
-function getDuration(startTime: string | null, endTime: string | null) {
-  if (!startTime || !endTime) {
-    return "-";
-  }
-
-  const [startHours = 0, startMinutes = 0] = startTime.split(":").map(Number);
-  const [endHours = 0, endMinutes = 0] = endTime.split(":").map(Number);
-  const minutes = endHours * 60 + endMinutes - (startHours * 60 + startMinutes);
-
-  if (minutes <= 0) {
-    return "-";
-  }
-
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-
-  if (hours > 0 && remainingMinutes > 0) {
-    return `${hours}h ${remainingMinutes}m`;
-  }
-
-  if (hours > 0) {
-    return `${hours}h`;
-  }
-
-  return `${remainingMinutes}m`;
 }
 
 function getInitials(name: string | null) {
@@ -406,10 +348,12 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       };
     }
 
+    const client = supabaseClient;
+
     async function loadAppointments() {
       try {
         setLoading(true);
-        const { data, error: fetchError } = await supabaseClient
+        const { data, error: fetchError } = await client
           .from("appointments")
           .select("id, name, phone, email, service, staff_name, location, date, start_time, end_time, status, remark")
           .eq("client_id", clientId)
@@ -839,7 +783,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                         >
                           <div className="flex items-center gap-3">
                             <div className="text-xl font-semibold text-white">
-                              {formatTimeRange(appointment.date, appointment.start_time, appointment.end_time)}
+                              {formatAppointmentTimeRange(appointment.date, appointment.start_time, appointment.end_time)}
                             </div>
                           </div>
 
@@ -924,7 +868,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                           <div>Service: {appointment.service ?? "-"}</div>
                           <div>Staff: {appointment.staff_name ?? "-"}</div>
                           <div>Location: {appointment.location ?? "-"}</div>
-                          <div>Slot: {getDuration(appointment.start_time, appointment.end_time)}</div>
+                          <div>Slot: {formatAppointmentDuration(appointment.start_time, appointment.end_time, appointment.date)}</div>
                           <div>Date: {appointment.date ?? "-"}</div>
                           <div className="sm:col-span-2 lg:col-span-4">Remark: {appointment.remark ?? "-"}</div>
                         </div>
@@ -941,6 +885,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       <EntityModal
         open={modalMode !== null}
         title={modalMode === "reschedule" ? "Reschedule Appointment" : modalMode === "edit" ? "Edit Appointment" : "Add New Appointment"}
+        contentClassName="sm:max-w-2xl"
         onClose={() => {
           setModalMode(null);
           setEditingAppointment(null);
@@ -948,7 +893,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
         }}
       >
         <form onSubmit={handleSaveAppointment} className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="space-y-1 text-sm text-muted-foreground sm:col-span-2">
               <span>Customer *</span>
               <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2">
@@ -1013,44 +958,46 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
               />
             </label>
 
-            <label className="space-y-1 text-sm text-muted-foreground">
+            <label className="space-y-1 text-sm text-muted-foreground sm:col-span-2">
               <span>Date *</span>
               <input
                 value={form.date}
                 onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
                 type="date"
                 required
-                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+                className="w-full min-h-11 rounded-xl border border-border bg-background px-3 py-2 text-base text-text sm:text-sm"
               />
             </label>
 
-            <label className="space-y-1 text-sm text-muted-foreground">
-              <span>Time *</span>
-              <input
-                value={form.start_time}
-                onChange={(event) => setForm((current) => ({ ...current, start_time: event.target.value }))}
-                type="time"
-                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
-              />
-            </label>
+            <div className="grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2">
+              <label className="space-y-1 text-sm text-muted-foreground">
+                <span>Start time *</span>
+                <input
+                  value={form.start_time}
+                  onChange={(event) => setForm((current) => ({ ...current, start_time: event.target.value }))}
+                  type="time"
+                  className="w-full min-h-11 rounded-xl border border-border bg-background px-3 py-2 text-base text-text sm:text-sm"
+                />
+              </label>
 
-            <label className="space-y-1 text-sm text-muted-foreground">
-              <span>End Time</span>
-              <input
-                value={form.end_time}
-                onChange={(event) => setForm((current) => ({ ...current, end_time: event.target.value }))}
-                type="time"
-                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
-              />
-            </label>
+              <label className="space-y-1 text-sm text-muted-foreground">
+                <span>End time</span>
+                <input
+                  value={form.end_time}
+                  onChange={(event) => setForm((current) => ({ ...current, end_time: event.target.value }))}
+                  type="time"
+                  className="w-full min-h-11 rounded-xl border border-border bg-background px-3 py-2 text-base text-text sm:text-sm"
+                />
+              </label>
+            </div>
 
-            <label className="space-y-1 text-sm text-muted-foreground">
+            <label className="space-y-1 text-sm text-muted-foreground sm:col-span-2">
               <span>Duration</span>
               <input
                 readOnly
-                value={getDuration(form.start_time, form.end_time)}
+                value={formatAppointmentDuration(form.start_time, form.end_time, form.date)}
                 placeholder="Auto from time range"
-                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted-foreground"
+                className="w-full min-h-11 rounded-xl border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted-foreground"
               />
             </label>
 
@@ -1086,7 +1033,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
           {addError && <p className="text-sm text-rose-400">{addError}</p>}
 
-          <div className="flex items-center justify-end gap-2">
+          <div className="sticky bottom-0 -mx-4 flex flex-col-reverse gap-2 border-t border-border bg-card px-4 pt-4 sm:static sm:mx-0 sm:flex-row sm:justify-end sm:border-0 sm:px-0 sm:pt-0">
             <button
               type="button"
               onClick={() => {
@@ -1094,14 +1041,14 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                 setEditingAppointment(null);
                 resetForm();
               }}
-              className="rounded-xl border border-border bg-background px-4 py-2 text-sm text-foreground hover:bg-muted"
+              className="min-h-11 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground hover:bg-muted sm:w-auto"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="rounded-xl border border-border bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-11 w-full rounded-xl border border-border bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {isSaving ? "Saving..." : "Save appointment"}
             </button>
@@ -1115,11 +1062,11 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
             Change status for <span className="font-semibold text-text">{pendingStatusChange?.appointmentName}</span> to{" "}
             <span className="font-semibold text-text">{pendingStatusChange?.nextStatus}</span>?
           </p>
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={() => setPendingStatusChange(null)}
-              className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground hover:bg-muted"
+              className="min-h-11 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground hover:bg-muted sm:w-auto"
             >
               Cancel
             </button>
@@ -1127,7 +1074,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
               type="button"
               onClick={() => void confirmStatusChange()}
               disabled={Boolean(pendingStatusChange && updatingIds.has(pendingStatusChange.appointmentId))}
-              className="rounded-xl border border-border bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-11 w-full rounded-xl border border-border bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {pendingStatusChange && updatingIds.has(pendingStatusChange.appointmentId) ? "Updating..." : "Confirm"}
             </button>

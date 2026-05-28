@@ -415,7 +415,7 @@ function PromotionModal({ open, mode, promotion, products, productTypes, saving,
       open={open}
       title={mode === "create" ? "New promotion" : `Edit ${promotion?.name ?? "promotion"}`}
       onClose={onClose}
-      contentClassName="max-w-6xl max-h-[90vh] overflow-y-auto"
+      contentClassName="sm:max-w-6xl"
     >
       <form className="space-y-6" onSubmit={handleSubmit}>
         {error && <div className="rounded-xl border border-primary/50 bg-primary/10 p-3 text-sm text-primary">{error}</div>}

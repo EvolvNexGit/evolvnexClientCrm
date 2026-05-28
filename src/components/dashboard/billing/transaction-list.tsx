@@ -197,11 +197,7 @@ export function TransactionList({ transactions, loading, error, onUpdateStatus }
             const displayCustomer = transaction.customerName ?? transaction.walk_in_name ?? "Walk-in";
             return (
               <article key={transaction.id} className="rounded-xl border border-border bg-background p-4">
-                <button
-                  type="button"
-                  onClick={() => toggle(transaction.id)}
-                  className="flex w-full items-center justify-between gap-3 text-left"
-                >
+                <div className="flex w-full items-center justify-between gap-3">
                   <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
                     <div>
                       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Customer</div>
@@ -230,15 +226,14 @@ export function TransactionList({ transactions, loading, error, onUpdateStatus }
                     </div>
                     <div>
                       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Status</div>
-                      <div className="mt-1 flex items-center gap-1">
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
                         {(["pending", "accepted", "delivered"] as const).map((s) => {
                           const active = transaction.status === s;
                           return (
                             <button
                               key={s}
                               type="button"
-                              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                                e.stopPropagation();
+                              onClick={() => {
                                 if (!onUpdateStatus) return;
                                 setPendingChange({ id: transaction.id, oldStatus: transaction.status ?? null, newStatus: s });
                                 setConfirmOpen(true);
@@ -257,10 +252,18 @@ export function TransactionList({ transactions, loading, error, onUpdateStatus }
                     </div>
                   </div>
 
-                  <ChevronDown
-                    className={`h-4 w-4 shrink-0 text-muted-foreground transition ${isExpanded ? "rotate-180" : "rotate-0"}`}
-                  />
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => toggle(transaction.id)}
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-text"
+                    aria-expanded={isExpanded}
+                    aria-label={isExpanded ? "Collapse transaction details" : "Expand transaction details"}
+                  >
+                    <ChevronDown
+                      className={`h-4 w-4 transition ${isExpanded ? "rotate-180" : "rotate-0"}`}
+                    />
+                  </button>
+                </div>
 
                 {isExpanded && (
                   <div className="mt-4 overflow-x-auto rounded-lg border border-border">

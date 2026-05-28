@@ -3,6 +3,57 @@ import type { TabDefinition } from "@/lib/types";
 
 const tabsCache = new Map<string, TabDefinition[]>();
 
+/** Default sidebar order (tabs not listed appear after these, by DB display_order). */
+export const DEFAULT_TAB_ORDER = [
+  "summary",
+  "appointments",
+  "billing",
+  "transaction",
+  "orders",
+  "customer",
+  "subscription",
+  "promos",
+  "product",
+  "recipes",
+  "ingredients",
+] as const;
+
+/** User-facing / DB aliases → canonical tab keys used in the app. */
+const CODE_KEY_ALIASES: Record<string, string> = {
+  products: "product",
+  product: "product",
+  inventory: "ingredients",
+  ingredients: "ingredients",
+  recipes: "recipes",
+  recipies: "recipes",
+  promo: "promos",
+  promos: "promos",
+  order: "orders",
+  orders: "orders",
+};
+
+function normalizeTabKey(key: string): string {
+  const trimmed = key.trim();
+  return CODE_KEY_ALIASES[trimmed] ?? trimmed;
+}
+
+function getDefaultTabRank(key: string): number {
+  const normalized = normalizeTabKey(key);
+  const index = DEFAULT_TAB_ORDER.indexOf(normalized as (typeof DEFAULT_TAB_ORDER)[number]);
+  return index === -1 ? DEFAULT_TAB_ORDER.length : index;
+}
+
+function sortTabsByDefaultOrder(tabs: TabDefinition[]): TabDefinition[] {
+  return [...tabs].sort((left, right) => {
+    const rankDiff = getDefaultTabRank(left.key) - getDefaultTabRank(right.key);
+    if (rankDiff !== 0) {
+      return rankDiff;
+    }
+
+    return left.displayOrder - right.displayOrder;
+  });
+}
+
 // Map database tab keys (numeric) to code-based tab keys
 const DB_KEY_TO_CODE_KEY: Record<string, string> = {
   "001": "summary",
@@ -15,6 +66,7 @@ const DB_KEY_TO_CODE_KEY: Record<string, string> = {
   "008": "product",
   "009": "transaction",
   "010": "promos",
+  "011": "orders",
 };
 
 function toPermissions(value: unknown): string[] {
@@ -52,7 +104,7 @@ function normalizeTab(row: any): TabDefinition | null {
   }
 
   // Map database key to code-based key
-  const key = DB_KEY_TO_CODE_KEY[dbKey] ?? dbKey;
+  const key = normalizeTabKey(DB_KEY_TO_CODE_KEY[dbKey] ?? dbKey);
   const name = String(relatedTab.name ?? dbKey);
   const displayName = String(row?.display_name ?? name);
   const displayOrder = Number(row?.display_order ?? 0);
@@ -101,28 +153,30 @@ export async function getTabs(
     return [];
   }
 
-  const tabs = (data ?? [])
+  let tabs = (data ?? [])
     .map((row) => normalizeTab(row))
-    .filter((tab): tab is TabDefinition => tab !== null && tab.visible)
-    .sort((left, right) => left.displayOrder - right.displayOrder);
+    .filter((tab): tab is TabDefinition => tab !== null && tab.visible);
 
-  // Ensure "summary" tab is always present and permanent (visible to all clients)
-  const hasSummaryTab = tabs.some((tab) => tab.id === "summary");
-  if (!hasSummaryTab) {
-    const permanentSummaryTab: TabDefinition = {
-      id: "summary",
-      key: "summary",
-      name: "Summary",
-      label: "Summary",
-      icon: "home",
-      route: null,
-      permissions: [],
-      displayName: "Summary",
-      displayOrder: -1, // Ensure it's always first
-      visible: true,
-    };
-    tabs.unshift(permanentSummaryTab);
+  // Summary is always available; other tabs (including orders) require client_tab_access.
+  if (!tabs.some((tab) => tab.id === "summary")) {
+    tabs = [
+      {
+        id: "summary",
+        key: "summary",
+        name: "Summary",
+        label: "Summary",
+        icon: "home",
+        route: null,
+        permissions: [],
+        displayName: "Summary",
+        displayOrder: 0,
+        visible: true,
+      },
+      ...tabs,
+    ];
   }
+
+  tabs = sortTabsByDefaultOrder(tabs);
 
   tabsCache.set(clientId, tabs);
   return tabs;

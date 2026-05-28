@@ -92,7 +92,13 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
   const saving = recipeState.saving;
 
   const productTypes = useMemo(() => {
-    const types = Array.from(new Set(productState.products.map((p) => p.type).filter(Boolean)) as string[]);
+    const types = [
+      ...new Set(
+        productState.products
+          .map((p) => p.type)
+          .filter((type): type is string => Boolean(type)),
+      ),
+    ];
     return types.sort((a, b) => a.localeCompare(b));
   }, [productState.products]);
   const ingredientOptions = useMemo(
