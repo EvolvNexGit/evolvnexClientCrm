@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 type EntityModalProps = {
   open: boolean;
@@ -16,22 +17,37 @@ export function EntityModal({ open, title, onClose, children, contentClassName }
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-40 flex items-end justify-center bg-black/70 sm:items-center sm:p-4"
+      onClick={onClose}
+      role="presentation"
+    >
       <div
-        className={`w-full rounded-2xl border border-border bg-card p-5 shadow-soft ${contentClassName ?? "max-w-lg"}`}
+        className={cn(
+          "flex max-h-[min(92dvh,100%)] w-full flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-soft sm:max-h-[min(90dvh,100%)] sm:rounded-2xl",
+          contentClassName ?? "sm:max-w-lg",
+        )}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="entity-modal-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h3 className="text-xl font-semibold text-text">{title}</h3>
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3 sm:px-5 sm:py-4">
+          <h3 id="entity-modal-title" className="pr-2 text-lg font-semibold leading-snug text-text sm:text-xl">
+            {title}
+          </h3>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-border px-3 py-1 text-sm text-muted-foreground hover:text-text"
+            className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-text"
           >
             Close
           </button>
         </div>
-        {children}
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5 sm:py-5">
+          {children}
+        </div>
       </div>
     </div>
   );

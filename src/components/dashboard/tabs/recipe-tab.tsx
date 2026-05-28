@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { ChevronDown, ChevronRight, Download, Filter, Plus, Search, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
@@ -9,6 +10,7 @@ import { useIngredients } from "@/hooks/use-ingredients";
 import { useProducts } from "@/hooks/use-products";
 import { useRecipes } from "@/hooks/use-recipes";
 import type { InventoryUnit, RecipePayload, RecipeRecord } from "@/lib/inventory-types";
+import { formatUtcToIst } from "@/lib/time-utils";
 
 const units: InventoryUnit[] = ["g", "kg", "ml", "l", "unit"];
 
@@ -17,15 +19,17 @@ type RecipeFormState = {
   ingredient_id: string;
   quantity: string;
   quantity_unit: InventoryUnit;
+  items?: Array<{ ingredient_id: string; quantity: string; quantity_unit: InventoryUnit; name?: string }>;
 };
 
-type SortOption = "product" | "ingredient" | "created_at";
+// Sort dropdown removed; recipes always sort by product then ingredient
 
 const initialForm: RecipeFormState = {
   product_id: "",
   ingredient_id: "",
   quantity: "1",
   quantity_unit: "unit",
+  items: [],
 };
 
 function isRecipeLowStock(recipe: RecipeRecord) {
@@ -44,18 +48,35 @@ function formatQuantity(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 
+function escapeCsvValue(value: string | number | boolean | null | undefined) {
+  const text = String(value ?? "");
+  if (/[",\n\r]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+
+  return text;
+}
+
+function downloadCsv(filename: string, rows: string[][]) {
+  const csv = rows.map((row) => row.map(escapeCsvValue).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function RecipeTab({ clientId }: { clientId: string }) {
   const recipeState = useRecipes(clientId);
   const productState = useProducts(clientId);
   const ingredientState = useIngredients(clientId);
 
   const [searchQuery, setSearchQuery] = usePersistentState("recipe-tab-search", "");
-  const [productSearchQuery, setProductSearchQuery] = usePersistentState("recipe-tab-product-search", "");
-  const [ingredientSearchQuery, setIngredientSearchQuery] = usePersistentState("recipe-tab-ingredient-search", "");
-  const [selectedProduct, setSelectedProduct] = usePersistentState("recipe-tab-selected-product", "");
-  const [selectedIngredient, setSelectedIngredient] = usePersistentState("recipe-tab-selected-ingredient", "");
+  // product/ingredient name filters removed — keep UI simpler
+  const [productTypeFilter, setProductTypeFilter] = usePersistentState("recipe-tab-product-type-filter", "");
   const [showLowStockOnly, setShowLowStockOnly] = usePersistentState("recipe-tab-show-low-stock-only", false);
-  const [sortBy, setSortBy] = usePersistentState<SortOption>("recipe-tab-sort-by", "product");
   const [collapsedProducts, setCollapsedProducts] = usePersistentState<Record<string, boolean>>("recipe-tab-collapsed-products", {});
   const [isAddOpen, setIsAddOpen] = usePersistentState("recipe-tab-is-add-open", false);
   const [editingRecipe, setEditingRecipe] = usePersistentState<RecipeRecord | null>("recipe-tab-editing-recipe", null);
@@ -70,33 +91,20 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
   const error = recipeState.error || productState.error || ingredientState.error;
   const saving = recipeState.saving;
 
-  const productOptions = useMemo(
-    () => [...productState.products].sort((a, b) => a.name.localeCompare(b.name)),
-    [productState.products],
-  );
-
+  const productTypes = useMemo(() => {
+    const types = [
+      ...new Set(
+        productState.products
+          .map((p) => p.type)
+          .filter((type): type is string => Boolean(type)),
+      ),
+    ];
+    return types.sort((a, b) => a.localeCompare(b));
+  }, [productState.products]);
   const ingredientOptions = useMemo(
     () => [...ingredientState.ingredients].sort((a, b) => a.name.localeCompare(b.name)),
     [ingredientState.ingredients],
   );
-
-  const filteredProductOptions = useMemo(() => {
-    const query = productSearchQuery.trim().toLowerCase();
-    if (!query) {
-      return productOptions;
-    }
-
-    return productOptions.filter((product) => product.name.toLowerCase().includes(query));
-  }, [productOptions, productSearchQuery]);
-
-  const filteredIngredientOptions = useMemo(() => {
-    const query = ingredientSearchQuery.trim().toLowerCase();
-    if (!query) {
-      return ingredientOptions;
-    }
-
-    return ingredientOptions.filter((ingredient) => ingredient.name.toLowerCase().includes(query));
-  }, [ingredientOptions, ingredientSearchQuery]);
 
   const filteredRecipes = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -107,27 +115,16 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
           .join(" ")
           .toLowerCase()
           .includes(query);
-      const matchesProduct = !selectedProduct || recipe.product_id === selectedProduct;
-      const matchesIngredient = !selectedIngredient || recipe.ingredient_id === selectedIngredient;
+      // product/ingredient name filters removed; always match
+      // filter by product type/status similar to ProductTable
+      const product = productState.products.find((p) => p.id === recipe.product_id);
+      const matchesType = !productTypeFilter || (product?.type ?? "") === productTypeFilter;
       const matchesLowStock = !showLowStockOnly || isRecipeLowStock(recipe);
 
-      return matchesSearch && matchesProduct && matchesIngredient && matchesLowStock;
+      return matchesSearch && matchesLowStock && matchesType;
     });
 
     next.sort((a, b) => {
-      if (sortBy === "ingredient") {
-        const ingredientCompare = a.ingredientName.localeCompare(b.ingredientName);
-        if (ingredientCompare !== 0) {
-          return ingredientCompare;
-        }
-
-        return a.productName.localeCompare(b.productName);
-      }
-
-      if (sortBy === "created_at") {
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      }
-
       const productCompare = a.productName.localeCompare(b.productName);
       if (productCompare !== 0) {
         return productCompare;
@@ -137,7 +134,7 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
     });
 
     return next;
-  }, [recipeState.recipes, searchQuery, selectedProduct, selectedIngredient, showLowStockOnly, sortBy]);
+  }, [recipeState.recipes, searchQuery, showLowStockOnly, productTypeFilter]);
 
   const groupedRecipes = useMemo(() => {
     const groups = new Map<string, { productId: string; productName: string; rows: RecipeRecord[] }>();
@@ -157,12 +154,10 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
     });
 
     const values = Array.from(groups.values());
-    if (sortBy !== "created_at") {
-      values.sort((a, b) => a.productName.localeCompare(b.productName));
-    }
+    values.sort((a, b) => a.productName.localeCompare(b.productName));
 
     return values;
-  }, [filteredRecipes, sortBy]);
+  }, [filteredRecipes]);
 
   const lowStockRecipeCount = useMemo(
     () => recipeState.recipes.filter((recipe) => isRecipeLowStock(recipe)).length,
@@ -171,6 +166,51 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
 
   const hasRows = groupedRecipes.length > 0;
 
+  function handleDownloadCsv() {
+    const rows = [
+      ["product_name", "ingredient_name", "quantity", "quantity_unit", "ingredient_stock", "ingredient_stock_unit", "status", "created_at"],
+      ...filteredRecipes.map((recipe) => [
+        recipe.productName,
+        recipe.ingredientName,
+        formatQuantity(recipe.quantity),
+        recipe.quantity_unit,
+        formatQuantity(recipe.ingredientStock),
+        recipe.ingredientStockUnit,
+        isRecipeNegativeStock(recipe) ? "negative" : isRecipeLowStock(recipe) ? "low_stock" : "normal",
+        formatUtcToIst(recipe.created_at),
+      ]),
+    ];
+
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    downloadCsv(`recipes-${clientId}-${dateStamp}.csv`, rows);
+  }
+
+  function getRowTone(recipe: RecipeRecord) {
+    if (isRecipeNegativeStock(recipe)) {
+      return {
+        border: "border-red-500/40",
+        bg: "bg-red-500/10",
+        text: "text-red-400",
+        badge: "NEGATIVE",
+      };
+    }
+
+    if (isRecipeLowStock(recipe)) {
+      return {
+        border: "border-amber-500/40",
+        bg: "bg-amber-500/10",
+        text: "text-amber-400",
+        badge: "LOW STOCK",
+      };
+    }
+
+    return {
+      border: "border-border",
+      bg: "bg-card",
+      text: "text-emerald-400",
+    };
+  }
+
   function resetForm() {
     setForm(initialForm);
     setActionError(null);
@@ -178,7 +218,7 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
 
   function openAdd() {
     if (productState.products.length === 0 || ingredientState.ingredients.length === 0) {
-      setActionError("Add at least one active product and one ingredient before creating a recipe.");
+      setActionError("Add at least one product and one ingredient before creating a recipe.");
       return;
     }
 
@@ -194,6 +234,7 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
       ingredient_id: recipe.ingredient_id,
       quantity: String(recipe.quantity),
       quantity_unit: recipe.quantity_unit,
+      items: [],
     });
   }
 
@@ -202,12 +243,24 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
     setActionError(null);
 
     try {
-      await recipeState.addRecipe({
-        product_id: form.product_id,
-        ingredient_id: form.ingredient_id,
-        quantity: Number(form.quantity),
-        quantity_unit: form.quantity_unit,
-      } satisfies RecipePayload);
+      // Support submitting multiple ingredients at once when items present
+      if (form.items && form.items.length > 0) {
+        for (const item of form.items) {
+          await recipeState.addRecipe({
+            product_id: form.product_id,
+            ingredient_id: item.ingredient_id,
+            quantity: Number(item.quantity),
+            quantity_unit: item.quantity_unit,
+          } satisfies RecipePayload);
+        }
+      } else {
+        await recipeState.addRecipe({
+          product_id: form.product_id,
+          ingredient_id: form.ingredient_id,
+          quantity: Number(form.quantity),
+          quantity_unit: form.quantity_unit,
+        } satisfies RecipePayload);
+      }
       setIsAddOpen(false);
       resetForm();
     } catch (submitError) {
@@ -261,192 +314,183 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
   }
 
   return (
-    <div className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold text-text">Recipes</h3>
-          <p className="text-base text-muted-foreground">Link products to ingredients with required quantities.</p>
+    <section className="space-y-5 rounded-[28px] border border-white/10 bg-[#080808] p-5 text-white shadow-[0_20px_60px_rgba(0,0,0,0.45)] sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-1">
+          <div className="text-sm font-semibold uppercase tracking-[0.3em] text-red-500">Dashboard</div>
+          <h3 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Recipes</h3>
+          <p className="max-w-2xl text-sm text-white/70 sm:text-base">Link products to ingredients with accurate quantity.</p>
         </div>
-        <Button type="button" onClick={openAdd}>
-          Add Recipe
-        </Button>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleDownloadCsv}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-black/30 text-white/80 transition hover:border-white/20 hover:bg-white/5 hover:text-white"
+            aria-label="Download displayed recipes as CSV"
+            title="Download CSV"
+          >
+            <Download className="h-5 w-5" />
+          </button>
+          <Button type="button" onClick={openAdd} className="h-11 rounded-2xl bg-red-600 px-6 text-base font-semibold text-white hover:bg-red-500">
+            <Plus className="mr-2 h-4 w-4" />
+            Add recipe
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-3 rounded-xl border border-border bg-background p-3 lg:grid-cols-2">
-        <label className="block text-sm text-muted-foreground">
-          <span className="mb-1 block">Search recipes</span>
+      <div className="grid gap-3 lg:grid-cols-[1.7fr_0.8fr_0.8fr_0.8fr]">
+        <label className="relative block text-sm text-white/70">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" />
           <input
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search by product, ingredient, or unit"
-            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-base text-text"
+            placeholder="Search by recipe or ingredient name or type"
+            className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 pl-10 pr-3 text-sm text-white placeholder:text-white/45 outline-none transition focus:border-red-500/60 focus:ring-2 focus:ring-red-500/20"
           />
         </label>
 
-        <label className="block text-sm text-muted-foreground">
-          <span className="mb-1 block">Sort by</span>
+        {/* Sort dropdown removed; results are ordered by product then ingredient */}
+
+        <label className="relative block text-sm text-white/70">
+          <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" />
           <select
-            value={sortBy}
-            onChange={(event) => setSortBy(event.target.value as SortOption)}
-            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-base text-text"
+            value={productTypeFilter}
+            onChange={(event) => setProductTypeFilter(event.target.value)}
+            className="h-11 w-full appearance-none rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-text outline-none transition focus:border-red-500/60 focus:ring-2 focus:ring-red-500/20"
           >
-            <option value="product">Product name</option>
-            <option value="ingredient">Ingredient name</option>
-            <option value="created_at">Created date</option>
+            <option value="">All types</option>
+            {productTypes.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
           </select>
         </label>
 
-        <div className="space-y-2">
-          <label className="block text-sm text-muted-foreground">
-            <span className="mb-1 block">Product filter</span>
-            <input
-              value={productSearchQuery}
-              onChange={(event) => setProductSearchQuery(event.target.value)}
-              placeholder="Search products"
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-base text-text"
-            />
-          </label>
-          <select
-            value={selectedProduct}
-            onChange={(event) => setSelectedProduct(event.target.value)}
-            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-base text-text"
-          >
-            <option value="">All products</option>
-            {filteredProductOptions.map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Status filter removed - show recipes regardless of product active state */}
+      </div>
 
-        <div className="space-y-2">
-          <label className="block text-sm text-muted-foreground">
-            <span className="mb-1 block">Ingredient filter</span>
-            <input
-              value={ingredientSearchQuery}
-              onChange={(event) => setIngredientSearchQuery(event.target.value)}
-              placeholder="Search ingredients"
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-base text-text"
-            />
-          </label>
-          <select
-            value={selectedIngredient}
-            onChange={(event) => setSelectedIngredient(event.target.value)}
-            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-base text-text"
-          >
-            <option value="">All ingredients</option>
-            {filteredIngredientOptions.map((ingredient) => (
-              <option key={ingredient.id} value={ingredient.id}>
-                {ingredient.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <label className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2 text-sm text-muted-foreground lg:col-span-2">
-          <span>Show low stock recipes only</span>
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-sm text-white/75">
           <input
             type="checkbox"
             checked={showLowStockOnly}
             onChange={(event) => setShowLowStockOnly(event.target.checked)}
-            className="h-4 w-4 accent-primary"
+            className="h-4 w-4 rounded border-white/20 bg-transparent accent-red-500"
           />
+          Show low stock recipes only
         </label>
 
-        <div className="lg:col-span-2">
-          <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-sm text-amber-400">
-            Low stock recipes: {lowStockRecipeCount}
-          </span>
-        </div>
+        <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-sm font-medium text-amber-300">
+          Low stock recipes: {lowStockRecipeCount}
+        </span>
       </div>
 
       {actionError && (
-        <div className="rounded-lg border border-primary/50 bg-primary/10 p-3 text-sm text-primary">{actionError}</div>
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{actionError}</div>
       )}
 
       <DataState
         loading={loading}
         error={error}
         empty={!loading && !error && !hasRows}
-        emptyLabel={searchQuery || selectedProduct || selectedIngredient || showLowStockOnly ? "No recipes match current filters." : "No recipes yet."}
+        emptyLabel={searchQuery || showLowStockOnly ? "No recipes match current filters." : "No recipes yet."}
       />
 
       {hasRows && !loading && !error && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {groupedRecipes.map((group) => {
             const isCollapsed = Boolean(collapsedProducts[group.productId]);
             const lowStockInGroup = group.rows.filter((recipe) => isRecipeLowStock(recipe)).length;
 
             return (
-              <div key={group.productId} className="rounded-xl border border-border bg-background">
+              <div key={group.productId} className="overflow-hidden rounded-2xl border border-white/10 bg-[#101010]">
                 <button
                   type="button"
                   onClick={() => toggleProductGroup(group.productId)}
-                  className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left"
+                  className="flex w-full items-center justify-between gap-4 border-b border-white/10 px-4 py-4 text-left transition hover:bg-white/[0.03]"
                 >
                   <div>
-                    <p className="text-base font-semibold text-text">Product: {group.productName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {group.rows.length} ingredients
-                      {lowStockInGroup > 0 ? `, ${lowStockInGroup} low stock` : ""}
+                    <p className="text-base font-semibold text-white">{group.productName}</p>
+                    <p className="text-sm text-white/55">
+                      {group.rows.length} ingredients{lowStockInGroup > 0 ? `, ${lowStockInGroup} low stock` : ""}
                     </p>
                   </div>
-                  <span className="text-sm text-muted-foreground">{isCollapsed ? "Expand" : "Collapse"}</span>
+
+                  <div className="flex items-center gap-3">
+                    {lowStockInGroup > 0 ? (
+                      <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-300">
+                        Needs attention
+                      </span>
+                    ) : null}
+                    {isCollapsed ? <ChevronRight className="h-5 w-5 text-white/50" /> : <ChevronDown className="h-5 w-5 text-white/50" />}
+                  </div>
                 </button>
 
                 {!isCollapsed && (
-                  <ul className="space-y-2 border-t border-border px-3 py-3">
-                    {group.rows.map((recipe) => {
-                      const isNegative = isRecipeNegativeStock(recipe);
-                      const isLowStock = isRecipeLowStock(recipe);
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-white/10 text-sm">
+                      <thead className="bg-black/20 text-left uppercase tracking-[0.2em] text-white/45">
+                        <tr>
+                          <th className="px-4 py-3">Ingredient</th>
+                          <th className="px-4 py-3">Quantity</th>
+                          <th className="px-4 py-3">Stock</th>
+                          <th className="px-4 py-3">Status</th>
+                          <th className="px-4 py-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/10">
+                        {group.rows.map((recipe) => {
+                          const rowTone = getRowTone(recipe);
 
-                      const rowTone = isNegative
-                        ? "border-red-500/40 bg-red-500/10"
-                        : isLowStock
-                          ? "border-amber-500/40 bg-amber-500/10"
-                          : "border-border bg-card";
-                      const stockTone = isNegative
-                        ? "text-red-400"
-                        : isLowStock
-                          ? "text-amber-400"
-                          : "text-muted-foreground";
-
-                      return (
-                        <li key={recipe.id} className={`rounded-lg border px-3 py-3 ${rowTone}`}>
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div className="space-y-1">
-                              <p className="text-base text-text">
-                                {recipe.ingredientName} ({formatQuantity(recipe.quantity)} {recipe.quantity_unit})
-                              </p>
-                              <p className={`text-sm ${stockTone}`}>
-                                Stock: {formatQuantity(recipe.ingredientStock)} {recipe.ingredientStockUnit}
-                                {isNegative ? " (negative)" : isLowStock ? " (below threshold)" : ""}
-                              </p>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                onClick={() => openEdit(recipe)}
-                                className="rounded-md border border-border px-2 py-1 text-sm text-muted-foreground hover:text-text"
-                                disabled={saving}
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setPendingDeleteRecipe(recipe)}
-                                className="rounded-md border border-primary/50 px-2 py-1 text-sm text-primary"
-                                disabled={saving}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                          return (
+                            <tr key={recipe.id} className={`${rowTone.bg} hover:bg-white/[0.03]`}>
+                              <td className="px-4 py-4">
+                                <div className="font-medium text-white">{recipe.ingredientName}</div>
+                                <div className="text-xs text-white/45">Product: {recipe.productName}</div>
+                              </td>
+                              <td className="px-4 py-4 text-white/80">
+                                {formatQuantity(recipe.quantity)} {recipe.quantity_unit}
+                              </td>
+                              <td className="px-4 py-4 text-white/70">
+                                {formatQuantity(recipe.ingredientStock)} {recipe.ingredientStockUnit}
+                              </td>
+                              <td className="px-4 py-4">
+                                {rowTone.badge ? (
+                                  <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${rowTone.border} ${rowTone.text}`}>
+                                    {rowTone.badge}
+                                  </span>
+                                ) : null}
+                              </td>
+                              <td className="px-4 py-4">
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => openEdit(recipe)}
+                                    className="inline-flex items-center gap-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white/70 transition hover:border-white/20 hover:text-white"
+                                    disabled={saving}
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPendingDeleteRecipe(recipe)}
+                                    className="inline-flex items-center gap-1 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-red-300 transition hover:bg-red-500/20"
+                                    disabled={saving}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    Delete
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
             );
@@ -494,7 +538,7 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
           </div>
         </div>
       </EntityModal>
-    </div>
+    </section>
   );
 }
 
@@ -517,7 +561,7 @@ function RecipeForm({
 }) {
   return (
     <form className="space-y-3" onSubmit={(event) => void onSubmit(event)}>
-      <label className="block text-base text-muted-foreground">
+      <label className="hidden block text-base text-muted-foreground">
         <span className="mb-1 block">Product</span>
         <select
           required
@@ -534,51 +578,102 @@ function RecipeForm({
         </select>
       </label>
 
-      <label className="block text-base text-muted-foreground">
-        <span className="mb-1 block">Ingredient</span>
-        <select
-          required
-          value={form.ingredient_id}
-          onChange={(event) => onChange({ ...form, ingredient_id: event.target.value })}
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
-        >
-          <option value="">Select ingredient</option>
-          {ingredients.map((ingredient) => (
-            <option key={ingredient.id} value={ingredient.id}>
-              {ingredient.name}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div>
         <label className="block text-base text-muted-foreground">
-          <span className="mb-1 block">Quantity</span>
-          <input
-            required
-            min="0"
-            step="0.01"
-            type="number"
-            value={form.quantity}
-            onChange={(event) => onChange({ ...form, quantity: event.target.value })}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
-          />
+          <span className="mb-1 block">Add Ingredient</span>
+          <div className="flex items-center gap-3">
+            <select
+              value={form.ingredient_id}
+              onChange={(event) => onChange({ ...form, ingredient_id: event.target.value })}
+              className="hidden flex-1 rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
+            >
+              <option value="">Select ingredient to add</option>
+              {ingredients.map((ingredient) => (
+                <option key={ingredient.id} value={ingredient.id}>
+                  {ingredient.name}
+                </option>
+              ))}
+            </select>
+
+            <input
+              min="0"
+              step="0.01"
+              type="number"
+              value={form.quantity}
+              onChange={(event) => onChange({ ...form, quantity: event.target.value })}
+              placeholder="Quantity"
+              className="w-28 rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
+            />
+
+            <select
+              value={form.quantity_unit}
+              onChange={(event) => onChange({ ...form, quantity_unit: event.target.value as InventoryUnit })}
+              className="w-28 rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
+            >
+              {units.map((unit) => (
+                <option key={unit} value={unit}>
+                  {unit}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (!form.ingredient_id) return;
+                const ingredient = ingredients.find((i) => i.id === form.ingredient_id);
+                const nextItems = [...(form.items ?? [])];
+                nextItems.push({
+                  ingredient_id: form.ingredient_id,
+                  quantity: form.quantity,
+                  quantity_unit: form.quantity_unit,
+                  name: ingredient?.name,
+                });
+                onChange({ ...form, items: nextItems, ingredient_id: "", quantity: "1" });
+              }}
+              className="ml-2 rounded-2xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500"
+            >
+              Add Ingredient to recipe
+            </button>
+          </div>
         </label>
 
-        <label className="block text-base text-muted-foreground">
-          <span className="mb-1 block">Unit</span>
-          <select
-            value={form.quantity_unit}
-            onChange={(event) => onChange({ ...form, quantity_unit: event.target.value as InventoryUnit })}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
-          >
-            {units.map((unit) => (
-              <option key={unit} value={unit}>
-                {unit}
-              </option>
-            ))}
-          </select>
-        </label>
+        {/* Items table */}
+        {(form.items && form.items.length > 0) && (
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full divide-y divide-white/10 text-sm">
+              <thead className="bg-black/20 text-left uppercase tracking-[0.2em] text-white/45">
+                <tr>
+                  <th className="px-4 py-3">Ingredient</th>
+                  <th className="px-4 py-3">Quantity</th>
+                  <th className="px-4 py-3">Unit</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10">
+                {form.items!.map((it, idx) => (
+                  <tr key={`${it.ingredient_id}-${idx}`} className="bg-card">
+                    <td className="px-4 py-4">{it.name ?? ingredients.find((i) => i.id === it.ingredient_id)?.name}</td>
+                    <td className="px-4 py-4">{it.quantity}</td>
+                    <td className="px-4 py-4">{it.quantity_unit}</td>
+                    <td className="px-4 py-4 text-right">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = (form.items ?? []).filter((_, i) => i !== idx);
+                          onChange({ ...form, items: next });
+                        }}
+                        className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-red-300"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <Button type="submit" className="w-full" disabled={saving}>

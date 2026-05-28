@@ -295,6 +295,18 @@ export async function fetchTransactions(clientId: string): Promise<TransactionRe
 
 }
 
+function isDeliveredStatus(status: TransactionRecord["status"]): boolean {
+  return String(status ?? "").trim().toLowerCase() === "delivered";
+}
+
+/** Active bills only (not delivered), oldest first. */
+export async function fetchActiveOrders(clientId: string): Promise<TransactionRecord[]> {
+  const transactions = await fetchTransactions(clientId);
+  return transactions
+    .filter((transaction) => !isDeliveredStatus(transaction.status))
+    .sort((left, right) => new Date(left.created_at).getTime() - new Date(right.created_at).getTime());
+}
+
 export async function updateBillStatus(clientId: string, billId: string, status: "pending" | "accepted" | "delivered") {
   const supabase = getClient();
   const dbStatus = (function mapToDb(s: string) {

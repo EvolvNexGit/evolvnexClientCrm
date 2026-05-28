@@ -230,11 +230,13 @@ function formatMoney(value: number | null | undefined) {
   }).format(value ?? 0);
 }
 
+import { formatUtcToIst } from "@/lib/time-utils";
+
 function formatDateRange(startDate: string, endDate: string | null) {
   const start = new Date(startDate);
   const end = endDate ? new Date(endDate) : null;
-  const startLabel = Number.isNaN(start.getTime()) ? startDate : start.toLocaleString();
-  const endLabel = end && !Number.isNaN(end.getTime()) ? end.toLocaleString() : null;
+  const startLabel = Number.isNaN(start.getTime()) ? startDate : formatUtcToIst(startDate, { withSeconds: false });
+  const endLabel = end && !Number.isNaN(end.getTime()) ? formatUtcToIst(endDate, { withSeconds: false }) : null;
 
   return endLabel ? `${startLabel} - ${endLabel}` : `${startLabel} onward`;
 }
@@ -413,7 +415,7 @@ function PromotionModal({ open, mode, promotion, products, productTypes, saving,
       open={open}
       title={mode === "create" ? "New promotion" : `Edit ${promotion?.name ?? "promotion"}`}
       onClose={onClose}
-      contentClassName="max-w-6xl max-h-[90vh] overflow-y-auto"
+      contentClassName="sm:max-w-6xl"
     >
       <form className="space-y-6" onSubmit={handleSubmit}>
         {error && <div className="rounded-xl border border-primary/50 bg-primary/10 p-3 text-sm text-primary">{error}</div>}
