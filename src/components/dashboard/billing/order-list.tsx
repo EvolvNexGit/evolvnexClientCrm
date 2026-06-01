@@ -6,7 +6,7 @@ import { OrderWaitBadge } from "@/components/dashboard/billing/order-wait-badge"
 import { Button } from "@/components/ui/button";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 import type { TransactionRecord } from "@/lib/billing-types";
-import { formatUtcToIstTimeLabel } from "@/lib/time-utils";
+import { formatUtcToIstTimeLabel, parseDbTimestamp } from "@/lib/time-utils";
 
 type OrderListProps = {
   orders: TransactionRecord[];
@@ -66,16 +66,17 @@ function OrderCard({
   const currentStatus = (order.status ?? "pending") as OrderStatus;
 
   return (
-    <article className="relative w-[min(100%,17.5rem)] shrink-0 snap-start">
-      <OrderWaitBadge createdAt={order.created_at} />
-
+    <article className="w-[min(100%,17.5rem)] shrink-0 snap-start">
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#141414] shadow-soft">
-        <div className="flex items-center justify-between bg-[#1f1f1f] px-4 py-2.5">
+        <div className="flex items-center justify-between gap-3 bg-[#1f1f1f] px-4 py-2.5">
           <span className="text-sm font-semibold tracking-wide text-primary">{qrOrder ? "QR" : "POS"}</span>
-          <span className="text-sm font-medium text-white">{serviceType}</span>
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="truncate text-sm font-medium text-white">{serviceType}</span>
+            <OrderWaitBadge createdAt={order.created_at} />
+          </div>
         </div>
 
-        <div className="space-y-4 px-4 pb-4 pt-5">
+        <div className="space-y-4 px-4 pb-4 pt-3">
           <div className="flex items-start justify-between gap-3">
             <p className="text-3xl font-bold leading-none tracking-tight text-white">{formatCurrency(order.final_amount)}</p>
             <div className="text-right">
@@ -121,7 +122,8 @@ export function OrderList({ orders, loading, error, onUpdateStatus }: OrderListP
   const sortedOrders = useMemo(
     () =>
       [...orders].sort(
-        (left, right) => new Date(left.created_at).getTime() - new Date(right.created_at).getTime(),
+        (left, right) =>
+          (parseDbTimestamp(left.created_at)?.getTime() ?? 0) - (parseDbTimestamp(right.created_at)?.getTime() ?? 0),
       ),
     [orders],
   );
@@ -135,13 +137,15 @@ export function OrderList({ orders, loading, error, onUpdateStatus }: OrderListP
 
   return (
     <div className="space-y-5">
-      <p className="text-sm font-medium text-primary">Air Menu Orders, via Table QR</p>
+      <p className="text-sm font-medium text-primary">
+        Air Menu Orders, via Table QR · last 24 hours
+      </p>
 
       <DataState
         loading={loading}
         error={error}
         empty={!loading && !error && sortedOrders.length === 0}
-        emptyLabel="No open orders right now."
+        emptyLabel="No open orders in the last 24 hours."
       />
 
       {updateError && <p className="text-sm text-rose-400">{updateError}</p>}

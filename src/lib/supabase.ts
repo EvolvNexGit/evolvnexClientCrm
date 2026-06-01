@@ -1,16 +1,88 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const rawSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
+const rawSupabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? "";
+
 let supabaseClient: SupabaseClient | null = null;
+let configError: string | null = null;
+
+function normalizeSupabaseUrl(url: string) {
+  return url.replace(/\/+$/, "");
+}
+
+function validateSupabaseConfig(): { url: string; anonKey: string } | null {
+  if (!rawSupabaseUrl || !rawSupabaseAnonKey) {
+    configError =
+      "Missing Supabase environment variables. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local.";
+    return null;
+  }
+
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(rawSupabaseUrl);
+  } catch {
+    configError = "NEXT_PUBLIC_SUPABASE_URL is not a valid URL.";
+    return null;
+  }
+
+  const isLocalDev = parsedUrl.hostname === "localhost" || parsedUrl.hostname === "127.0.0.1";
+
+  if (!isLocalDev && parsedUrl.protocol !== "https:") {
+    configError = "NEXT_PUBLIC_SUPABASE_URL must use https://.";
+    return null;
+  }
+
+  if (!isLocalDev && !parsedUrl.hostname.endsWith(".supabase.co")) {
+    configError = "NEXT_PUBLIC_SUPABASE_URL should point to your *.supabase.co project URL.";
+    return null;
+  }
+
+  configError = null;
+  return {
+    url: normalizeSupabaseUrl(rawSupabaseUrl),
+    anonKey: rawSupabaseAnonKey,
+  };
+}
+
+export function getSupabaseConfigError() {
+  if (!configError && !supabaseClient) {
+    validateSupabaseConfig();
+  }
+  return configError;
+}
+
+export function isNetworkAuthError(error: unknown): boolean {
+  if (error instanceof TypeError && error.message === "Failed to fetch") {
+    return true;
+  }
+
+  if (error instanceof Error) {
+    return /failed to fetch|networkerror|network request failed|load failed/i.test(error.message);
+  }
+
+  return false;
+}
+
+export function formatAuthErrorMessage(error: unknown): string {
+  if (isNetworkAuthError(error)) {
+    return "Cannot reach Supabase. Check your internet connection, verify NEXT_PUBLIC_SUPABASE_URL in .env.local, and ensure the Supabase project is not paused.";
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return "Unable to complete authentication.";
+}
 
 export function getSupabaseClient() {
-  if (!supabaseUrl || !supabaseAnonKey) {
+  const config = validateSupabaseConfig();
+  if (!config) {
     return null;
   }
 
   if (!supabaseClient) {
-    supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+    supabaseClient = createClient(config.url, config.anonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
@@ -20,4 +92,18 @@ export function getSupabaseClient() {
   }
 
   return supabaseClient;
+}
+
+/** Clears a broken local session without requiring network access. */
+export async function clearLocalSupabaseSession() {
+  const client = getSupabaseClient();
+  if (!client) {
+    return;
+  }
+
+  try {
+    await client.auth.signOut({ scope: "local" });
+  } catch {
+    // Ignore — local storage may already be empty.
+  }
 }

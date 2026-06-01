@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getElapsedMinutes } from "@/lib/time-utils";
+import { formatElapsedMmSs } from "@/lib/time-utils";
 
 export function OrderWaitBadge({ createdAt }: { createdAt: string }) {
-  const [minutes, setMinutes] = useState(() => getElapsedMinutes(createdAt));
+  const [elapsed, setElapsed] = useState(() => formatElapsedMmSs(createdAt));
 
   useEffect(() => {
-    const tick = () => setMinutes(getElapsedMinutes(createdAt));
+    const tick = () => setElapsed(formatElapsedMmSs(createdAt));
     tick();
     const intervalId = setInterval(tick, 1000);
     return () => clearInterval(intervalId);
@@ -15,10 +15,11 @@ export function OrderWaitBadge({ createdAt }: { createdAt: string }) {
 
   return (
     <div
-      className="absolute -right-2 -top-2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground shadow-redGlow ring-2 ring-background"
-      title={`Waiting ${minutes} minute${minutes === 1 ? "" : "s"}`}
+      className="relative flex size-14 shrink-0 items-center justify-center rounded-full bg-primary shadow-redGlow"
+      title={`Waiting ${elapsed}`}
+      aria-label={`Waiting ${elapsed}`}
     >
-      {minutes}
+      <span className="text-[11px] font-bold tabular-nums leading-none text-primary-foreground">{elapsed}</span>
     </div>
   );
 }

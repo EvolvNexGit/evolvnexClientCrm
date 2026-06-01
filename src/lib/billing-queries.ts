@@ -246,13 +246,62 @@ export async function setProductActive(
   }
 }
 
+const BILL_TRANSACTION_SELECT =
+  "id, created_at, total_amount, discount, final_amount, walk_in_name, status, table_number, customers(name, phone), bill_items(id, quantity, price, total, products(name))";
+
+export const ORDERS_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+
+function normalizeBillStatus(val: unknown): TransactionRecord["status"] {
+  if (val == null) {
+    return null;
+  }
+
+  const status = String(val).trim().toLowerCase();
+  if (status === "pending" || status === "accepted" || status === "delivered") {
+    return status;
+  }
+
+  return null;
+}
+
+function mapBillRowToTransaction(row: Record<string, unknown>): TransactionRecord {
+  const customerRaw = Array.isArray(row.customers)
+    ? (row.customers[0] as Record<string, unknown>)
+    : (row.customers as Record<string, unknown> | null);
+  const billItems = Array.isArray(row.bill_items) ? row.bill_items : [];
+
+  return {
+    id: String(row.id),
+    created_at: String(row.created_at ?? ""),
+    total_amount: asNumber(row.total_amount),
+    discount: asNumber(row.discount),
+    final_amount: asNumber(row.final_amount),
+    table_number: (row.table_number as string | null) ?? null,
+    status: normalizeBillStatus(row.status),
+    walk_in_name: (row.walk_in_name as string | null) ?? null,
+    customerName: (customerRaw?.name as string | null) ?? null,
+    customerPhone: (customerRaw?.phone as string | null) ?? null,
+    items: billItems.map((item: Record<string, unknown>) => {
+      const productRaw = Array.isArray(item.products)
+        ? (item.products[0] as Record<string, unknown>)
+        : (item.products as Record<string, unknown> | null);
+
+      return {
+        id: String(item.id),
+        quantity: asNumber(item.quantity),
+        price: asNumber(item.price),
+        total: asNumber(item.total),
+        productName: (productRaw?.name as string | null) ?? "Unknown product",
+      };
+    }),
+  };
+}
+
 export async function fetchTransactions(clientId: string): Promise<TransactionRecord[]> {
   const supabase = getClient();
   const { data, error } = await supabase
     .from("bills")
-    .select(
-      "id, created_at, total_amount, discount, final_amount, walk_in_name, status, table_number, customers(name, phone), bill_items(id, quantity, price, total, products(name))",
-    )
+    .select(BILL_TRANSACTION_SELECT)
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
 
@@ -260,51 +309,32 @@ export async function fetchTransactions(clientId: string): Promise<TransactionRe
     throw error;
   }
 
-  return (data ?? []).map((row: any) => {
-    const customerRaw = Array.isArray(row.customers) ? row.customers[0] : row.customers;
-    const billItems = Array.isArray(row.bill_items) ? row.bill_items : [];
-
-    return {
-      id: String(row.id),
-      created_at: row.created_at ?? "",
-      total_amount: asNumber(row.total_amount),
-      discount: asNumber(row.discount),
-      final_amount: asNumber(row.final_amount),
-      table_number: row.table_number ?? null,
-      status: (function normalizeStatus(val: any) {
-        if (val == null) return null;
-        const s = String(val).trim().toLowerCase();
-        if (s === "pending" || s === "accepted" || s === "delivered") return s as "pending" | "accepted" | "delivered";
-        return null;
-      })(row.status),
-      walk_in_name: row.walk_in_name ?? null,
-      customerName: customerRaw?.name ?? null,
-      customerPhone: customerRaw?.phone ?? null,
-      items: billItems.map((item: any) => {
-        const productRaw = Array.isArray(item.products) ? item.products[0] : item.products;
-        return {
-          id: String(item.id),
-          quantity: asNumber(item.quantity),
-          price: asNumber(item.price),
-          total: asNumber(item.total),
-          productName: productRaw?.name ?? "Unknown product",
-        };
-      }),
-    };
-  });
-
+  return (data ?? []).map((row) => mapBillRowToTransaction(row as Record<string, unknown>));
 }
 
 function isDeliveredStatus(status: TransactionRecord["status"]): boolean {
   return String(status ?? "").trim().toLowerCase() === "delivered";
 }
 
-/** Active bills only (not delivered), oldest first. */
+/** Active bills from the last 24 hours (not delivered), oldest first. */
 export async function fetchActiveOrders(clientId: string): Promise<TransactionRecord[]> {
-  const transactions = await fetchTransactions(clientId);
-  return transactions
-    .filter((transaction) => !isDeliveredStatus(transaction.status))
-    .sort((left, right) => new Date(left.created_at).getTime() - new Date(right.created_at).getTime());
+  const supabase = getClient();
+  const since = new Date(Date.now() - ORDERS_LOOKBACK_MS).toISOString();
+
+  const { data, error } = await supabase
+    .from("bills")
+    .select(BILL_TRANSACTION_SELECT)
+    .eq("client_id", clientId)
+    .gte("created_at", since)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? [])
+    .map((row) => mapBillRowToTransaction(row as Record<string, unknown>))
+    .filter((transaction) => !isDeliveredStatus(transaction.status));
 }
 
 export async function updateBillStatus(clientId: string, billId: string, status: "pending" | "accepted" | "delivered") {

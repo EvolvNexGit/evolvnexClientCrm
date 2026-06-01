@@ -137,6 +137,12 @@ function getPromoEligibilityReason(
 }
 
 const BILLING_SESSION_KEY = (clientId: string) => `billing-session-${clientId}`;
+const DEFAULT_WALK_IN_NAME = "Walkin";
+
+function resolveWalkInName(name: string) {
+  const trimmed = name.trim();
+  return trimmed.length > 0 ? trimmed : DEFAULT_WALK_IN_NAME;
+}
 
 type BillingSessionState = {
   cart: CartItem[];
@@ -323,6 +329,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     }
 
     setCustomerId("");
+    setCustomerSearchTerm("");
   }
 
   function clearSelectedPromo() {
@@ -673,8 +680,8 @@ export default function BillingTab({ clientId }: { clientId: string }) {
         Number(discountInput || 0),
         billingMode === "customer" ? customerId || null : null,
         {
-          name: billingMode === "walk-in" ? walkInName || null : null,
-          phone: billingMode === "walk-in" ? walkInPhone || null : null,
+          name: billingMode === "walk-in" ? resolveWalkInName(walkInName) : null,
+          phone: billingMode === "walk-in" ? walkInPhone.trim() || null : null,
         },
         tableNumber || null,
       );
@@ -687,6 +694,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
       setTableNumber("");
       setBillingMode("walk-in");
       setCustomerId("");
+      setCustomerSearchTerm("");
       setWalkInName("");
       setWalkInPhone("");
       clearBillingSession(clientId);
@@ -1015,23 +1023,30 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                 )}
               </div>
             ) : (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <label className="block text-sm text-muted-foreground">
-                  Walk-in name
-                  <input
-                    value={walkInName}
-                    onChange={(event) => setWalkInName(event.target.value)}
-                    className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
-                  />
-                </label>
-                <label className="block text-sm text-muted-foreground">
-                  Walk-in phone
-                  <input
-                    value={walkInPhone}
-                    onChange={(event) => setWalkInPhone(event.target.value)}
-                    className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
-                  />
-                </label>
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Optional — leave name blank to use <span className="font-medium text-text">{DEFAULT_WALK_IN_NAME}</span>.
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="block text-sm text-muted-foreground">
+                    Walk-in name
+                    <input
+                      value={walkInName}
+                      onChange={(event) => setWalkInName(event.target.value)}
+                      placeholder={DEFAULT_WALK_IN_NAME}
+                      className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text placeholder:text-muted-foreground"
+                    />
+                  </label>
+                  <label className="block text-sm text-muted-foreground">
+                    Walk-in phone
+                    <input
+                      value={walkInPhone}
+                      onChange={(event) => setWalkInPhone(event.target.value)}
+                      placeholder="Optional"
+                      className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text placeholder:text-muted-foreground"
+                    />
+                  </label>
+                </div>
               </div>
             )}
           </div>
