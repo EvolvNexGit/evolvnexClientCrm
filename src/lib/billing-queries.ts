@@ -247,7 +247,7 @@ export async function setProductActive(
 }
 
 const BILL_TRANSACTION_SELECT =
-  "id, created_at, total_amount, discount, final_amount, walk_in_name, status, table_number, customers(name, phone), bill_items(id, quantity, price, total, products(name))";
+  "id, order_id, created_at, total_amount, discount, final_amount, walk_in_name, status, table_number, customers(name, phone), bill_items(id, quantity, price, total, products(name))";
 
 export const ORDERS_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
@@ -272,6 +272,7 @@ function mapBillRowToTransaction(row: Record<string, unknown>): TransactionRecor
 
   return {
     id: String(row.id),
+    order_id: row.order_id != null && String(row.order_id).trim() !== "" ? String(row.order_id) : null,
     created_at: String(row.created_at ?? ""),
     total_amount: asNumber(row.total_amount),
     discount: asNumber(row.discount),

@@ -44,6 +44,7 @@ export type TransactionItem = {
 
 export type TransactionRecord = {
   id: string;
+  order_id: string | null;
   created_at: string;
   total_amount: number;
   discount: number;

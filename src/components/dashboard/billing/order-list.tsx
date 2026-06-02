@@ -25,11 +25,6 @@ function formatCurrency(amount: number) {
   }).format(amount || 0);
 }
 
-function formatOrderId(id: string) {
-  const compact = id.replace(/-/g, "").slice(-6);
-  return `#${compact.padStart(6, "0")}`;
-}
-
 function getServiceType(order: TransactionRecord) {
   return order.table_number ? "Dine in" : "Takeaway";
 }
@@ -64,6 +59,7 @@ function OrderCard({
   const serviceType = getServiceType(order);
   const qrOrder = isQrOrder(order);
   const currentStatus = (order.status ?? "pending") as OrderStatus;
+  const orderId = order.order_id?.trim();
 
   return (
     <article className="w-[min(100%,17.5rem)] shrink-0 snap-start">
@@ -80,8 +76,17 @@ function OrderCard({
           <div className="flex items-start justify-between gap-3">
             <p className="text-3xl font-bold leading-none tracking-tight text-white">{formatCurrency(order.final_amount)}</p>
             <div className="text-right">
-              <p className="text-sm font-medium text-white/90">{formatOrderId(order.id)}</p>
-              <p className="mt-0.5 text-sm text-white/55">{formatUtcToIstTimeLabel(order.created_at)}</p>
+              {orderId ? (
+                <>
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-white/45">Order id</p>
+                  <p className="truncate text-sm font-medium text-white/90" title={orderId}>
+                    {orderId}
+                  </p>
+                </>
+              ) : null}
+              <p className={`text-sm text-white/55 ${orderId ? "mt-0.5" : ""}`}>
+                {formatUtcToIstTimeLabel(order.created_at)}
+              </p>
             </div>
           </div>
 
@@ -174,8 +179,8 @@ export function OrderList({ orders, loading, error, onUpdateStatus }: OrderListP
         <div className="space-y-4">
           {selectedOrder && (
             <p className="text-sm text-muted-foreground">
-              {formatOrderId(selectedOrder.id)} · {getServiceType(selectedOrder)} ·{" "}
-              {formatCurrency(selectedOrder.final_amount)}
+              {selectedOrder.order_id?.trim() ? `${selectedOrder.order_id.trim()} · ` : ""}
+              {getServiceType(selectedOrder)} · {formatCurrency(selectedOrder.final_amount)}
             </p>
           )}
 

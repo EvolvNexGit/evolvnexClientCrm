@@ -91,8 +91,8 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
       const productNames = transaction.items.map((item) => item.productName).join(" ").toLowerCase();
       const matchesSearch =
         !query ||
-        [displayCustomer.toLowerCase(), transaction.id.toLowerCase(), productNames].some((value) =>
-          value.includes(query),
+        [displayCustomer.toLowerCase(), transaction.id.toLowerCase(), transaction.order_id?.toLowerCase() ?? "", productNames].some(
+          (value) => value.includes(query),
         );
 
       return matchesCustomer && matchesDateFrom && matchesDateTo && matchesSearch;
@@ -221,22 +221,21 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
           {filteredTransactions.map((transaction) => {
             const isExpanded = expanded.includes(transaction.id);
             const displayCustomer = transaction.customerName ?? transaction.walk_in_name ?? "Walk-in";
+            const orderId = transaction.order_id?.trim();
 
             return (
               <article key={transaction.id} className="rounded-lg border border-border bg-background px-2.5 py-2">
-                <div className="flex items-center gap-2">
-                  <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-3 lg:grid-cols-6">
-                    <TransactionField label="Customer" className="col-span-2 sm:col-span-1">
-                      <span className="font-medium">{displayCustomer}</span>
-                    </TransactionField>
-                    <TransactionField label="Date">{formatUtcToIstDayMonth(transaction.created_at)}</TransactionField>
-                    <TransactionField label="Table">{transaction.table_number ?? "—"}</TransactionField>
-                    <TransactionField label="Total">{formatCurrency(transaction.total_amount)}</TransactionField>
-                    <TransactionField label="Disc.">{formatCurrency(transaction.discount)}</TransactionField>
-                    <TransactionField label="Final">
-                      <span className="font-semibold text-primary">{formatCurrency(transaction.final_amount)}</span>
-                    </TransactionField>
-                  </div>
+                <div className="flex items-start gap-2 border-b border-border/60 pb-2">
+                  {orderId ? (
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Order id</div>
+                      <p className="mt-0.5 truncate font-mono text-sm font-semibold text-text" title={orderId}>
+                        {orderId}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="min-w-0 flex-1" />
+                  )}
 
                   <span
                     className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${statusBadgeClass(transaction.status)}`}
@@ -255,8 +254,28 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
                   </button>
                 </div>
 
+                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-3 lg:grid-cols-6">
+                  <TransactionField label="Customer" className="col-span-2 sm:col-span-1">
+                    <span className="font-medium">{displayCustomer}</span>
+                  </TransactionField>
+                  <TransactionField label="Date">{formatUtcToIstDayMonth(transaction.created_at)}</TransactionField>
+                  <TransactionField label="Table">{transaction.table_number ?? "—"}</TransactionField>
+                  <TransactionField label="Total">{formatCurrency(transaction.total_amount)}</TransactionField>
+                  <TransactionField label="Disc.">{formatCurrency(transaction.discount)}</TransactionField>
+                  <TransactionField label="Final">
+                    <span className="font-semibold text-primary">{formatCurrency(transaction.final_amount)}</span>
+                  </TransactionField>
+                </div>
+
                 {isExpanded && (
-                  <div className="mt-2 overflow-x-auto rounded-md border border-border">
+                  <div className="mt-2 space-y-2">
+                    <div className="rounded-md border border-border bg-muted/30 px-2 py-1.5">
+                      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Bill id</div>
+                      <p className="mt-0.5 break-all font-mono text-[10px] leading-relaxed text-muted-foreground">
+                        {transaction.id}
+                      </p>
+                    </div>
+                    <div className="overflow-x-auto rounded-md border border-border">
                     <table className="min-w-full text-sm">
                       <thead className="bg-muted/60 text-left text-[10px] uppercase tracking-wide text-muted-foreground">
                         <tr>
@@ -277,6 +296,7 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 )}
               </article>

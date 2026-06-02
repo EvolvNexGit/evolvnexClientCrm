@@ -12,7 +12,7 @@ export default function TransactionTab({ clientId }: { clientId: string }) {
         <div>
           <h2 className="text-xl font-semibold text-text">Transactions</h2>
           <p className="mt-1 text-base text-muted-foreground">
-            Read-only history of bills. Update order status from the Orders tab.
+            Read-only bill history. Each row shows a short bill ID; expand for the full ID and line items.
           </p>
         </div>
       </div>
