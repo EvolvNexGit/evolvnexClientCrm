@@ -145,11 +145,17 @@ function getElapsedSeconds(createdAt: string | Date | null | undefined, nowMs = 
   return Math.max(0, Math.floor((nowMs - start) / 1000));
 }
 
-/** Live elapsed time as `mm:ss` (minutes may exceed 59 for long waits). */
+/** Live order wait timer: `mm:ss` under 1 hour, otherwise `hh:mm:ss`. */
 export function formatElapsedMmSs(createdAt: string | Date | null | undefined, nowMs = Date.now()): string {
   const totalSeconds = getElapsedSeconds(createdAt, nowMs);
-  const minutes = Math.floor(totalSeconds / 60);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 

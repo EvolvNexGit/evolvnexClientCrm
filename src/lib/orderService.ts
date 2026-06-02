@@ -1,5 +1,6 @@
 import { getSupabaseClient } from "@/lib/supabase";
 import type { ProductRecord } from "@/lib/billing-types";
+import { BILL_ORDER_SOURCE_POS } from "@/lib/billing-types";
 import type { InventoryUnit } from "@/lib/inventory-types";
 
 export type CartItem = {
@@ -260,6 +261,7 @@ export const orderService = {
     customerId: string | null,
     walkInDetails: WalkInDetails,
     tableNumber?: string | null,
+    orderType?: string | null,
   ) {
     if (cart.length === 0) {
       throw new Error("Cart is empty.");
@@ -288,6 +290,8 @@ export const orderService = {
       p_status: "ACCEPTED",
       p_discount: Math.max(0, asNumber(discount)),
       p_table_number: tableNumber ?? null,
+      p_order_source: BILL_ORDER_SOURCE_POS,
+      p_order_type: orderType ?? null,
       p_items: cart.map((item) => ({
         product_id: item.productId,
         quantity: item.quantity,

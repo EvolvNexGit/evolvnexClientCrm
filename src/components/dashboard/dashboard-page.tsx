@@ -24,6 +24,17 @@ import type { BillingSubTab } from "@/lib/billing-types";
 import type { TabDefinition } from "@/lib/types";
 import { requestNotificationPermissionOnce } from "@/lib/order-notifications";
 
+function TabLoading() {
+  return (
+    <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-border bg-card text-base text-muted-foreground">
+      <span className="inline-flex items-center gap-2">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Loading tab content
+      </span>
+    </div>
+  );
+}
+
 const SummaryTab = dynamic(() => import("./tabs/summary-tab"), {
   loading: () => <TabLoading />,
 });
@@ -59,17 +70,6 @@ const PromosTab = dynamic(() => import("./tabs/promos-tab"), {
 const OrdersTab = dynamic(() => import("./tabs/orders-tab"), {
   loading: () => <TabLoading />,
 });
-
-function TabLoading() {
-  return (
-    <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-border bg-card text-base text-muted-foreground">
-      <span className="inline-flex items-center gap-2">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading tab content
-      </span>
-    </div>
-  );
-}
 
 function getTabIcon(tab: TabDefinition) {
   switch (tab.icon) {

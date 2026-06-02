@@ -1,5 +1,9 @@
 export type BillingSubTab = "customer" | "product" | "transaction";
 
+export const BILL_ORDER_TYPES = ["Dine-In", "Take-Away", "Delivery"] as const;
+export type BillOrderType = (typeof BILL_ORDER_TYPES)[number];
+export const BILL_ORDER_SOURCE_POS = "POS" as const;
+
 export type CustomerRecord = {
   id: string;
   name: string;
@@ -53,6 +57,8 @@ export type TransactionRecord = {
   customerName: string | null;
   customerPhone: string | null;
   table_number?: string | null;
+  order_source?: string | null;
+  order_type?: string | null;
   status?: "pending" | "accepted" | "delivered" | null;
   items: TransactionItem[];
 };

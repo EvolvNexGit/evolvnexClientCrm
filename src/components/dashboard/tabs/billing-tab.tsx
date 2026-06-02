@@ -7,7 +7,7 @@ import { useProducts } from "@/hooks/use-products";
 import { useCustomers } from "@/hooks/use-customers";
 import { usePromotions } from "@/hooks/use-promotions";
 import { orderService, type CartItem } from "@/lib/orderService";
-import type { CustomerPayload } from "@/lib/billing-types";
+import { BILL_ORDER_SOURCE_POS, BILL_ORDER_TYPES, type BillOrderType, type CustomerPayload } from "@/lib/billing-types";
 import type { PromotionRecord } from "@/lib/promotion-types";
 
 function formatCurrency(amount: number) {
@@ -159,6 +159,7 @@ type BillingSessionState = {
   quantityInput: string;
   productTypeFilter: string;
   tableNumber: string;
+  orderType: BillOrderType;
 };
 
 function saveBillingSession(clientId: string, state: BillingSessionState) {
@@ -210,6 +211,11 @@ export default function BillingTab({ clientId }: { clientId: string }) {
   const [productTypeFilter, setProductTypeFilter] = useState(storedSession?.productTypeFilter ?? "");
   const [discountInput, setDiscountInput] = useState(storedSession?.discountInput ?? "0");
   const [tableNumber, setTableNumber] = useState(storedSession?.tableNumber ?? "");
+  const [orderType, setOrderType] = useState<BillOrderType>(
+    storedSession?.orderType && BILL_ORDER_TYPES.includes(storedSession.orderType)
+      ? storedSession.orderType
+      : "Dine-In",
+  );
   const [billingMode, setBillingMode] = useState<"customer" | "walk-in">(storedSession?.billingMode ?? "walk-in");
   const [customerId, setCustomerId] = useState(storedSession?.customerId ?? "");
   const [customerSearchTerm, setCustomerSearchTerm] = useState(storedSession?.customerSearchTerm ?? "");
@@ -566,6 +572,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
       quantityInput,
       productTypeFilter,
       tableNumber,
+      orderType,
     };
     saveBillingSession(clientId, sessionState);
   }, [
@@ -583,6 +590,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     quantityInput,
     productTypeFilter,
     tableNumber,
+    orderType,
     clientId,
   ]);
 
@@ -684,6 +692,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
           phone: billingMode === "walk-in" ? walkInPhone.trim() || null : null,
         },
         tableNumber || null,
+        orderType,
       );
 
       setCreateBillMessage(`Bill ${result.billId} created successfully.`);
@@ -692,6 +701,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
       setSelectedPromoId("");
       setDiscountMode("manual");
       setTableNumber("");
+      setOrderType("Dine-In");
       setBillingMode("walk-in");
       setCustomerId("");
       setCustomerSearchTerm("");
@@ -1153,6 +1163,21 @@ export default function BillingTab({ clientId }: { clientId: string }) {
             {discountMode === "manual" && (
               <div className="text-xs text-muted-foreground">Use a promo from the promos tab or enter a manual discount.</div>
             )}
+
+            <label className="flex items-center justify-between text-muted-foreground">
+              <span>Order type</span>
+              <select
+                value={orderType}
+                onChange={(event) => setOrderType(event.target.value as BillOrderType)}
+                className="w-36 rounded-md border border-border bg-background px-2 py-1 text-right text-base text-text"
+              >
+                {BILL_ORDER_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </label>
 
             <label className="flex items-center justify-between text-muted-foreground">
               <span>Table Number</span>
