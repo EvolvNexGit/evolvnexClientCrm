@@ -352,34 +352,22 @@ function DashboardPageContent() {
       {/* Main */}
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <header className="sticky top-0 z-10 border-b border-border bg-background px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 xl:hidden">
-              <button
-                onClick={() => setMobileOpen(true)}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-text"
-              >
-                <Menu className="h-5 w-5" />
-              </button>
+        <header className="sticky top-0 z-10 border-b border-border bg-background px-4 py-4 sm:px-6 lg:px-8 xl:hidden">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-text"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
 
-              {/* 🔥 MOBILE LOGO */}
-              <Image
-                src="/logo.png"
-                alt="EvolvNex"
-                width={110}
-                height={32}
-                className="object-contain"
-              />
-            </div>
-
-            <div className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
-              <div className="rounded-full border border-border bg-card px-3 py-2">
-                Auth ID: {authId ?? "missing"}
-              </div>
-              <div className="rounded-full border border-border bg-card px-3 py-2">
-                Client ID: {clientId}
-              </div>
-            </div>
+            <Image
+              src="/logo.png"
+              alt="EvolvNex"
+              width={110}
+              height={32}
+              className="object-contain"
+            />
           </div>
         </header>
 
@@ -458,14 +446,10 @@ function SidebarContent({
 }) {
   return (
     <>
-      <div className="mb-8 flex items-center justify-between gap-3">
-        <Image
-          src="/logo.png"
-          alt="EvolvNex"
-          width={collapsed ? 40 : 140}
-          height={40}
-          className="object-contain"
-        />
+      <div className={`mb-8 flex ${collapsed ? "justify-center" : "items-center justify-between gap-3"}`}>
+        {!collapsed ? (
+          <Image src="/logo.png" alt="EvolvNex" width={140} height={40} className="object-contain" />
+        ) : null}
         <button
           type="button"
           onClick={onToggleCollapse}
@@ -481,6 +465,7 @@ function SidebarContent({
         {tabs.map((tab) => {
           const Icon = getTabIcon(tab);
           const isActive = activeTabId === tab.key;
+          const tabLabel = tab.displayName ?? tab.label;
 
           return (
             <div key={tab.key}>
@@ -489,14 +474,20 @@ function SidebarContent({
                   onTabChange(tab.key);
                   onNavigate?.();
                 }}
+                title={collapsed ? tabLabel : undefined}
+                aria-label={collapsed ? tabLabel : undefined}
                 className={
                   isActive
-                    ? "flex w-full items-center gap-3 rounded-xl bg-primary px-4 py-3 text-white shadow-redGlow"
-                    : "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-muted-foreground hover:bg-muted hover:text-text"
+                    ? `flex w-full items-center rounded-xl bg-primary py-3 text-white shadow-redGlow ${
+                        collapsed ? "justify-center px-3" : "gap-3 px-4"
+                      }`
+                    : `flex w-full items-center rounded-xl py-3 text-muted-foreground hover:bg-muted hover:text-text ${
+                        collapsed ? "justify-center px-3" : "gap-3 px-4"
+                      }`
                 }
               >
                 <Icon className="h-4 w-4" />
-                {!collapsed && <span className="flex-1 text-base font-medium">{tab.displayName ?? tab.label}</span>}
+                {!collapsed && <span className="flex-1 text-base font-medium">{tabLabel}</span>}
               </button>
             </div>
           );
@@ -506,7 +497,11 @@ function SidebarContent({
       <div className="mt-auto border-t border-border pt-4">
         <button
           onClick={() => void onLogout()}
-          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-base font-medium text-muted-foreground hover:bg-muted hover:text-text"
+          title={collapsed ? "Logout" : undefined}
+          aria-label={collapsed ? "Logout" : undefined}
+          className={`flex w-full items-center rounded-xl py-3 text-base font-medium text-muted-foreground hover:bg-muted hover:text-text ${
+            collapsed ? "justify-center px-3" : "gap-3 px-4"
+          }`}
         >
           <LogOut className="h-4 w-4" />
           {!collapsed && "Logout"}
