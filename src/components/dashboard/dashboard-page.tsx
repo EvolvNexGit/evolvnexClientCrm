@@ -12,8 +12,10 @@ import {
   Menu,
   PanelLeftClose,
   PanelRightClose,
+  Package,
+  Tag,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useApp, useClient } from "@/contexts/app-context";
 import { Button } from "@/components/ui/button";
@@ -50,6 +52,14 @@ const BillingCrmTab = dynamic(() => import("./tabs/billing-crm-tab"), {
   loading: () => <TabLoading />,
 });
 
+const PromosTab = dynamic(() => import("./tabs/promos-tab"), {
+  loading: () => <TabLoading />,
+});
+
+const OrdersTab = dynamic(() => import("./tabs/orders-tab"), {
+  loading: () => <TabLoading />,
+});
+
 function TabLoading() {
   return (
     <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-border bg-card text-base text-muted-foreground">
@@ -67,6 +77,10 @@ function getTabIcon(tab: TabDefinition) {
       return Home;
     case "calendar":
       return CalendarDays;
+    case "tag":
+      return Tag;
+    case "package":
+      return Package;
     default:
       return ChevronRight;
   }
@@ -79,7 +93,7 @@ function pathMatchesTab(pathname: string, tab: TabDefinition) {
   return isDashboardTabPath(pathname, tab.key);
 }
 
-export function DashboardPage() {
+function DashboardPageContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -364,6 +378,12 @@ export function DashboardPage() {
             {displayTab?.key === "billing" && (
               <BillingTab clientId={clientId} />
             )}
+            {displayTab?.key === "orders" && (
+              <OrdersTab clientId={clientId} />
+            )}
+            {displayTab?.key === "promos" && (
+              <PromosTab clientId={clientId} />
+            )}
             {displayTab?.key === "ingredients" && (
               <IngredientTab clientId={clientId} />
             )}
@@ -462,7 +482,7 @@ function SidebarContent({
   );
 }
 
-function DashboardScreenLoader() {
+export function DashboardScreenLoader() {
   return (
     <main className="grid min-h-screen place-items-center bg-background px-6">
       <div className="rounded-xl border border-border bg-card px-6 py-5 text-base text-muted-foreground shadow-soft">
@@ -472,6 +492,14 @@ function DashboardScreenLoader() {
         </span>
       </div>
     </main>
+  );
+}
+
+export function DashboardPage() {
+  return (
+    <Suspense fallback={<DashboardScreenLoader />}>
+      <DashboardPageContent />
+    </Suspense>
   );
 }
 
