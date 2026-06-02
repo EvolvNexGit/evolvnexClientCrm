@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { getDashboardTabPath, isDashboardTabPath } from "@/lib/dashboard-tab-routes";
 import type { BillingSubTab } from "@/lib/billing-types";
 import type { TabDefinition } from "@/lib/types";
+import { requestNotificationPermissionOnce } from "@/lib/order-notifications";
 
 const SummaryTab = dynamic(() => import("./tabs/summary-tab"), {
   loading: () => <TabLoading />,
@@ -117,6 +118,14 @@ function DashboardPageContent() {
       router.replace("/login");
     }
   }, [loading, router, user]);
+
+  useEffect(() => {
+    if (loading || !user) {
+      return;
+    }
+
+    requestNotificationPermissionOnce();
+  }, [loading, user]);
 
   const tabFromUrl = searchParams.get("tab");
 
