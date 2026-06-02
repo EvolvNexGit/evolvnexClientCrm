@@ -3,6 +3,59 @@ export function normalizeAppointmentTimestamp(value: string): string {
   return value.trim().replace(/(T\d{2}:\d{2}:\d{2}):\d{2}(Z)$/i, "$1$2");
 }
 
+function hasExplicitTimezone(value: string) {
+  return /(?:Z|[+-]\d{2}(?::?\d{2})?)$/i.test(value.trim());
+}
+
+/**
+ * Parse Supabase/Postgres instants. Values without a timezone are treated as UTC
+ * (avoids ~5.5h inflated wait timers in IST when `created_at` omits `Z`).
+ */
+export function parseDbTimestamp(value: string | Date | null | undefined): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  let input = normalizeAppointmentTimestamp(String(value).trim());
+  if (!input) {
+    return null;
+  }
+
+  if (hasExplicitTimezone(input)) {
+    const parsed = new Date(input);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  if (input.includes(" ") && !input.includes("T")) {
+    input = input.replace(" ", "T");
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(input)) {
+    const parsed = new Date(`${input}T00:00:00Z`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const parsed = new Date(`${input}Z`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getTimestampMs(value: string | Date | null | undefined): number {
+  if (!value) {
+    return Number.NaN;
+  }
+
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+
+  const parsed = parseDbTimestamp(value);
+  return parsed ? parsed.getTime() : Number.NaN;
+}
+
 export function parseAppointmentDateTime(value: string, date?: string | null): Date | null {
   const input = normalizeAppointmentTimestamp(value);
 
@@ -75,11 +128,7 @@ export function formatAppointmentTimeRange(
 
 /** Whole minutes elapsed since `createdAt` (for kitchen queue badges). */
 export function getElapsedMinutes(createdAt: string | Date | null | undefined, nowMs = Date.now()): number {
-  if (!createdAt) {
-    return 0;
-  }
-
-  const start = typeof createdAt === "string" ? new Date(createdAt).getTime() : createdAt.getTime();
+  const start = getTimestampMs(createdAt);
   if (Number.isNaN(start)) {
     return 0;
   }
@@ -87,14 +136,27 @@ export function getElapsedMinutes(createdAt: string | Date | null | undefined, n
   return Math.max(0, Math.floor((nowMs - start) / 60_000));
 }
 
-/** Time only in IST, e.g. `08:30 PM`. */
-export function formatUtcToIstTimeLabel(value: string | Date | null | undefined): string {
-  if (!value) {
-    return "-";
+function getElapsedSeconds(createdAt: string | Date | null | undefined, nowMs = Date.now()): number {
+  const start = getTimestampMs(createdAt);
+  if (Number.isNaN(start)) {
+    return 0;
   }
 
-  const date = typeof value === "string" ? new Date(value) : value;
-  if (Number.isNaN(date.getTime())) {
+  return Math.max(0, Math.floor((nowMs - start) / 1000));
+}
+
+/** Live elapsed time as `mm:ss` (minutes may exceed 59 for long waits). */
+export function formatElapsedMmSs(createdAt: string | Date | null | undefined, nowMs = Date.now()): string {
+  const totalSeconds = getElapsedSeconds(createdAt, nowMs);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+/** Time only in IST, e.g. `08:30 PM`. */
+export function formatUtcToIstTimeLabel(value: string | Date | null | undefined): string {
+  const date = parseDbTimestamp(value);
+  if (!date) {
     return "-";
   }
 
@@ -108,11 +170,7 @@ export function formatUtcToIstTimeLabel(value: string | Date | null | undefined)
 
 /** Live elapsed time since `createdAt` (e.g. `2m 15s`, `1h 3m 5s`). */
 export function formatElapsedSince(createdAt: string | Date | null | undefined, nowMs = Date.now()): string {
-  if (!createdAt) {
-    return "--";
-  }
-
-  const start = typeof createdAt === "string" ? new Date(createdAt).getTime() : createdAt.getTime();
+  const start = getTimestampMs(createdAt);
   if (Number.isNaN(start)) {
     return "--";
   }
@@ -171,6 +229,24 @@ export function formatAppointmentDuration(
   }
 
   return `${remainingMinutes}m`;
+}
+
+/** Compact date in IST: `dd/mm`. */
+export function formatUtcToIstDayMonth(value: string | Date | null | undefined): string {
+  const date = parseDbTimestamp(value);
+  if (!date) {
+    return "-";
+  }
+
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "2-digit",
+  }).formatToParts(date);
+
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  return `${day}/${month}`;
 }
 
 export function formatUtcToIst(value: string | Date | null | undefined, opts?: { withSeconds?: boolean }) {
