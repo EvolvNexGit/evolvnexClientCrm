@@ -1,9 +1,11 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import type { BillingSubTab } from "@/lib/billing-types";
-import CustomerTab from "@/components/dashboard/tabs/customer-tab";
-import ProductTab from "@/components/dashboard/tabs/product-tab";
-import TransactionTab from "@/components/dashboard/tabs/transaction-tab";
+
+const CustomerTab = dynamic(() => import("@/components/dashboard/tabs/customer-tab"));
+const ProductTab = dynamic(() => import("@/components/dashboard/tabs/product-tab"));
+const TransactionTab = dynamic(() => import("@/components/dashboard/tabs/transaction-tab"));
 
 export default function BillingCrmTab({
   clientId,

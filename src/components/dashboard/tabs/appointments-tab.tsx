@@ -134,7 +134,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     "date",
   );
   const [sortOrder, setSortOrder] = usePersistentState<"asc" | "desc">("appointments-tab-sort-order", "asc");
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [editingAppointment, setEditingAppointment] = useState<AppointmentRow | null>(null);
   const [addError, setAddError] = usePersistentState<string | null>("appointments-tab-add-error", null);
@@ -535,7 +535,12 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           <button
             type="button"
             onClick={() => setShowFilters((current) => !current)}
-            className="inline-flex h-11 items-center gap-2 rounded-2xl border border-white/10 bg-black/30 px-4 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/5 hover:text-white"
+            aria-expanded={showFilters}
+            className={`inline-flex h-11 items-center gap-2 rounded-2xl border px-4 text-sm font-semibold transition ${
+              showFilters
+                ? "border-red-500/40 bg-red-500/10 text-white"
+                : "border-white/10 bg-black/30 text-white/80 hover:border-white/20 hover:bg-white/5 hover:text-white"
+            }`}
           >
             <Filter className="h-4 w-4" />
             Filters

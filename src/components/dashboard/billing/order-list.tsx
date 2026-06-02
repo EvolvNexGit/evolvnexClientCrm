@@ -25,12 +25,13 @@ function formatCurrency(amount: number) {
   }).format(amount || 0);
 }
 
-function getServiceType(order: TransactionRecord) {
-  return order.table_number ? "Dine in" : "Takeaway";
-}
+function formatOrderLabel(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
+  }
 
-function isQrOrder(order: TransactionRecord) {
-  return Boolean(order.table_number);
+  return trimmed.replace(/_/g, " ");
 }
 
 function formatStatusLabel(value: string | null | undefined) {
@@ -56,18 +57,22 @@ function OrderCard({
   order: TransactionRecord;
   onStatusClick: (order: TransactionRecord) => void;
 }) {
-  const serviceType = getServiceType(order);
-  const qrOrder = isQrOrder(order);
   const currentStatus = (order.status ?? "pending") as OrderStatus;
   const orderId = order.order_id?.trim();
+  const orderSource = formatOrderLabel(order.order_source);
+  const orderType = formatOrderLabel(order.order_type);
 
   return (
     <article className="w-[min(100%,17.5rem)] shrink-0 snap-start">
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#141414] shadow-soft">
-        <div className="flex items-center justify-between gap-3 bg-[#1f1f1f] px-4 py-2.5">
-          <span className="text-sm font-semibold tracking-wide text-primary">{qrOrder ? "QR" : "POS"}</span>
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="truncate text-sm font-medium text-white">{serviceType}</span>
+        <div className="relative flex items-center bg-[#1f1f1f] px-4 py-2.5">
+          <span className="max-w-[38%] truncate text-sm font-semibold tracking-wide text-primary">
+            {orderSource ?? ""}
+          </span>
+          <span className="pointer-events-none absolute left-1/2 max-w-[40%] -translate-x-1/2 truncate text-center text-sm font-medium text-white">
+            {orderType ?? ""}
+          </span>
+          <div className="ml-auto shrink-0">
             <OrderWaitBadge createdAt={order.created_at} />
           </div>
         </div>
@@ -128,7 +133,7 @@ export function OrderList({ orders, loading, error, onUpdateStatus }: OrderListP
     () =>
       [...orders].sort(
         (left, right) =>
-          (parseDbTimestamp(left.created_at)?.getTime() ?? 0) - (parseDbTimestamp(right.created_at)?.getTime() ?? 0),
+          (parseDbTimestamp(right.created_at)?.getTime() ?? 0) - (parseDbTimestamp(left.created_at)?.getTime() ?? 0),
       ),
     [orders],
   );
@@ -179,8 +184,13 @@ export function OrderList({ orders, loading, error, onUpdateStatus }: OrderListP
         <div className="space-y-4">
           {selectedOrder && (
             <p className="text-sm text-muted-foreground">
-              {selectedOrder.order_id?.trim() ? `${selectedOrder.order_id.trim()} · ` : ""}
-              {getServiceType(selectedOrder)} · {formatCurrency(selectedOrder.final_amount)}
+              {[
+                selectedOrder.order_id?.trim(),
+                formatOrderLabel(selectedOrder.order_type),
+                formatCurrency(selectedOrder.final_amount),
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
           )}
 

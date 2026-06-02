@@ -247,7 +247,7 @@ export async function setProductActive(
 }
 
 const BILL_TRANSACTION_SELECT =
-  "id, order_id, created_at, total_amount, discount, final_amount, walk_in_name, status, table_number, customers(name, phone), bill_items(id, quantity, price, total, products(name))";
+  "id, order_id, order_source, order_type, created_at, total_amount, discount, final_amount, walk_in_name, status, table_number, customers(name, phone), bill_items(id, quantity, price, total, products(name))";
 
 export const ORDERS_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
@@ -264,6 +264,15 @@ function normalizeBillStatus(val: unknown): TransactionRecord["status"] {
   return null;
 }
 
+function normalizeOrderText(value: unknown): string | null {
+  if (value == null) {
+    return null;
+  }
+
+  const text = String(value).trim();
+  return text || null;
+}
+
 function mapBillRowToTransaction(row: Record<string, unknown>): TransactionRecord {
   const customerRaw = Array.isArray(row.customers)
     ? (row.customers[0] as Record<string, unknown>)
@@ -278,6 +287,8 @@ function mapBillRowToTransaction(row: Record<string, unknown>): TransactionRecor
     discount: asNumber(row.discount),
     final_amount: asNumber(row.final_amount),
     table_number: (row.table_number as string | null) ?? null,
+    order_source: normalizeOrderText(row.order_source),
+    order_type: normalizeOrderText(row.order_type),
     status: normalizeBillStatus(row.status),
     walk_in_name: (row.walk_in_name as string | null) ?? null,
     customerName: (customerRaw?.name as string | null) ?? null,
@@ -317,7 +328,7 @@ function isDeliveredStatus(status: TransactionRecord["status"]): boolean {
   return String(status ?? "").trim().toLowerCase() === "delivered";
 }
 
-/** Active bills from the last 24 hours (not delivered), oldest first. */
+/** Active bills from the last 24 hours (not delivered), newest first. */
 export async function fetchActiveOrders(clientId: string): Promise<TransactionRecord[]> {
   const supabase = getClient();
   const since = new Date(Date.now() - ORDERS_LOOKBACK_MS).toISOString();
@@ -327,7 +338,7 @@ export async function fetchActiveOrders(clientId: string): Promise<TransactionRe
     .select(BILL_TRANSACTION_SELECT)
     .eq("client_id", clientId)
     .gte("created_at", since)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: false });
 
   if (error) {
     throw error;

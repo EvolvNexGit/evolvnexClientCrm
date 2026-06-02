@@ -14,12 +14,12 @@ export function OrderWaitBadge({ createdAt }: { createdAt: string }) {
   }, [createdAt]);
 
   return (
-    <div
-      className="relative flex size-14 shrink-0 items-center justify-center rounded-full bg-primary shadow-redGlow"
+    <span
+      className="min-w-[4.75rem] shrink-0 text-right text-sm font-bold tabular-nums leading-none text-primary"
       title={`Waiting ${elapsed}`}
       aria-label={`Waiting ${elapsed}`}
     >
-      <span className="text-[11px] font-bold tabular-nums leading-none text-primary-foreground">{elapsed}</span>
-    </div>
+      {elapsed}
+    </span>
   );
 }
