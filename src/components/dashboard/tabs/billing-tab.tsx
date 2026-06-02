@@ -139,18 +139,11 @@ function getPromoEligibilityReason(
 const BILLING_SESSION_KEY = (clientId: string) => `billing-session-${clientId}`;
 const DEFAULT_WALK_IN_NAME = "Walkin";
 
-function resolveWalkInName(name: string) {
-  const trimmed = name.trim();
-  return trimmed.length > 0 ? trimmed : DEFAULT_WALK_IN_NAME;
-}
-
 type BillingSessionState = {
   cart: CartItem[];
   billingMode: "customer" | "walk-in";
   customerId: string;
   customerSearchTerm: string;
-  walkInName: string;
-  walkInPhone: string;
   discountInput: string;
   selectedPromoId: string;
   discountMode: "manual" | "promos";
@@ -228,8 +221,6 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     email: "",
     dob: "",
   });
-  const [walkInName, setWalkInName] = useState(storedSession?.walkInName ?? "");
-  const [walkInPhone, setWalkInPhone] = useState(storedSession?.walkInPhone ?? "");
   const [cart, setCart] = useState<CartItem[]>(storedSession?.cart ?? []);
   const [cartActionError, setCartActionError] = useState<string | null>(null);
   const [inventoryWarnings, setInventoryWarnings] = useState<string[]>([]);
@@ -329,8 +320,6 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     setCreateBillMessage(null);
 
     if (nextMode === "customer") {
-      setWalkInName("");
-      setWalkInPhone("");
       return;
     }
 
@@ -562,8 +551,6 @@ export default function BillingTab({ clientId }: { clientId: string }) {
       billingMode,
       customerId,
       customerSearchTerm,
-      walkInName,
-      walkInPhone,
       discountInput,
       selectedPromoId,
       discountMode,
@@ -580,8 +567,6 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     billingMode,
     customerId,
     customerSearchTerm,
-    walkInName,
-    walkInPhone,
     discountInput,
     selectedPromoId,
     discountMode,
@@ -688,8 +673,8 @@ export default function BillingTab({ clientId }: { clientId: string }) {
         Number(discountInput || 0),
         billingMode === "customer" ? customerId || null : null,
         {
-          name: billingMode === "walk-in" ? resolveWalkInName(walkInName) : null,
-          phone: billingMode === "walk-in" ? walkInPhone.trim() || null : null,
+          name: billingMode === "walk-in" ? DEFAULT_WALK_IN_NAME : null,
+          phone: null,
         },
         tableNumber || null,
         orderType,
@@ -705,8 +690,6 @@ export default function BillingTab({ clientId }: { clientId: string }) {
       setBillingMode("walk-in");
       setCustomerId("");
       setCustomerSearchTerm("");
-      setWalkInName("");
-      setWalkInPhone("");
       clearBillingSession(clientId);
     } catch (error) {
       setCartActionError(error instanceof Error ? error.message : "Unable to create bill.");
@@ -1032,33 +1015,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">
-                  Optional — leave name blank to use <span className="font-medium text-text">{DEFAULT_WALK_IN_NAME}</span>.
-                </p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <label className="block text-sm text-muted-foreground">
-                    Walk-in name
-                    <input
-                      value={walkInName}
-                      onChange={(event) => setWalkInName(event.target.value)}
-                      placeholder={DEFAULT_WALK_IN_NAME}
-                      className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text placeholder:text-muted-foreground"
-                    />
-                  </label>
-                  <label className="block text-sm text-muted-foreground">
-                    Walk-in phone
-                    <input
-                      value={walkInPhone}
-                      onChange={(event) => setWalkInPhone(event.target.value)}
-                      placeholder="Optional"
-                      className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text placeholder:text-muted-foreground"
-                    />
-                  </label>
-                </div>
-              </div>
-            )}
+            ) : null}
           </div>
 
           <div className="space-y-3 rounded-lg border border-border bg-card p-3 text-base">
