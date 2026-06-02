@@ -38,9 +38,22 @@ function formatNumber(value: number | null) {
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 
+function isIngredientLowStock(ingredient: IngredientRecord) {
+  return ingredient.threshold !== null && ingredient.quantity < ingredient.threshold;
+}
+
+function isIngredientOutOfStock(ingredient: IngredientRecord) {
+  return ingredient.quantity <= 0;
+}
+
+function isIngredientNeedsRestock(ingredient: IngredientRecord) {
+  return isIngredientLowStock(ingredient) || isIngredientOutOfStock(ingredient);
+}
+
 export default function IngredientTab({ clientId }: { clientId: string }) {
   const { ingredients, loading, saving, error, addIngredient, editIngredient, removeIngredient } = useIngredients(clientId);
   const [searchQuery, setSearchQuery] = usePersistentState("ingredient-tab-search", "");
+  const [showLowStockOnly, setShowLowStockOnly] = usePersistentState("ingredient-tab-show-low-stock-only", false);
   const [isAddOpen, setIsAddOpen] = usePersistentState("ingredient-tab-is-add-open", false);
   const [editingIngredient, setEditingIngredient] = usePersistentState<IngredientRecord | null>(
     "ingredient-tab-editing-ingredient",
@@ -56,11 +69,15 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
   const filteredIngredients = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
-    if (!query) {
-      return ingredients;
-    }
-
     return ingredients.filter((ingredient) => {
+      if (showLowStockOnly && !isIngredientNeedsRestock(ingredient)) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
       const haystack = [
         ingredient.name,
         ingredient.seller_name ?? "",
@@ -73,7 +90,12 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
 
       return haystack.includes(query);
     });
-  }, [ingredients, searchQuery]);
+  }, [ingredients, searchQuery, showLowStockOnly]);
+
+  const lowStockIngredients = useMemo(
+    () => ingredients.filter((ingredient) => isIngredientNeedsRestock(ingredient)),
+    [ingredients],
+  );
 
   const hasRows = filteredIngredients.length > 0;
 
@@ -175,24 +197,61 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
         </Button>
       </div>
 
-      <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <input
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
           placeholder="Search by ingredient or supplier"
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
+          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text sm:max-w-xl"
         />
+        <label className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={showLowStockOnly}
+            onChange={(event) => setShowLowStockOnly(event.target.checked)}
+            className="h-4 w-4 rounded border-border accent-primary"
+          />
+          Low stock only
+        </label>
       </div>
+
+      {lowStockIngredients.length > 0 && (
+        <p className="text-sm text-amber-300">
+          {lowStockIngredients.length} ingredient{lowStockIngredients.length === 1 ? "" : "s"} below threshold or out of stock
+        </p>
+      )}
 
       {actionError && (
         <div className="rounded-lg border border-primary/50 bg-primary/10 p-3 text-sm text-primary">{actionError}</div>
+      )}
+
+      {!loading && !error && lowStockIngredients.length > 0 && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-300">
+          <p className="font-medium text-amber-200">Low ingredient warning</p>
+          <p className="mt-1">
+            {lowStockIngredients.length} ingredient{lowStockIngredients.length === 1 ? "" : "s"} need restocking:
+          </p>
+          <ul className="mt-2 list-inside list-disc space-y-1 text-amber-200/90">
+            {lowStockIngredients.map((ingredient) => (
+              <li key={ingredient.id}>
+                {ingredient.name} — {formatNumber(ingredient.quantity)} {ingredient.quantity_unit}
+                {ingredient.threshold !== null ? ` (threshold ${formatNumber(ingredient.threshold)})` : ""}
+                {isIngredientOutOfStock(ingredient) ? " · out of stock" : " · below threshold"}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <DataState
         loading={loading}
         error={error}
         empty={!loading && !error && !hasRows}
-        emptyLabel={searchQuery ? "No ingredients match your search." : "No ingredients yet."}
+        emptyLabel={
+          searchQuery || showLowStockOnly
+            ? "No ingredients match your filters."
+            : "No ingredients yet."
+        }
       />
 
       {hasRows && !loading && !error && (
@@ -209,10 +268,38 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filteredIngredients.map((ingredient) => (
-                <tr key={ingredient.id} className="hover:bg-muted/40">
-                  <td className="px-3 py-3 text-text">{ingredient.name}</td>
-                  <td className="px-3 py-3 text-muted-foreground">{formatNumber(ingredient.quantity)}</td>
+              {filteredIngredients.map((ingredient) => {
+                const lowStock = isIngredientLowStock(ingredient);
+                const outOfStock = isIngredientOutOfStock(ingredient);
+
+                return (
+                <tr
+                  key={ingredient.id}
+                  className={
+                    outOfStock
+                      ? "bg-rose-500/10 hover:bg-rose-500/15"
+                      : lowStock
+                        ? "bg-amber-500/10 hover:bg-amber-500/15"
+                        : "hover:bg-muted/40"
+                  }
+                >
+                  <td className="px-3 py-3 text-text">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span>{ingredient.name}</span>
+                      {outOfStock ? (
+                        <span className="rounded-md bg-rose-500/20 px-2 py-0.5 text-xs font-semibold text-rose-300">
+                          Out of stock
+                        </span>
+                      ) : lowStock ? (
+                        <span className="rounded-md bg-amber-500/20 px-2 py-0.5 text-xs font-semibold text-amber-300">
+                          Low stock
+                        </span>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td className={`px-3 py-3 ${outOfStock || lowStock ? "font-medium text-text" : "text-muted-foreground"}`}>
+                    {formatNumber(ingredient.quantity)}
+                  </td>
                   <td className="px-3 py-3 text-muted-foreground">{formatNumber(ingredient.threshold)}</td>
                   <td className="px-3 py-3 text-muted-foreground">{ingredient.quantity_unit}</td>
                   <td className="px-3 py-3 text-muted-foreground">
@@ -240,7 +327,8 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
