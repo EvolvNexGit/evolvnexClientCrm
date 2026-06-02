@@ -4,16 +4,23 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import {
   AlertCircle,
-  CalendarDays,
+  ArrowUpFromLine,
+  ChefHat,
   ChevronRight,
+  ClipboardList,
+  ConciergeBell,
+  CreditCard,
   Home,
   Loader2,
   LogOut,
   Menu,
+  Package,
   PanelLeftClose,
   PanelRightClose,
-  Package,
+  ShieldCheck,
+  ShoppingBag,
   Tag,
+  User,
 } from "lucide-react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -72,11 +79,38 @@ const OrdersTab = dynamic(() => import("./tabs/orders-tab"), {
 });
 
 function getTabIcon(tab: TabDefinition) {
+  switch (tab.key) {
+    case "summary":
+      return Home;
+    case "billing":
+      return ShoppingBag;
+    case "ingredients":
+      return ClipboardList;
+    case "customer":
+      return User;
+    case "appointments":
+      return ShieldCheck;
+    case "transaction":
+      return ArrowUpFromLine;
+    case "recipes":
+      return ChefHat;
+    case "subscription":
+      return CreditCard;
+    case "product":
+      return Package;
+    case "promos":
+      return Tag;
+    case "orders":
+      return ConciergeBell;
+    default:
+      break;
+  }
+
   switch (tab.icon) {
     case "home":
       return Home;
     case "calendar":
-      return CalendarDays;
+      return ShieldCheck;
     case "tag":
       return Tag;
     case "package":
