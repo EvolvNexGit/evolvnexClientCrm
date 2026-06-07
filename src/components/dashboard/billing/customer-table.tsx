@@ -6,6 +6,13 @@ import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import type { CustomerPayload, CustomerRecord } from "@/lib/billing-types";
+import { formatUtcToIst } from "@/lib/time-utils";
+
+function formatDateOnly(value: string | null) {
+  if (!value) return "-";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString();
+}
 
 type CustomerTableProps = {
   customers: CustomerRecord[];
@@ -31,13 +38,7 @@ const initialForm: CustomerFormState = {
   dob: "",
 };
 
-function formatDate(value: string | null) {
-  if (!value) {
-    return "-";
-  }
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
-}
+
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -104,7 +105,7 @@ export function CustomerTable({
         customer.phone ?? "",
         customer.email ?? "",
         customer.dob ?? "",
-        customer.created_at,
+        formatUtcToIst(customer.created_at),
         String(customer.totalOrders),
         String(customer.totalSpent),
       ]),
@@ -248,8 +249,8 @@ export function CustomerTable({
                   <td className="px-3 py-3 text-text">{customer.name}</td>
                   <td className="px-3 py-3 text-muted-foreground">{customer.phone ?? "-"}</td>
                   <td className="px-3 py-3 text-muted-foreground">{customer.email ?? "-"}</td>
-                  <td className="px-3 py-3 text-muted-foreground">{formatDate(customer.dob)}</td>
-                  <td className="px-3 py-3 text-muted-foreground">{formatDate(customer.created_at)}</td>
+                  <td className="px-3 py-3 text-muted-foreground">{formatDateOnly(customer.dob)}</td>
+                  <td className="px-3 py-3 text-muted-foreground">{formatUtcToIst(customer.created_at)}</td>
                   <td className="px-3 py-3 text-muted-foreground">{customer.totalOrders}</td>
                   <td className="px-3 py-3 text-muted-foreground">{formatCurrency(customer.totalSpent)}</td>
                   <td className="px-3 py-3">

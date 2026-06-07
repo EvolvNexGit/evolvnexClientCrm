@@ -3,7 +3,13 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { Session, User } from "@supabase/supabase-js";
-import { getSupabaseClient } from "@/lib/supabase";
+import {
+  clearLocalSupabaseSession,
+  formatAuthErrorMessage,
+  getSupabaseClient,
+  getSupabaseConfigError,
+  isNetworkAuthError,
+} from "@/lib/supabase";
 import { getClientIdForAuthUser } from "@/lib/client-cache";
 import { getTabs } from "@/lib/tabs";
 import type { TabDefinition } from "@/lib/types";
@@ -109,7 +115,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabaseClient();
 
     if (!supabase) {
-      setAuthError("Missing Supabase environment variables.");
+      setAuthError(getSupabaseConfigError() ?? "Missing Supabase environment variables.");
       setLoading(false);
       return () => {
         isMounted = false;
@@ -158,18 +164,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        setAuthError(error instanceof Error ? error.message : "Unable to load session.");
+        if (isNetworkAuthError(error)) {
+          await clearLocalSupabaseSession();
+          applySessionSnapshot(null);
+          resetClientState();
+        }
+
+        setAuthError(formatAuthErrorMessage(error));
         setLoading(false);
+        router.replace("/login");
       }
     }
 
     bootstrap();
 
     const client = supabase;
-    const { data: listener } = client.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: listener } = client.auth.onAuthStateChange((event, nextSession) => {
+      if (event === "TOKEN_REFRESHED") {
+        applySessionSnapshot(nextSession);
+        return;
+      }
+
       void (async () => {
         try {
           setLoading(true);
+          setAuthError(null);
           const nextUser = applySessionSnapshot(nextSession);
           await hydrateClientData(nextUser);
 
@@ -177,6 +196,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
             router.replace("/login");
           }
         } catch (error) {
+          if (isNetworkAuthError(error)) {
+            await clearLocalSupabaseSession();
+            applySessionSnapshot(null);
+            resetClientState();
+            setAuthError(formatAuthErrorMessage(error));
+            router.replace("/login");
+            return;
+          }
+
           setClientError(error instanceof Error ? error.message : "Unable to resolve client.");
         } finally {
           if (isMounted) {
@@ -196,7 +224,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabaseClient();
 
     if (!supabase) {
-      throw new Error("Missing Supabase environment variables.");
+      throw new Error(getSupabaseConfigError() ?? "Missing Supabase environment variables.");
     }
 
     setAuthError(null);
@@ -219,6 +247,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!nextSession || !nextUser) {
         throw new Error("Login succeeded but no active session was returned.");
       }
+    } catch (error) {
+      setAuthError(formatAuthErrorMessage(error));
+      throw error;
     } finally {
       setLoading(false);
     }
