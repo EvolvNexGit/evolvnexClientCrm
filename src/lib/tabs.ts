@@ -6,6 +6,9 @@ const tabsCache = new Map<string, TabDefinition[]>();
 /** Default sidebar order (tabs not listed appear after these, by DB display_order). */
 export const DEFAULT_TAB_ORDER = [
   "summary",
+  "cafe-summary",
+  "saloon-summary",
+  "doctor-summary",
   "appointments",
   "billing",
   "transaction",
@@ -17,6 +20,32 @@ export const DEFAULT_TAB_ORDER = [
   "recipes",
   "ingredients",
 ] as const;
+
+/**
+ * Vertical-specific home summaries. When any of these are enabled for a client,
+ * they replace the default `summary` tab in the sidebar.
+ */
+export const SPECIALTY_SUMMARY_TAB_KEYS = [
+  "cafe-summary",
+  "saloon-summary",
+  "doctor-summary",
+] as const;
+
+export type SpecialtySummaryTabKey = (typeof SPECIALTY_SUMMARY_TAB_KEYS)[number];
+
+export function isSpecialtySummaryTab(key: string): boolean {
+  const normalized = normalizeTabKey(key);
+  if ((SPECIALTY_SUMMARY_TAB_KEYS as readonly string[]).includes(normalized)) {
+    return true;
+  }
+
+  return normalized.endsWith("-summary") && normalized !== "summary";
+}
+
+export function isHomeSummaryTab(key: string): boolean {
+  const normalized = normalizeTabKey(key);
+  return normalized === "summary" || isSpecialtySummaryTab(normalized);
+}
 
 /** User-facing / DB aliases → canonical tab keys used in the app. */
 const CODE_KEY_ALIASES: Record<string, string> = {
@@ -30,15 +59,27 @@ const CODE_KEY_ALIASES: Record<string, string> = {
   promos: "promos",
   order: "orders",
   orders: "orders",
+  cafe_summary: "cafe-summary",
+  "cafe summary": "cafe-summary",
+  saloon_summary: "saloon-summary",
+  salon_summary: "saloon-summary",
+  "salon-summary": "saloon-summary",
+  "saloon summary": "saloon-summary",
+  doctor_summary: "doctor-summary",
+  "doctor summary": "doctor-summary",
 };
 
 function normalizeTabKey(key: string): string {
-  const trimmed = key.trim();
+  const trimmed = key.trim().toLowerCase();
   return CODE_KEY_ALIASES[trimmed] ?? trimmed;
 }
 
 function getDefaultTabRank(key: string): number {
   const normalized = normalizeTabKey(key);
+  if (isSpecialtySummaryTab(normalized)) {
+    return 0;
+  }
+
   const index = DEFAULT_TAB_ORDER.indexOf(normalized as (typeof DEFAULT_TAB_ORDER)[number]);
   return index === -1 ? DEFAULT_TAB_ORDER.length : index;
 }
@@ -54,6 +95,51 @@ function sortTabsByDefaultOrder(tabs: TabDefinition[]): TabDefinition[] {
   });
 }
 
+function createDefaultSummaryTab(): TabDefinition {
+  return {
+    id: "summary",
+    key: "summary",
+    name: "Summary",
+    label: "Summary",
+    icon: "home",
+    route: null,
+    permissions: [],
+    displayName: "Summary",
+    displayOrder: 0,
+    visible: true,
+  };
+}
+
+/**
+ * If a specialty summary (cafe / saloon / doctor / …) is enabled for the client,
+ * hide the default Summary tab and show the specialty tab labeled as "Summary".
+ * Otherwise ensure default Summary is always present.
+ */
+function applySummaryTabOverride(tabs: TabDefinition[]): TabDefinition[] {
+  const hasSpecialtySummary = tabs.some((tab) => isSpecialtySummaryTab(tab.key));
+
+  if (hasSpecialtySummary) {
+    return tabs
+      .filter((tab) => tab.key !== "summary")
+      .map((tab) =>
+        isSpecialtySummaryTab(tab.key)
+          ? {
+              ...tab,
+              name: "Summary",
+              label: "Summary",
+              displayName: "Summary",
+            }
+          : tab,
+      );
+  }
+
+  if (!tabs.some((tab) => tab.id === "summary")) {
+    return [createDefaultSummaryTab(), ...tabs];
+  }
+
+  return tabs;
+}
+
 // Map database tab keys (numeric) to code-based tab keys
 const DB_KEY_TO_CODE_KEY: Record<string, string> = {
   "001": "summary",
@@ -67,6 +153,7 @@ const DB_KEY_TO_CODE_KEY: Record<string, string> = {
   "009": "transaction",
   "010": "promos",
   "011": "orders",
+  "012": "cafe-summary",
 };
 
 function toPermissions(value: unknown): string[] {
@@ -90,6 +177,29 @@ function toPermissions(value: unknown): string[] {
   return [];
 }
 
+function resolveCodeKey(dbKey: string, name: string): string {
+  const mappedFromDb = DB_KEY_TO_CODE_KEY[dbKey] ?? dbKey;
+  const keyFromDb = normalizeTabKey(mappedFromDb);
+
+  if (isSpecialtySummaryTab(keyFromDb) || keyFromDb === "summary") {
+    return keyFromDb;
+  }
+
+  // If DB used a numeric/custom key, recover specialty summaries from the tab name
+  // e.g. key "012" + name "Cafe Summary" → "cafe-summary"
+  const nameAsKey = normalizeTabKey(name.replace(/[_\s]+/g, "-"));
+  if (isSpecialtySummaryTab(nameAsKey)) {
+    return nameAsKey;
+  }
+
+  const nameAlias = normalizeTabKey(name);
+  if (isSpecialtySummaryTab(nameAlias)) {
+    return nameAlias;
+  }
+
+  return keyFromDb;
+}
+
 function normalizeTab(row: any): TabDefinition | null {
   const relatedTab = Array.isArray(row?.tabs_info) ? row.tabs_info[0] : row?.tabs_info;
 
@@ -103,9 +213,8 @@ function normalizeTab(row: any): TabDefinition | null {
     return null;
   }
 
-  // Map database key to code-based key
-  const key = normalizeTabKey(DB_KEY_TO_CODE_KEY[dbKey] ?? dbKey);
   const name = String(relatedTab.name ?? dbKey);
+  const key = resolveCodeKey(dbKey, name);
   const displayName = String(row?.display_name ?? name);
   const displayOrder = Number(row?.display_order ?? 0);
 
@@ -145,7 +254,6 @@ export async function getTabs(
     )
     .eq("client_id", clientId)
     .eq("is_enabled", true)
-    .eq("tabs_info.is_active", true)
     .order("display_order", { ascending: true });
 
   if (error) {
@@ -157,25 +265,7 @@ export async function getTabs(
     .map((row) => normalizeTab(row))
     .filter((tab): tab is TabDefinition => tab !== null && tab.visible);
 
-  // Summary is always available; other tabs (including orders) require client_tab_access.
-  if (!tabs.some((tab) => tab.id === "summary")) {
-    tabs = [
-      {
-        id: "summary",
-        key: "summary",
-        name: "Summary",
-        label: "Summary",
-        icon: "home",
-        route: null,
-        permissions: [],
-        displayName: "Summary",
-        displayOrder: 0,
-        visible: true,
-      },
-      ...tabs,
-    ];
-  }
-
+  tabs = applySummaryTabOverride(tabs);
   tabs = sortTabsByDefaultOrder(tabs);
 
   tabsCache.set(clientId, tabs);

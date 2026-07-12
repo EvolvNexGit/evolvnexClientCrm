@@ -1,5 +1,10 @@
+import { isHomeSummaryTab, isSpecialtySummaryTab } from "@/lib/tabs";
+
 export const DASHBOARD_TAB_ROUTES: Record<string, string> = {
   summary: "/dashboard",
+  "cafe-summary": "/dashboard",
+  "saloon-summary": "/dashboard",
+  "doctor-summary": "/dashboard",
   appointments: "/dashboard/appointments",
   subscription: "/dashboard/subscription",
   billing: "/dashboard/billing",
@@ -13,6 +18,10 @@ export const DASHBOARD_TAB_ROUTES: Record<string, string> = {
 };
 
 export function getDashboardTabPath(tabKey: string): string {
+  if (isSpecialtySummaryTab(tabKey)) {
+    return "/dashboard";
+  }
+
   return DASHBOARD_TAB_ROUTES[tabKey] ?? "/dashboard";
 }
 
@@ -20,8 +29,12 @@ export function isDashboardTabPath(pathname: string, tabKey: string): boolean {
   const currentPath = pathname.replace(/\/+$/, "") || "/";
   const expectedPath = getDashboardTabPath(tabKey).replace(/\/+$/, "") || "/";
 
-  if (tabKey === "summary") {
-    return currentPath === "/dashboard" || currentPath === "/dashboard/summary";
+  if (isHomeSummaryTab(tabKey)) {
+    return (
+      currentPath === "/dashboard" ||
+      currentPath === "/dashboard/summary" ||
+      currentPath === `/dashboard/${tabKey}`
+    );
   }
 
   return currentPath === expectedPath;

@@ -8,6 +8,7 @@ import {
   ChefHat,
   ChevronRight,
   ClipboardList,
+  Coffee,
   ConciergeBell,
   CreditCard,
   Home,
@@ -30,6 +31,7 @@ import { getDashboardTabPath, isDashboardTabPath } from "@/lib/dashboard-tab-rou
 import type { BillingSubTab } from "@/lib/billing-types";
 import type { TabDefinition } from "@/lib/types";
 import { requestNotificationPermissionOnce } from "@/lib/order-notifications";
+import { isSpecialtySummaryTab } from "@/lib/tabs";
 
 function TabLoading() {
   return (
@@ -43,6 +45,10 @@ function TabLoading() {
 }
 
 const SummaryTab = dynamic(() => import("./tabs/summary-tab"), {
+  loading: () => <TabLoading />,
+});
+
+const CafeSummaryTab = dynamic(() => import("./tabs/cafe-summary-tab"), {
   loading: () => <TabLoading />,
 });
 
@@ -82,6 +88,8 @@ function getTabIcon(tab: TabDefinition) {
   switch (tab.key) {
     case "summary":
       return Home;
+    case "cafe-summary":
+      return Coffee;
     case "billing":
       return ShoppingBag;
     case "ingredients":
@@ -103,6 +111,9 @@ function getTabIcon(tab: TabDefinition) {
     case "orders":
       return ConciergeBell;
     default:
+      if (isSpecialtySummaryTab(tab.key)) {
+        return Home;
+      }
       break;
   }
 
@@ -383,13 +394,18 @@ function DashboardPageContent() {
                   {displayTab?.displayName ?? displayTab?.label ?? "Summary"}
                 </h1>
                 <p className="mt-2 max-w-2xl text-base text-muted-foreground">
-                  Client-scoped dashboard with dynamic tab system.
+                  {displayTab?.key === "cafe-summary"
+                    ? "Overview of your café performance."
+                    : "Client-scoped dashboard with dynamic tab system."}
                 </p>
               </div>
             </div>
 
             {displayTab?.key === "summary" && (
               <SummaryTab clientId={clientId} />
+            )}
+            {displayTab?.key === "cafe-summary" && (
+              <CafeSummaryTab clientId={clientId} />
             )}
             {displayTab?.key === "appointments" && (
               <AppointmentsTab clientId={clientId} />
