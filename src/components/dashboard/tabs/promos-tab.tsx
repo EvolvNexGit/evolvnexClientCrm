@@ -13,9 +13,13 @@ import type {
   PromoApplyType,
   PromoStatus,
   PromoType,
+  PromoValidDay,
   PromotionPayload,
   PromotionRecord,
 } from "@/lib/promotion-types";
+import { formatPromoValidDay, PROMO_VALID_DAY_OPTIONS } from "@/lib/promotion-types";
+import { formatSupabaseError } from "@/lib/supabase";
+import { formatUtcToIst } from "@/lib/time-utils";
 
 const PROMO_TYPE_OPTIONS: PromoType[] = [
   "PERCENTAGE",
@@ -32,15 +36,6 @@ const PROMO_TYPE_OPTIONS: PromoType[] = [
 
 const PROMO_APPLY_OPTIONS: PromoApplyType[] = ["AUTO", "COUPON"];
 const PROMO_STATUS_OPTIONS: (PromoStatus | "all")[] = ["all", "ACTIVE", "SCHEDULED", "INACTIVE", "EXPIRED"];
-const DAY_OPTIONS = [
-  { value: "monday", label: "Mon" },
-  { value: "tuesday", label: "Tue" },
-  { value: "wednesday", label: "Wed" },
-  { value: "thursday", label: "Thu" },
-  { value: "friday", label: "Fri" },
-  { value: "saturday", label: "Sat" },
-  { value: "sunday", label: "Sun" },
-] as const;
 
 type PromotionFormState = {
   name: string;
@@ -69,7 +64,7 @@ type PromotionFormState = {
   validForDelivery: boolean;
   startDate: string;
   endDate: string;
-  validDays: string[];
+  validDays: PromoValidDay[];
   startTime: string;
   endTime: string;
   canStack: boolean;
@@ -92,15 +87,21 @@ type PromotionModalProps = {
   onSubmit: (payload: PromotionPayload) => Promise<void>;
 };
 
+function defaultStartDateTime() {
+  const date = new Date();
+  const pad = (input: number) => String(input).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function createEmptyPromotionForm(): PromotionFormState {
   return {
     name: "",
     code: "",
     description: "",
     promoType: "PERCENTAGE",
-    applyType: "COUPON",
+    applyType: "AUTO",
     status: "ACTIVE",
-    discountPercentage: "",
+    discountPercentage: "10",
     discountFlatAmount: "",
     maxDiscountAmount: "",
     minOrderAmount: "",
@@ -118,7 +119,7 @@ function createEmptyPromotionForm(): PromotionFormState {
     validForDineIn: true,
     validForTakeaway: true,
     validForDelivery: true,
-    startDate: "",
+    startDate: defaultStartDateTime(),
     endDate: "",
     validDays: [],
     startTime: "",
@@ -230,8 +231,6 @@ function formatMoney(value: number | null | undefined) {
   }).format(value ?? 0);
 }
 
-import { formatUtcToIst } from "@/lib/time-utils";
-
 function formatDateRange(startDate: string, endDate: string | null) {
   const start = new Date(startDate);
   const end = endDate ? new Date(endDate) : null;
@@ -277,7 +276,7 @@ function PromotionModal({ open, mode, promotion, products, productTypes, saving,
     setForm((current) => ({ ...current, [field]: value }));
   }
 
-  function toggleDay(day: string) {
+  function toggleDay(day: PromoValidDay) {
     setForm((current) => ({
       ...current,
       validDays: current.validDays.includes(day)
@@ -403,7 +402,7 @@ function PromotionModal({ open, mode, promotion, products, productTypes, saving,
       await onSubmit(payload);
       onClose();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Unable to save promotion.");
+      setError(formatSupabaseError(submitError, "Unable to save promotion."));
     }
   }
 
@@ -422,12 +421,12 @@ function PromotionModal({ open, mode, promotion, products, productTypes, saving,
 
         <div className="grid gap-4 lg:grid-cols-2">
           <label className="text-sm text-muted-foreground">
-            <span className="mb-1 block">Name</span>
-            <input value={form.name} onChange={(event) => updateField("name", event.target.value)} className={fieldClass} />
+            <span className="mb-1 block">Name *</span>
+            <input value={form.name} onChange={(event) => updateField("name", event.target.value)} className={fieldClass} required />
           </label>
 
           <label className="text-sm text-muted-foreground">
-            <span className="mb-1 block">Code</span>
+            <span className="mb-1 block">Code{form.applyType === "COUPON" ? " *" : ""}</span>
             <input value={form.code} onChange={(event) => updateField("code", event.target.value)} className={fieldClass} placeholder="SAVE20" />
           </label>
 
@@ -587,8 +586,8 @@ function PromotionModal({ open, mode, promotion, products, productTypes, saving,
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <label className="text-sm text-muted-foreground">
-              <span className="mb-1 block">Start date</span>
-              <input type="datetime-local" value={form.startDate} onChange={(event) => updateField("startDate", event.target.value)} className={fieldClass} />
+              <span className="mb-1 block">Start date *</span>
+              <input type="datetime-local" value={form.startDate} onChange={(event) => updateField("startDate", event.target.value)} className={fieldClass} required />
             </label>
 
             <label className="text-sm text-muted-foreground">
@@ -610,7 +609,7 @@ function PromotionModal({ open, mode, promotion, products, productTypes, saving,
           <div>
             <div className="mb-2 text-sm font-medium text-text">Valid days</div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-              {DAY_OPTIONS.map((day) => (
+              {PROMO_VALID_DAY_OPTIONS.map((day) => (
                 <label key={day.value} className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm text-text">
                   <input type="checkbox" checked={form.validDays.includes(day.value)} onChange={() => toggleDay(day.value)} className={checkboxClass} />
                   {day.label}
@@ -998,7 +997,7 @@ export default function PromosTab({ clientId }: { clientId: string }) {
                       {promotion.loyalty_members_only && <span className="mr-2 inline-block">Loyalty only</span>}
                       {promotion.subscription_required && <span className="mr-2 inline-block">Subscription required</span>}
                     </div>
-                    <div className="mt-1 text-xs">Days: {promotion.valid_days.length > 0 ? promotion.valid_days.map(titleCase).join(", ") : "Any"}</div>
+                    <div className="mt-1 text-xs">Days: {promotion.valid_days.length > 0 ? promotion.valid_days.map(formatPromoValidDay).join(", ") : "Any"}</div>
                   </div>
 
                   <div className="rounded-lg border border-border bg-background p-3 text-sm text-muted-foreground">

@@ -68,11 +68,32 @@ export function formatAuthErrorMessage(error: unknown): string {
     return "Cannot reach Supabase. Check your internet connection, verify NEXT_PUBLIC_SUPABASE_URL in .env.local, and ensure the Supabase project is not paused.";
   }
 
+  return formatSupabaseError(error, "Unable to complete authentication.");
+}
+
+export function formatSupabaseError(error: unknown, fallback = "An unexpected error occurred."): string {
+  if (isNetworkAuthError(error)) {
+    return "Cannot reach Supabase. Check your internet connection and verify NEXT_PUBLIC_SUPABASE_URL.";
+  }
+
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    const message = typeof record.message === "string" ? record.message.trim() : "";
+    const details = typeof record.details === "string" ? record.details.trim() : "";
+    const hint = typeof record.hint === "string" ? record.hint.trim() : "";
+    const code = typeof record.code === "string" ? record.code.trim() : "";
+    const parts = [message, details, hint].filter(Boolean);
+
+    if (parts.length > 0) {
+      return code ? `${parts.join(" ")} (${code})` : parts.join(" ");
+    }
+  }
+
   if (error instanceof Error && error.message.trim()) {
     return error.message;
   }
 
-  return "Unable to complete authentication.";
+  return fallback;
 }
 
 export function getSupabaseClient() {
