@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { formatSupabaseError } from "@/lib/supabase";
 import {
   createPromotion,
   fetchPromotions,
@@ -22,7 +23,7 @@ export function usePromotions(clientId: string) {
       const next = await fetchPromotions(clientId);
       setPromotions(next);
     } catch (fetchError) {
-      setError(fetchError instanceof Error ? fetchError.message : "Unable to load promotions.");
+      setError(formatSupabaseError(fetchError, "Unable to load promotions."));
     } finally {
       setLoading(false);
     }
