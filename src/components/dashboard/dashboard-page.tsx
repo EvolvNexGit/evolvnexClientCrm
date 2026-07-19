@@ -8,10 +8,10 @@ import {
   ChefHat,
   ChevronRight,
   ClipboardList,
-  Coffee,
   ConciergeBell,
   CreditCard,
   Home,
+  LineChart,
   Loader2,
   LogOut,
   Menu,
@@ -89,7 +89,7 @@ function getTabIcon(tab: TabDefinition) {
     case "summary":
       return Home;
     case "cafe-summary":
-      return Coffee;
+      return LineChart;
     case "billing":
       return ShoppingBag;
     case "ingredients":
@@ -112,7 +112,7 @@ function getTabIcon(tab: TabDefinition) {
       return ConciergeBell;
     default:
       if (isSpecialtySummaryTab(tab.key)) {
-        return Home;
+        return LineChart;
       }
       break;
   }
@@ -394,7 +394,7 @@ function DashboardPageContent() {
                   {displayTab?.displayName ?? displayTab?.label ?? "Summary"}
                 </h1>
                 <p className="mt-2 max-w-2xl text-base text-muted-foreground">
-                  {displayTab?.key === "cafe-summary"
+                  {isSpecialtySummaryTab(displayTab?.key ?? "")
                     ? "Overview of your café performance."
                     : "Client-scoped dashboard with dynamic tab system."}
                 </p>

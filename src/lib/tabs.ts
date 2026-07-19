@@ -22,8 +22,8 @@ export const DEFAULT_TAB_ORDER = [
 ] as const;
 
 /**
- * Vertical-specific home summaries. When any of these are enabled for a client,
- * they replace the default `summary` tab in the sidebar.
+ * Vertical-specific analytics tabs. When enabled for a client they appear as a
+ * separate sidebar entry labeled "AI-Analytics" alongside the default Summary tab.
  */
 export const SPECIALTY_SUMMARY_TAB_KEYS = [
   "cafe-summary",
@@ -33,6 +33,8 @@ export const SPECIALTY_SUMMARY_TAB_KEYS = [
 
 export type SpecialtySummaryTabKey = (typeof SPECIALTY_SUMMARY_TAB_KEYS)[number];
 
+export const SPECIALTY_SUMMARY_DISPLAY_NAME = "AI-Analytics";
+
 export function isSpecialtySummaryTab(key: string): boolean {
   const normalized = normalizeTabKey(key);
   if ((SPECIALTY_SUMMARY_TAB_KEYS as readonly string[]).includes(normalized)) {
@@ -40,11 +42,6 @@ export function isSpecialtySummaryTab(key: string): boolean {
   }
 
   return normalized.endsWith("-summary") && normalized !== "summary";
-}
-
-export function isHomeSummaryTab(key: string): boolean {
-  const normalized = normalizeTabKey(key);
-  return normalized === "summary" || isSpecialtySummaryTab(normalized);
 }
 
 /** User-facing / DB aliases → canonical tab keys used in the app. */
@@ -76,10 +73,6 @@ function normalizeTabKey(key: string): string {
 
 function getDefaultTabRank(key: string): number {
   const normalized = normalizeTabKey(key);
-  if (isSpecialtySummaryTab(normalized)) {
-    return 0;
-  }
-
   const index = DEFAULT_TAB_ORDER.indexOf(normalized as (typeof DEFAULT_TAB_ORDER)[number]);
   return index === -1 ? DEFAULT_TAB_ORDER.length : index;
 }
@@ -111,33 +104,26 @@ function createDefaultSummaryTab(): TabDefinition {
 }
 
 /**
- * If a specialty summary (cafe / saloon / doctor / …) is enabled for the client,
- * hide the default Summary tab and show the specialty tab labeled as "Summary".
- * Otherwise ensure default Summary is always present.
+ * Always keep the default Summary tab, and surface specialty analytics tabs
+ * (cafe / saloon / doctor / …) as a separate "AI-Analytics" entry when enabled.
  */
-function applySummaryTabOverride(tabs: TabDefinition[]): TabDefinition[] {
-  const hasSpecialtySummary = tabs.some((tab) => isSpecialtySummaryTab(tab.key));
+function applySummaryTabVisibility(tabs: TabDefinition[]): TabDefinition[] {
+  const withSpecialtyLabels = tabs.map((tab) =>
+    isSpecialtySummaryTab(tab.key)
+      ? {
+          ...tab,
+          name: SPECIALTY_SUMMARY_DISPLAY_NAME,
+          label: SPECIALTY_SUMMARY_DISPLAY_NAME,
+          displayName: SPECIALTY_SUMMARY_DISPLAY_NAME,
+        }
+      : tab,
+  );
 
-  if (hasSpecialtySummary) {
-    return tabs
-      .filter((tab) => tab.key !== "summary")
-      .map((tab) =>
-        isSpecialtySummaryTab(tab.key)
-          ? {
-              ...tab,
-              name: "Summary",
-              label: "Summary",
-              displayName: "Summary",
-            }
-          : tab,
-      );
+  if (!withSpecialtyLabels.some((tab) => tab.id === "summary")) {
+    return [createDefaultSummaryTab(), ...withSpecialtyLabels];
   }
 
-  if (!tabs.some((tab) => tab.id === "summary")) {
-    return [createDefaultSummaryTab(), ...tabs];
-  }
-
-  return tabs;
+  return withSpecialtyLabels;
 }
 
 // Map database tab keys (numeric) to code-based tab keys
@@ -265,7 +251,7 @@ export async function getTabs(
     .map((row) => normalizeTab(row))
     .filter((tab): tab is TabDefinition => tab !== null && tab.visible);
 
-  tabs = applySummaryTabOverride(tabs);
+  tabs = applySummaryTabVisibility(tabs);
   tabs = sortTabsByDefaultOrder(tabs);
 
   tabsCache.set(clientId, tabs);
