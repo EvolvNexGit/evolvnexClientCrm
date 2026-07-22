@@ -5,10 +5,14 @@ import { BadgePercent, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { ListPaginationControls } from "@/components/ui/list-pagination-controls";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { usePagedList } from "@/hooks/use-paged-list";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import { useProducts } from "@/hooks/use-products";
 import { usePromotions } from "@/hooks/use-promotions";
 import type { ProductRecord } from "@/lib/billing-types";
+import { fetchPromotionSummary, fetchPromotionsPage } from "@/lib/promotion-queries";
 import type {
   PromoApplyType,
   PromoStatus,
@@ -738,71 +742,57 @@ export default function PromosTab({ clientId }: { clientId: string }) {
   const [sortBy, setSortBy] = usePersistentState<"priority" | "newest" | "ending">("promos-tab-sort-by", "priority");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPromotion, setEditingPromotion] = useState<PromotionRecord | null>(null);
+  const [summary, setSummary] = useState({ total: 0, active: 0, scheduled: 0, redemptions: 0 });
+
+  const debouncedSearch = useDebouncedValue(searchTerm, 300);
+
+  const pagedPromotions = usePagedList<PromotionRecord>({
+    resetKey: `${clientId}|${debouncedSearch}|${statusFilter}|${typeFilter}|${applyFilter}|${sortBy}`,
+    enabled: Boolean(clientId),
+    fetchPage: ({ limit, offset }) =>
+      fetchPromotionsPage(clientId, {
+        limit,
+        offset,
+        search: debouncedSearch,
+        status: statusFilter,
+        promoType: typeFilter,
+        applyType: applyFilter,
+        sortBy,
+      }),
+  });
+
+  useEffect(() => {
+    let mounted = true;
+    void (async () => {
+      try {
+        const next = await fetchPromotionSummary(clientId);
+        if (mounted) {
+          setSummary(next);
+        }
+      } catch {
+        if (mounted) {
+          setSummary({ total: 0, active: 0, scheduled: 0, redemptions: 0 });
+        }
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [clientId]);
 
   const productsById = useMemo(() => new Map(productState.products.map((product) => [product.id, product])), [productState.products]);
 
-  const filteredPromotions = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-
-    const results = promotionState.promotions.filter((promotion) => {
-      const haystack = [
-        promotion.name,
-        promotion.code ?? "",
-        promotion.description ?? "",
-        promotion.promo_type,
-        promotion.apply_type,
-        promotion.status,
-        promotion.targetProductIds.map((productId) => productsById.get(productId)?.name ?? productId).join(" "),
-        promotion.targetProductTypes.join(" "),
-      ]
-        .join(" ")
-        .toLowerCase();
-
-      return (
-        (!query || haystack.includes(query)) &&
-        (statusFilter === "all" || promotion.status === statusFilter) &&
-        (typeFilter === "all" || promotion.promo_type === typeFilter) &&
-        (applyFilter === "all" || promotion.apply_type === applyFilter)
-      );
-    });
-
-    return results.sort((left, right) => {
-      if (sortBy === "newest") {
-        return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
-      }
-
-      if (sortBy === "ending") {
-        const leftEnd = left.end_date ? new Date(left.end_date).getTime() : Number.POSITIVE_INFINITY;
-        const rightEnd = right.end_date ? new Date(right.end_date).getTime() : Number.POSITIVE_INFINITY;
-        return leftEnd - rightEnd;
-      }
-
-      const leftPriority = left.priority ?? 0;
-      const rightPriority = right.priority ?? 0;
-      if (leftPriority !== rightPriority) {
-        return rightPriority - leftPriority;
-      }
-
-      return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
-    });
-  }, [applyFilter, productsById, promotionState.promotions, searchTerm, sortBy, statusFilter, typeFilter]);
-
-  const summary = useMemo(() => {
-    const active = promotionState.promotions.filter((promotion) => promotion.status === "ACTIVE").length;
-    const scheduled = promotionState.promotions.filter((promotion) => promotion.status === "SCHEDULED").length;
-    const targeted = promotionState.promotions.filter((promotion) => promotion.targetProductIds.length > 0 || promotion.targetProductTypes.length > 0).length;
-    const redemptions = promotionState.promotions.reduce((sum, promotion) => sum + promotion.usageCount, 0);
-
-    return { active, scheduled, targeted, redemptions };
-  }, [promotionState.promotions]);
+  const filteredPromotions = pagedPromotions.items;
 
   async function handleSubmit(payload: PromotionPayload) {
     if (editingPromotion) {
       await promotionState.editPromotion(editingPromotion.id, payload);
+      await pagedPromotions.refresh();
       return;
     }
 
     await promotionState.addPromotion(payload);
+    await pagedPromotions.refresh();
   }
 
   async function handleToggleStatus(promotion: PromotionRecord) {
@@ -814,6 +804,7 @@ export default function PromosTab({ clientId }: { clientId: string }) {
     }
 
     await promotionState.changePromotionStatus(promotion.id, nextStatus);
+    await pagedPromotions.refresh();
   }
 
   return (
@@ -844,7 +835,7 @@ export default function PromosTab({ clientId }: { clientId: string }) {
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-border bg-background p-4">
           <div className="text-sm text-muted-foreground">Total promos</div>
-          <div className="mt-2 text-2xl font-semibold text-text">{promotionState.promotions.length}</div>
+          <div className="mt-2 text-2xl font-semibold text-text">{summary.total}</div>
         </div>
         <div className="rounded-2xl border border-border bg-background p-4">
           <div className="text-sm text-muted-foreground">Active</div>
@@ -914,13 +905,13 @@ export default function PromosTab({ clientId }: { clientId: string }) {
       </div>
 
       <DataState
-        loading={promotionState.loading}
-        error={promotionState.error}
-        empty={!promotionState.loading && !promotionState.error && filteredPromotions.length === 0}
+        loading={pagedPromotions.loading && filteredPromotions.length === 0}
+        error={pagedPromotions.error ?? promotionState.error}
+        empty={!pagedPromotions.loading && !pagedPromotions.error && filteredPromotions.length === 0}
         emptyLabel={searchTerm || statusFilter !== "all" || typeFilter !== "all" || applyFilter !== "all" ? "No promotions match your filters." : "No promotions found."}
       />
 
-      {!promotionState.loading && !promotionState.error && filteredPromotions.length > 0 && (
+      {!pagedPromotions.error && filteredPromotions.length > 0 && (
         <div className="space-y-3">
           {filteredPromotions.map((promotion) => {
             const targetSummary = getTargetSummary(promotion, productsById);
@@ -1016,6 +1007,16 @@ export default function PromosTab({ clientId }: { clientId: string }) {
               </article>
             );
           })}
+
+          <ListPaginationControls
+            loadedCount={pagedPromotions.items.length}
+            totalCount={pagedPromotions.totalCount}
+            hasMore={pagedPromotions.hasMore}
+            loading={pagedPromotions.loadingMore}
+            onShowMore={() => void pagedPromotions.showMore()}
+            onShowAll={() => void pagedPromotions.showAll()}
+            itemLabel="promotions"
+          />
         </div>
       )}
 

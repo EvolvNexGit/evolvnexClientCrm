@@ -5,10 +5,14 @@ import { ChevronDown, ChevronRight, Download, Filter, Plus, Search, Pencil, Tras
 import { Button } from "@/components/ui/button";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { ListPaginationControls } from "@/components/ui/list-pagination-controls";
 import { usePersistentState } from "@/hooks/use-persistent-state";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIngredients } from "@/hooks/use-ingredients";
+import { usePagedList } from "@/hooks/use-paged-list";
 import { useProducts } from "@/hooks/use-products";
 import { useRecipes } from "@/hooks/use-recipes";
+import { fetchRecipesPage } from "@/lib/inventory-queries";
 import type { InventoryUnit, RecipePayload, RecipeRecord } from "@/lib/inventory-types";
 import { formatUtcToIst } from "@/lib/time-utils";
 
@@ -87,9 +91,25 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
   const [actionError, setActionError] = usePersistentState<string | null>("recipe-tab-action-error", null);
   const [form, setForm] = usePersistentState<RecipeFormState>("recipe-tab-form", initialForm);
 
-  const loading = recipeState.loading || productState.loading || ingredientState.loading;
-  const error = recipeState.error || productState.error || ingredientState.error;
   const saving = recipeState.saving;
+
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
+
+  const pagedRecipes = usePagedList<RecipeRecord>({
+    resetKey: `${clientId}|${debouncedSearch}|${showLowStockOnly ? "1" : "0"}|${productTypeFilter}`,
+    enabled: Boolean(clientId),
+    fetchPage: ({ limit, offset }) =>
+      fetchRecipesPage(clientId, {
+        limit,
+        offset,
+        search: debouncedSearch,
+        lowStockOnly: showLowStockOnly,
+        productTypeFilter: productTypeFilter || null,
+      }),
+  });
+
+  const loading = pagedRecipes.loading || productState.loading || ingredientState.loading;
+  const error = pagedRecipes.error || productState.error || ingredientState.error;
 
   const productTypes = useMemo(() => {
     const types = [
@@ -106,24 +126,11 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
     [ingredientState.ingredients],
   );
 
+  // Displayed rows are already filtered and paginated server-side (see fetchRecipesPage).
+  const displayedRecipes = pagedRecipes.items;
+
   const filteredRecipes = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    const next = recipeState.recipes.filter((recipe) => {
-      const matchesSearch =
-        !query ||
-        [recipe.productName, recipe.ingredientName, recipe.quantity_unit, recipe.ingredientStockUnit]
-          .join(" ")
-          .toLowerCase()
-          .includes(query);
-      // product/ingredient name filters removed; always match
-      // filter by product type/status similar to ProductTable
-      const product = productState.products.find((p) => p.id === recipe.product_id);
-      const matchesType = !productTypeFilter || (product?.type ?? "") === productTypeFilter;
-      const matchesLowStock = !showLowStockOnly || isRecipeLowStock(recipe);
-
-      return matchesSearch && matchesLowStock && matchesType;
-    });
-
+    const next = [...displayedRecipes];
     next.sort((a, b) => {
       const productCompare = a.productName.localeCompare(b.productName);
       if (productCompare !== 0) {
@@ -134,7 +141,7 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
     });
 
     return next;
-  }, [recipeState.recipes, searchQuery, showLowStockOnly, productTypeFilter]);
+  }, [displayedRecipes]);
 
   const groupedRecipes = useMemo(() => {
     const groups = new Map<string, { productId: string; productName: string; rows: RecipeRecord[] }>();
@@ -263,6 +270,7 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
       }
       setIsAddOpen(false);
       resetForm();
+      await pagedRecipes.refresh();
     } catch (submitError) {
       setActionError(submitError instanceof Error ? submitError.message : "Unable to add recipe.");
     }
@@ -286,6 +294,7 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
       });
       setEditingRecipe(null);
       resetForm();
+      await pagedRecipes.refresh();
     } catch (submitError) {
       setActionError(submitError instanceof Error ? submitError.message : "Unable to update recipe.");
     }
@@ -301,6 +310,7 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
     try {
       await recipeState.removeRecipe(pendingDeleteRecipe.id);
       setPendingDeleteRecipe(null);
+      await pagedRecipes.refresh();
     } catch (deleteError) {
       setActionError(deleteError instanceof Error ? deleteError.message : "Unable to delete recipe.");
     }
@@ -392,13 +402,13 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
       )}
 
       <DataState
-        loading={loading}
+        loading={loading && !hasRows}
         error={error}
         empty={!loading && !error && !hasRows}
         emptyLabel={searchQuery || showLowStockOnly ? "No recipes match current filters." : "No recipes yet."}
       />
 
-      {hasRows && !loading && !error && (
+      {hasRows && !error && (
         <div className="space-y-4">
           {groupedRecipes.map((group) => {
             const isCollapsed = Boolean(collapsedProducts[group.productId]);
@@ -496,6 +506,18 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
             );
           })}
         </div>
+      )}
+
+      {hasRows && !error && (
+        <ListPaginationControls
+          loadedCount={pagedRecipes.items.length}
+          totalCount={pagedRecipes.totalCount}
+          hasMore={pagedRecipes.hasMore}
+          loading={pagedRecipes.loadingMore}
+          onShowMore={() => void pagedRecipes.showMore()}
+          onShowAll={() => void pagedRecipes.showAll()}
+          itemLabel="recipes"
+        />
       )}
 
       <EntityModal open={isAddOpen} title="Add Recipe" onClose={() => setIsAddOpen(false)}>

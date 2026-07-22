@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { ListPaginationControls } from "@/components/ui/list-pagination-controls";
 import { Button } from "@/components/ui/button";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
@@ -19,9 +19,18 @@ type CustomerTableProps = {
   loading: boolean;
   error: string | null;
   saving: boolean;
+  searchQuery: string;
+  onSearchChange: (value: string) => void;
   onAdd: (payload: CustomerPayload) => Promise<CustomerRecord>;
   onEdit: (customerId: string, payload: Partial<CustomerPayload>) => Promise<void>;
   onDelete: (customerId: string) => Promise<void>;
+  pagination: {
+    totalCount: number | null;
+    hasMore: boolean;
+    loadingMore: boolean;
+    onShowMore: () => void;
+    onShowAll: () => void;
+  };
 };
 
 type CustomerFormState = {
@@ -53,9 +62,12 @@ export function CustomerTable({
   loading,
   error,
   saving,
+  searchQuery,
+  onSearchChange,
   onAdd,
   onEdit,
   onDelete,
+  pagination,
 }: CustomerTableProps) {
   const [isAddOpen, setIsAddOpen] = usePersistentState("customer-table-is-add-open", false);
   const [editingCustomer, setEditingCustomer] = usePersistentState<CustomerRecord | null>(
@@ -64,25 +76,12 @@ export function CustomerTable({
   );
   const [form, setForm] = usePersistentState<CustomerFormState>("customer-table-form", initialForm);
   const [actionError, setActionError] = usePersistentState<string | null>("customer-table-action-error", null);
-  const [searchQuery, setSearchQuery] = usePersistentState("customer-table-search", "");
   const [pendingDeleteCustomer, setPendingDeleteCustomer] = usePersistentState<CustomerRecord | null>(
     "customer-table-pending-delete",
     null,
   );
 
-  const filteredCustomers = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) {
-      return customers;
-    }
-
-    return customers.filter((customer) => {
-      const haystack = [customer.name, customer.phone ?? "", customer.email ?? ""].join(" ").toLowerCase();
-      return haystack.includes(query);
-    });
-  }, [customers, searchQuery]);
-
-  const hasRows = useMemo(() => filteredCustomers.length > 0, [filteredCustomers]);
+  const hasRows = customers.length > 0;
 
   function downloadCsv(filename: string, rows: string[][]) {
     const csv = rows
@@ -100,7 +99,7 @@ export function CustomerTable({
   function exportCustomersCsv() {
     const rows = [
       ["Name", "Phone", "Email", "DOB", "Created", "Orders", "Total Spent"],
-      ...filteredCustomers.map((customer) => [
+      ...customers.map((customer) => [
         customer.name,
         customer.phone ?? "",
         customer.email ?? "",
@@ -201,7 +200,7 @@ export function CustomerTable({
           <p className="text-base text-muted-foreground">Manage customer records and spend history.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" onClick={exportCustomersCsv} disabled={filteredCustomers.length === 0}>
+          <Button type="button" variant="secondary" onClick={exportCustomersCsv} disabled={customers.length === 0}>
             Export CSV
           </Button>
           <Button type="button" onClick={openAdd}>Add Customer</Button>
@@ -211,7 +210,7 @@ export function CustomerTable({
       <div>
         <input
           value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
+          onChange={(event) => onSearchChange(event.target.value)}
           placeholder="Search by name, phone, or email"
           className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
         />
@@ -222,13 +221,13 @@ export function CustomerTable({
       )}
 
       <DataState
-        loading={loading}
+        loading={loading && !hasRows}
         error={error}
         empty={!loading && !error && !hasRows}
         emptyLabel={searchQuery ? "No customers match your search." : "No customers yet."}
       />
 
-      {hasRows && !loading && !error && (
+      {hasRows && !error && (
         <div className="overflow-x-auto rounded-xl border border-border">
           <table className="min-w-full divide-y divide-border text-base">
             <thead className="bg-muted text-left text-sm uppercase tracking-wide text-muted-foreground">
@@ -244,7 +243,7 @@ export function CustomerTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filteredCustomers.map((customer) => (
+              {customers.map((customer) => (
                 <tr key={customer.id} className="hover:bg-muted/40">
                   <td className="px-3 py-3 text-text">{customer.name}</td>
                   <td className="px-3 py-3 text-muted-foreground">{customer.phone ?? "-"}</td>
@@ -279,6 +278,16 @@ export function CustomerTable({
           </table>
         </div>
       )}
+
+      <ListPaginationControls
+        loadedCount={customers.length}
+        totalCount={pagination.totalCount}
+        hasMore={pagination.hasMore}
+        loading={pagination.loadingMore}
+        onShowMore={pagination.onShowMore}
+        onShowAll={pagination.onShowAll}
+        itemLabel="customers"
+      />
 
       <EntityModal open={isAddOpen} title="Add Customer" onClose={() => setIsAddOpen(false)}>
         <CustomerForm

@@ -14,28 +14,21 @@ import {
   X,
 } from "lucide-react";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { ListPaginationControls } from "@/components/ui/list-pagination-controls";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { usePagedList } from "@/hooks/use-paged-list";
 import { usePersistentState } from "@/hooks/use-persistent-state";
+import {
+  fetchAppointmentFilterOptions,
+  fetchAppointmentsPage,
+  type AppointmentRow,
+} from "@/lib/appointment-queries";
 import {
   formatAppointmentDuration,
   formatAppointmentTimeRange,
   formatUtcToIst,
 } from "@/lib/time-utils";
 import { getSupabaseClient } from "@/lib/supabase";
-
-type AppointmentRow = {
-  id: string;
-  name: string | null;
-  phone: string | null;
-  email: string | null;
-  service: string | null;
-  staff_name: string | null;
-  location: string | null;
-  date: string | null;
-  start_time: string | null;
-  end_time: string | null;
-  status: "tentative" | "booked" | "cancelled" | "completed" | null;
-  remark: string | null;
-};
 
 type AppointmentFormState = {
   name: string;
@@ -115,9 +108,6 @@ function getGroupKey(date: string | null): GroupKey {
 }
 
 export default function AppointmentsTab({ clientId }: { clientId: string }) {
-  const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = usePersistentState<string[]>("appointments-tab-expanded-ids", []);
   const [locationFilter, setLocationFilter] = usePersistentState("appointments-tab-location-filter", "all");
   const [statusFilter, setStatusFilter] = usePersistentState("appointments-tab-status-filter", "all");
@@ -143,7 +133,38 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   const [pendingStatusChange, setPendingStatusChange] = useState<PendingStatusChange | null>(null);
   const [statusChangeError, setStatusChangeError] = usePersistentState<string | null>("appointments-tab-status-change-error", null);
   const [form, setForm] = usePersistentState<AppointmentFormState>("appointments-tab-form", initialForm);
+  const [filterOptions, setFilterOptions] = useState<{
+    locations: string[];
+    services: string[];
+    staff: string[];
+    statuses: string[];
+  }>({ locations: [], services: [], staff: [], statuses: [] });
   const dateInputRef = useRef<HTMLInputElement | null>(null);
+
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
+
+  const pagedAppointments = usePagedList<AppointmentRow>({
+    resetKey: `${clientId}|${debouncedSearch}|${locationFilter}|${statusFilter}|${serviceFilter}|${staffFilter}|${dateFilter}|${dateFilterMode}|${sortBy}|${sortOrder}`,
+    enabled: Boolean(clientId),
+    fetchPage: ({ limit, offset }) =>
+      fetchAppointmentsPage(clientId, {
+        limit,
+        offset,
+        search: debouncedSearch,
+        location: locationFilter,
+        status: statusFilter,
+        service: serviceFilter,
+        staff: staffFilter,
+        dateFilter: dateFilter || undefined,
+        dateFilterMode,
+        sortBy,
+        sortOrder,
+      }),
+  });
+
+  const loading = pagedAppointments.loading;
+  const error = pagedAppointments.error;
+  const displayedAppointments = pagedAppointments.items;
 
   function resetForm() {
     setForm(initialForm);
@@ -191,22 +212,6 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     );
   }
 
-  function matchesDateFilter(appointmentDate: string | null) {
-    if (!dateFilter) {
-      return true;
-    }
-
-    if (!appointmentDate) {
-      return false;
-    }
-
-    if (dateFilterMode === "day") {
-      return appointmentDate === dateFilter;
-    }
-
-    return appointmentDate.startsWith(dateFilter);
-  }
-
   async function handleSaveAppointment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAddError(null);
@@ -240,31 +245,23 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       setIsSaving(true);
 
       if (!editingAppointment) {
-        const { data, error: insertError } = await client
+        const { error: insertError } = await client
           .from("appointments")
-          .insert({ client_id: clientId, ...payload })
-          .select("id, name, phone, email, service, staff_name, location, date, start_time, end_time, status, remark")
-          .single();
+          .insert({ client_id: clientId, ...payload });
 
         if (insertError) {
           throw insertError;
-        }
-
-        if (data) {
-          setAppointments((current) => [data as AppointmentRow, ...current]);
         }
       } else {
         const { error: updateError } = await client.from("appointments").update(payload).eq("id", editingAppointment.id);
         if (updateError) {
           throw updateError;
         }
-
-        setAppointments((current) =>
-          current.map((appointment) =>
-            appointment.id === editingAppointment.id ? { ...appointment, ...payload } : appointment,
-          ),
-        );
       }
+
+      await pagedAppointments.refresh();
+      const options = await fetchAppointmentFilterOptions(clientId);
+      setFilterOptions(options);
 
       setModalMode(null);
       setEditingAppointment(null);
@@ -294,7 +291,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
         throw updateError;
       }
 
-      setAppointments((current) => current.map((appointment) => (appointment.id === appointmentId ? { ...appointment, status: nextStatus } : appointment)));
+      await pagedAppointments.refresh();
     } catch (changeError) {
       setStatusChangeError(changeError instanceof Error ? changeError.message : "Failed to update appointment status.");
     } finally {
@@ -337,141 +334,28 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   }
 
   useEffect(() => {
-    let isMounted = true;
-    const supabaseClient = getSupabaseClient();
-
-    if (!supabaseClient) {
-      setError("Missing Supabase environment variables.");
-      setLoading(false);
-      return () => {
-        isMounted = false;
-      };
-    }
-
-    const client = supabaseClient;
-
-    async function loadAppointments() {
+    let mounted = true;
+    void (async () => {
       try {
-        setLoading(true);
-        const { data, error: fetchError } = await client
-          .from("appointments")
-          .select("id, name, phone, email, service, staff_name, location, date, start_time, end_time, status, remark")
-          .eq("client_id", clientId)
-          .order("date", { ascending: true, nullsFirst: false })
-          .order("start_time", { ascending: true, nullsFirst: false });
-
-        if (fetchError) {
-          throw fetchError;
+        const options = await fetchAppointmentFilterOptions(clientId);
+        if (mounted) {
+          setFilterOptions(options);
         }
-
-        if (!isMounted) {
-          return;
-        }
-
-        setAppointments((data ?? []) as AppointmentRow[]);
-      } catch (fetchError) {
-        if (!isMounted) {
-          return;
-        }
-
-        setError(fetchError instanceof Error ? fetchError.message : "Unable to load appointments.");
-      } finally {
-        if (isMounted) {
-          setLoading(false);
+      } catch {
+        if (mounted) {
+          setFilterOptions({ locations: [], services: [], staff: [], statuses: [] });
         }
       }
-    }
-
-    loadAppointments();
-
+    })();
     return () => {
-      isMounted = false;
+      mounted = false;
     };
   }, [clientId]);
 
-  const locationOptions = useMemo(
-    () => Array.from(new Set(appointments.map((item) => item.location).filter((item): item is string => Boolean(item)))),
-    [appointments],
-  );
-
-  const serviceOptions = useMemo(
-    () => Array.from(new Set(appointments.map((item) => item.service).filter((item): item is string => Boolean(item)))),
-    [appointments],
-  );
-
-  const staffOptions = useMemo(
-    () => Array.from(new Set(appointments.map((item) => item.staff_name).filter((item): item is string => Boolean(item)))),
-    [appointments],
-  );
-
-  const statusOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          appointments.map((item) => item.status).filter((item): item is NonNullable<AppointmentRow["status"]> => Boolean(item)),
-        ),
-      ),
-    [appointments],
-  );
-
-  const filteredAppointments = useMemo(() => {
-    const query = formSearchString(searchQuery).toLowerCase();
-
-    return appointments.filter((appointment) => {
-      const haystack = [
-        appointment.name,
-        appointment.phone,
-        appointment.email,
-        appointment.service,
-        appointment.staff_name,
-        appointment.location,
-        appointment.status,
-        appointment.remark,
-        appointment.date,
-        appointment.start_time,
-        appointment.end_time,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      const matchesSearch = !query || haystack.includes(query);
-      const matchesLocation = locationFilter === "all" || appointment.location === locationFilter;
-      const matchesStatus = statusFilter === "all" || appointment.status === statusFilter;
-      const matchesService = serviceFilter === "all" || appointment.service === serviceFilter;
-      const matchesStaff = staffFilter === "all" || appointment.staff_name === staffFilter;
-      const matchesDate = matchesDateFilter(appointment.date);
-
-      return matchesSearch && matchesLocation && matchesStatus && matchesService && matchesStaff && matchesDate;
-    });
-  }, [appointments, dateFilter, dateFilterMode, locationFilter, serviceFilter, staffFilter, statusFilter, searchQuery]);
-
-  const displayedAppointments = useMemo(() => {
-    const next = [...filteredAppointments].sort((left, right) => {
-      const direction = sortOrder === "asc" ? 1 : -1;
-
-      if (sortBy === "status") {
-        return (left.status ?? "").localeCompare(right.status ?? "") * direction;
-      }
-
-      if (sortBy === "service") {
-        return (left.service ?? "").localeCompare(right.service ?? "") * direction;
-      }
-
-      if (sortBy === "location") {
-        return (left.location ?? "").localeCompare(right.location ?? "") * direction;
-      }
-
-      const dateCompare = (left.date ?? "").localeCompare(right.date ?? "") * direction;
-      if (dateCompare !== 0) {
-        return dateCompare;
-      }
-
-      return (left.start_time ?? "").localeCompare(right.start_time ?? "") * direction;
-    });
-
-    return next;
-  }, [filteredAppointments, sortBy, sortOrder]);
+  const locationOptions = filterOptions.locations;
+  const serviceOptions = filterOptions.services;
+  const staffOptions = filterOptions.staff;
+  const statusOptions = filterOptions.statuses as Array<NonNullable<AppointmentRow["status"]>>;
 
   const groupedAppointments = useMemo(() => {
     const groups: Record<GroupKey, AppointmentRow[]> = {
@@ -496,14 +380,14 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       past: 0,
     };
 
-    appointments.forEach((appointment) => {
+    displayedAppointments.forEach((appointment) => {
       groups[getGroupKey(appointment.date)] += 1;
     });
 
     return groups;
-  }, [appointments]);
+  }, [displayedAppointments]);
 
-  if (loading) {
+  if (loading && displayedAppointments.length === 0) {
     return (
       <div className="flex min-h-[240px] items-center justify-center rounded-3xl border border-white/10 bg-[#080808] text-base text-white/60 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
         <span className="inline-flex items-center gap-2">
@@ -561,7 +445,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           { key: "today" as const, label: "Today", accent: "bg-red-500", count: summaryCounts.today },
           { key: "tomorrow" as const, label: "Tomorrow", accent: "bg-purple-600", count: summaryCounts.tomorrow },
           { key: "upcoming" as const, label: "Upcoming", accent: "bg-blue-600", count: summaryCounts.upcoming },
-          { key: "past" as const, label: "Total", accent: "bg-slate-700", count: appointments.length },
+          { key: "past" as const, label: "Total", accent: "bg-slate-700", count: pagedAppointments.totalCount ?? displayedAppointments.length },
         ].map((card) => (
           <article key={card.key} className="rounded-2xl border border-white/10 bg-[#111111] p-4 shadow-[0_12px_28px_rgba(0,0,0,0.25)]">
             <div className="flex items-center gap-3">
@@ -887,6 +771,18 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
         })}
       </div>
 
+      {displayedAppointments.length > 0 && (
+        <ListPaginationControls
+          loadedCount={pagedAppointments.items.length}
+          totalCount={pagedAppointments.totalCount}
+          hasMore={pagedAppointments.hasMore}
+          loading={pagedAppointments.loadingMore}
+          onShowMore={() => void pagedAppointments.showMore()}
+          onShowAll={() => void pagedAppointments.showAll()}
+          itemLabel="appointments"
+        />
+      )}
+
       <EntityModal
         open={modalMode !== null}
         title={modalMode === "reschedule" ? "Reschedule Appointment" : modalMode === "edit" ? "Edit Appointment" : "Add New Appointment"}
@@ -1088,8 +984,4 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       </EntityModal>
     </section>
   );
-}
-
-function formSearchString(value: string) {
-  return value.trim();
 }
