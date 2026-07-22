@@ -147,10 +147,6 @@ export function OrderList({ orders, loading, error, onUpdateStatus }: OrderListP
 
   return (
     <div className="space-y-5">
-      <p className="text-sm font-medium text-primary">
-        Air Menu Orders, via Table QR · last 24 hours
-      </p>
-
       <DataState
         loading={loading}
         error={error}

@@ -169,13 +169,7 @@ export function ProductTable({
 
   return (
     <div className="space-y-4 rounded-[28px] border border-white/10 bg-[#080808] p-5 text-white shadow-[0_20px_60px_rgba(0,0,0,0.45)] sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
-          <div className="text-sm font-semibold uppercase tracking-[0.3em] text-red-500">Dashboard</div>
-          <h3 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Products</h3>
-          <p className="max-w-2xl text-sm text-white/70 sm:text-base">Manage all your products live.</p>
-        </div>
-
+      <div className="flex flex-wrap items-center justify-end gap-4">
         <div className="flex items-center gap-3">
           <button
             type="button"

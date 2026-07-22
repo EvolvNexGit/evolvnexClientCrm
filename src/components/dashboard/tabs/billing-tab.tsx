@@ -700,11 +700,6 @@ export default function BillingTab({ clientId }: { clientId: string }) {
 
   return (
     <section className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
-      <div>
-        <h2 className="text-xl font-semibold text-text">Billing</h2>
-        <p className="mt-1 text-base text-muted-foreground">POS-style billing with live totals and inventory warnings.</p>
-      </div>
-
       {loadError && (
         <div className="rounded-lg border border-primary/50 bg-primary/10 p-3 text-sm text-primary">{loadError}</div>
       )}

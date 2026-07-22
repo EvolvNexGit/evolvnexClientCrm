@@ -37,14 +37,7 @@ export default function CustomerTab({ clientId }: { clientId: string }) {
   }
 
   return (
-    <section className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-semibold text-text">Billing CRM</h2>
-          <p className="mt-1 text-base text-muted-foreground">Client scope: {clientId}</p>
-        </div>
-      </div>
-
+    <section className="space-y-4">
       <CustomerTable
         customers={pagedCustomers.items}
         loading={pagedCustomers.loading}

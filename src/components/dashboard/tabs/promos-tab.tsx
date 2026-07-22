@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { BadgePercent, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
@@ -809,16 +809,7 @@ export default function PromosTab({ clientId }: { clientId: string }) {
 
   return (
     <section className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="flex items-center gap-2 text-xl font-semibold text-text">
-            <BadgePercent className="h-5 w-5 text-primary" />
-            Promos & Offers
-          </h2>
-          <p className="mt-1 text-base text-muted-foreground">Create, edit, and deactivate promotional offers for this client.</p>
-          <p className="mt-1 text-sm text-muted-foreground">Client scope: {clientId}</p>
-        </div>
-
+      <div className="flex flex-wrap items-center justify-end gap-4">
         <Button
           type="button"
           onClick={() => {

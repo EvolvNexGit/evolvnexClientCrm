@@ -246,13 +246,7 @@ export default function SubscriptionTab({ clientId }: { clientId: string }) {
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-border bg-card p-5 shadow-soft sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-semibold text-text">Subscription Management</h2>
-            <p className="mt-1 text-base text-muted-foreground">
-              Placeholder-only tab for now. Client scope: {clientId}
-            </p>
-          </div>
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <Button
             onClick={() => {
               setShowAddForm((current) => !current);
@@ -301,12 +295,10 @@ export default function SubscriptionTab({ clientId }: { clientId: string }) {
       )}
 
       <div className="rounded-2xl border border-border bg-card p-5 shadow-soft sm:p-6">
-        <h3 className="text-xl font-semibold text-text">All Subscriptions</h3>
-
         {subscriptions.length === 0 ? (
-          <p className="mt-3 text-base text-muted-foreground">No subscriptions added yet.</p>
+          <p className="text-base text-muted-foreground">No subscriptions added yet.</p>
         ) : (
-          <div className="mt-4 overflow-x-auto">
+          <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-border text-left text-base">
               <thead>
                 <tr className="text-sm uppercase tracking-wide text-muted-foreground">

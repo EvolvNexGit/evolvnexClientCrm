@@ -152,11 +152,7 @@ export function TransactionList({
 
   return (
     <div className="space-y-3 rounded-2xl border border-border bg-card p-3 sm:p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h3 className="text-base font-semibold text-text">Transactions</h3>
-          <p className="text-sm text-muted-foreground">Read-only bill history.</p>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-2">
         <Button
           type="button"
           variant="secondary"

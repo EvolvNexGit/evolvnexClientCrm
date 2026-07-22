@@ -194,11 +194,7 @@ export function CustomerTable({
 
   return (
     <div className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold text-text">Customers</h3>
-          <p className="text-base text-muted-foreground">Manage customer records and spend history.</p>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="secondary" onClick={exportCustomersCsv} disabled={customers.length === 0}>
             Export CSV

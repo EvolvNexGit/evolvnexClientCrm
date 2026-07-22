@@ -252,17 +252,9 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
 
   return (
     <section className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-1">
         <article className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">Client ID</h2>
-          <p className="mt-2 text-base text-text">{clientInfo?.id ?? clientId}</p>
-        </article>
-        <article className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">CRM User</h2>
-          <p className="mt-2 text-base text-text">{clientInfo?.crm_user_id ?? "-"}</p>
-        </article>
-        <article className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">Task Completion</h2>
+          <p className="text-sm text-muted-foreground">Completed tasks</p>
           <p className="mt-2 text-base text-text">
             {completedTasks}/{totalTasks} ({completionRate}%)
           </p>
@@ -270,10 +262,9 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-4">
-        <h3 className="text-lg font-semibold text-text">Basic Client Information</h3>
-        {clientInfoError && <p className="mt-2 text-sm text-primary">{clientInfoError}</p>}
+        {clientInfoError && <p className="text-sm text-primary">{clientInfoError}</p>}
         {!clientInfoError && (
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-border bg-background p-3 text-base text-muted-foreground">
               <span className="block text-sm uppercase tracking-wide">Name</span>
               <span className="mt-1 block text-text">{clientInfo?.name ?? "-"}</span>
@@ -295,8 +286,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-4">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold text-text">Task Portal</h3>
+        <div className="flex items-center justify-end gap-3">
           <Button type="button" variant="secondary" onClick={() => void refreshTasks()} disabled={tasksLoading || tasksSaving}>
             Refresh
           </Button>

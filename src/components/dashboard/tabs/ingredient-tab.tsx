@@ -366,11 +366,7 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
 
   return (
     <div className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold text-text">Ingredients</h3>
-          <p className="text-base text-muted-foreground">Manage ingredient inventory, supplier details, and thresholds.</p>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex items-center gap-2">
           {showStockTools && (
             <ActionsMenu
