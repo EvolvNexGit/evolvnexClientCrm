@@ -1,3 +1,11 @@
+import {
+  buildIlikeOrFilter,
+  buildListRange,
+  LIST_PAGE_SHOW_ALL_MAX,
+  sanitizeSearch,
+  type ListPageParams,
+  type ListPageResult,
+} from "@/lib/list-pagination";
 import { getSupabaseClient } from "@/lib/supabase";
 import type {
   CustomerPayload,
@@ -52,6 +60,58 @@ export async function fetchCustomers(clientId: string): Promise<CustomerRecord[]
       totalSpent,
     };
   });
+}
+
+export async function fetchCustomersPage(
+  clientId: string,
+  params: ListPageParams = { limit: 12, offset: 0 },
+): Promise<ListPageResult<CustomerRecord>> {
+  const supabase = getClient();
+  const search = sanitizeSearch(params.search);
+  const { from, to } = buildListRange(params.offset, params.limit);
+
+  let query = supabase
+    .from("customers")
+    .select("id, name, phone, email, dob, created_at, bills(id, final_amount)", { count: "exact" })
+    .eq("client_id", clientId)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (search) {
+    const filter = buildIlikeOrFilter(["name", "phone", "email"], search);
+    if (filter) {
+      query = query.or(filter);
+    }
+  }
+
+  const { data, error, count } = await query;
+  if (error) {
+    throw error;
+  }
+
+  const items = (data ?? []).map((row: any) => {
+    const bills = Array.isArray(row.bills) ? row.bills : [];
+    const totalSpent = bills.reduce((sum: number, bill: any) => sum + asNumber(bill.final_amount), 0);
+
+    return {
+      id: String(row.id),
+      name: String(row.name ?? "Unnamed"),
+      phone: row.phone ?? null,
+      email: row.email ?? null,
+      dob: row.dob ?? null,
+      created_at: row.created_at ?? "",
+      totalOrders: bills.length,
+      totalSpent,
+    } satisfies CustomerRecord;
+  });
+
+  const totalCount = count ?? null;
+  return {
+    items,
+    hasMore: totalCount != null ? from + items.length < totalCount : items.length === params.limit,
+    totalCount,
+  };
 }
 
 export async function createCustomer(clientId: string, payload: CustomerPayload): Promise<CustomerRecord> {
@@ -173,6 +233,70 @@ export async function fetchProducts(clientId: string, options?: { includeInactiv
     is_active: Boolean(row.is_active),
     created_at: row.created_at ?? "",
   }));
+}
+
+export type FetchProductsPageParams = ListPageParams & {
+  includeInactive?: boolean;
+  type?: string | null;
+  activeOnly?: boolean;
+  /** Explicit status filter, takes precedence over activeOnly/includeInactive when set. */
+  status?: "active" | "inactive" | "all";
+};
+
+export async function fetchProductsPage(
+  clientId: string,
+  params: FetchProductsPageParams = { limit: 12, offset: 0 },
+): Promise<ListPageResult<ProductRecord>> {
+  const supabase = getClient();
+  const search = sanitizeSearch(params.search);
+  const { from, to } = buildListRange(params.offset, params.limit);
+
+  let query = supabase
+    .from("products")
+    .select("id, client_id, name, price, type, is_active, created_at", { count: "exact" })
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (params.status === "active" || (params.status == null && params.activeOnly)) {
+    query = query.eq("is_active", true);
+  } else if (params.status === "inactive") {
+    query = query.eq("is_active", false);
+  }
+  // "all" (or no status/activeOnly/includeInactive constraint) leaves both statuses visible.
+
+  if (params.type) {
+    query = query.eq("type", params.type);
+  }
+
+  if (search) {
+    const filter = buildIlikeOrFilter(["name", "type"], search);
+    if (filter) {
+      query = query.or(filter);
+    }
+  }
+
+  const { data, error, count } = await query;
+  if (error) {
+    throw error;
+  }
+
+  const items = (data ?? []).map((row: any) => ({
+    id: String(row.id),
+    client_id: String(row.client_id),
+    name: String(row.name ?? "Unnamed product"),
+    price: asNumber(row.price),
+    type: row.type ?? null,
+    is_active: Boolean(row.is_active),
+    created_at: row.created_at ?? "",
+  })) as ProductRecord[];
+
+  const totalCount = count ?? null;
+  return {
+    items,
+    hasMore: totalCount != null ? from + items.length < totalCount : items.length === params.limit,
+    totalCount,
+  };
 }
 
 export async function fetchProductTypes(clientId: string): Promise<string[]> {
@@ -323,6 +447,96 @@ export async function fetchTransactions(clientId: string): Promise<TransactionRe
   }
 
   return (data ?? []).map((row) => mapBillRowToTransaction(row as Record<string, unknown>));
+}
+
+export type FetchTransactionsPageParams = ListPageParams & {
+  dateFrom?: string | null;
+  dateTo?: string | null;
+};
+
+export async function fetchTransactionsPage(
+  clientId: string,
+  params: FetchTransactionsPageParams = { limit: 12, offset: 0 },
+): Promise<ListPageResult<TransactionRecord>> {
+  const supabase = getClient();
+  const search = sanitizeSearch(params.search);
+  const { from, to } = buildListRange(params.offset, params.limit);
+
+  // Customer/product names live on joins; when searching, load a capped set and filter client-side.
+  if (search) {
+    let query = supabase
+      .from("bills")
+      .select(BILL_TRANSACTION_SELECT)
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: false })
+      .range(0, LIST_PAGE_SHOW_ALL_MAX - 1);
+
+    if (params.dateFrom) {
+      query = query.gte("created_at", params.dateFrom);
+    }
+    if (params.dateTo) {
+      query = query.lte("created_at", params.dateTo);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      throw error;
+    }
+
+    const needle = search.toLowerCase();
+    const filtered = (data ?? [])
+      .map((row) => mapBillRowToTransaction(row as Record<string, unknown>))
+      .filter((transaction) => {
+        const haystack = [
+          transaction.id,
+          transaction.order_id ?? "",
+          transaction.customerName ?? "",
+          transaction.walk_in_name ?? "",
+          transaction.customerPhone ?? "",
+          transaction.status ?? "",
+          transaction.order_type ?? "",
+          transaction.table_number ?? "",
+          ...transaction.items.map((item) => item.productName),
+        ]
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(needle);
+      });
+
+    const items = filtered.slice(from, to + 1);
+    return {
+      items,
+      hasMore: to + 1 < filtered.length,
+      totalCount: filtered.length,
+    };
+  }
+
+  let query = supabase
+    .from("bills")
+    .select(BILL_TRANSACTION_SELECT, { count: "exact" })
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (params.dateFrom) {
+    query = query.gte("created_at", params.dateFrom);
+  }
+  if (params.dateTo) {
+    query = query.lte("created_at", params.dateTo);
+  }
+
+  const { data, error, count } = await query;
+  if (error) {
+    throw error;
+  }
+
+  const items = (data ?? []).map((row) => mapBillRowToTransaction(row as Record<string, unknown>));
+  const totalCount = count ?? null;
+  return {
+    items,
+    hasMore: totalCount != null ? from + items.length < totalCount : items.length === params.limit,
+    totalCount,
+  };
 }
 
 export async function fetchTransactionsSince(

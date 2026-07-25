@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getSupabaseClient } from "@/lib/supabase";
 import { usePersistentState } from "@/hooks/use-persistent-state";
@@ -34,9 +35,15 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
   const [tasksError, setTasksError] = useState<string | null>(null);
   const [titleInput, setTitleInput] = usePersistentState("summary-tab-title-input", "");
   const [descInput, setDescInput] = usePersistentState("summary-tab-desc-input", "");
+  const [hiddenTaskIds, setHiddenTaskIds] = usePersistentState<string[]>("summary-tab-hidden-task-ids", []);
 
-  const totalTasks = tasks.length;
-  const completedTasks = useMemo(() => tasks.filter((task) => task.is_completed).length, [tasks]);
+  const visibleTasks = useMemo(
+    () => tasks.filter((task) => !hiddenTaskIds.includes(task.id)),
+    [hiddenTaskIds, tasks],
+  );
+
+  const totalTasks = visibleTasks.length;
+  const completedTasks = useMemo(() => visibleTasks.filter((task) => task.is_completed).length, [visibleTasks]);
 
   const completionRate = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
 
@@ -71,7 +78,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
       }
 
       const rows = (data ?? []).map(hydrateTask);
-      setTasks(rows);
+      setTasks(rows.filter((row) => !hiddenTaskIds.includes(row.id)));
     } catch (error) {
       const reason = error instanceof Error ? error.message : "Unable to load tasks.";
       setTasksError(reason);
@@ -79,7 +86,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
     } finally {
       setTasksLoading(false);
     }
-  }, [clientId, hydrateTask]);
+  }, [clientId, hiddenTaskIds, hydrateTask]);
 
   useEffect(() => {
     let active = true;
@@ -248,21 +255,19 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
     }
   }
 
+  async function deleteTask(task: TaskRow) {
+    setTasksError(null);
+    setHiddenTaskIds((current) => (current.includes(task.id) ? current : [...current, task.id]));
+    setTasks((current) => current.filter((row) => row.id !== task.id));
+  }
+
   // display dates in IST using shared helper
 
   return (
     <section className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-1">
         <article className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">Client ID</h2>
-          <p className="mt-2 text-base text-text">{clientInfo?.id ?? clientId}</p>
-        </article>
-        <article className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">CRM User</h2>
-          <p className="mt-2 text-base text-text">{clientInfo?.crm_user_id ?? "-"}</p>
-        </article>
-        <article className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">Task Completion</h2>
+          <p className="text-sm text-muted-foreground">Completed tasks</p>
           <p className="mt-2 text-base text-text">
             {completedTasks}/{totalTasks} ({completionRate}%)
           </p>
@@ -270,10 +275,9 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-4">
-        <h3 className="text-lg font-semibold text-text">Basic Client Information</h3>
-        {clientInfoError && <p className="mt-2 text-sm text-primary">{clientInfoError}</p>}
+        {clientInfoError && <p className="text-sm text-primary">{clientInfoError}</p>}
         {!clientInfoError && (
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-border bg-background p-3 text-base text-muted-foreground">
               <span className="block text-sm uppercase tracking-wide">Name</span>
               <span className="mt-1 block text-text">{clientInfo?.name ?? "-"}</span>
@@ -295,8 +299,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-4">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold text-text">Task Portal</h3>
+        <div className="flex items-center justify-end gap-3">
           <Button type="button" variant="secondary" onClick={() => void refreshTasks()} disabled={tasksLoading || tasksSaving}>
             Refresh
           </Button>
@@ -335,19 +338,19 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
             <tbody className="divide-y divide-border">
               {!tasksLoading && tasks.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-3 py-4 text-center text-muted-foreground">
+                  <td colSpan={5} className="px-3 py-4 text-center text-muted-foreground">
                     No tasks yet.
                   </td>
                 </tr>
               )}
               {tasksLoading && (
                 <tr>
-                  <td colSpan={4} className="px-3 py-4 text-center text-muted-foreground">
+                  <td colSpan={5} className="px-3 py-4 text-center text-muted-foreground">
                     Loading tasks...
                   </td>
                 </tr>
               )}
-              {tasks.map((task) => (
+              {visibleTasks.map((task) => (
                 <tr key={task.id} className="hover:bg-muted/40">
                   <td className="px-3 py-2">
                     <input
@@ -362,6 +365,18 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">{task.desc ?? "-"}</td>
                   <td className="px-3 py-2 text-muted-foreground">{formatUtcToIst(task.created_at)}</td>
+                  <td className="px-3 py-2 text-right">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => void deleteTask(task)}
+                      disabled={tasksSaving}
+                      className="inline-flex items-center gap-2"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </Button>
+                  </td>
                 </tr>
               ))}
             </tbody>

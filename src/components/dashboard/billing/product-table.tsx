@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Download, Filter, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { ListPaginationControls } from "@/components/ui/list-pagination-controls";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import type { ProductPayload, ProductRecord } from "@/lib/billing-types";
 import { formatUtcToIst } from "@/lib/time-utils";
@@ -15,9 +16,22 @@ type ProductTableProps = {
   loading: boolean;
   error: string | null;
   saving: boolean;
+  searchQuery: string;
+  onSearchChange: (value: string) => void;
+  statusFilter: string;
+  onStatusFilterChange: (value: string) => void;
+  productTypeFilter: string;
+  onProductTypeFilterChange: (value: string) => void;
   onAdd: (payload: ProductPayload) => Promise<void>;
   onEdit: (productId: string, payload: Partial<ProductPayload>) => Promise<void>;
   onToggle: (productId: string, isActive: boolean) => Promise<void>;
+  pagination: {
+    totalCount: number | null;
+    hasMore: boolean;
+    loadingMore: boolean;
+    onShowMore: () => void;
+    onShowAll: () => void;
+  };
 };
 
 type ProductFormState = {
@@ -46,9 +60,16 @@ export function ProductTable({
   loading,
   error,
   saving,
+  searchQuery,
+  onSearchChange,
+  statusFilter,
+  onStatusFilterChange,
+  productTypeFilter,
+  onProductTypeFilterChange,
   onAdd,
   onEdit,
   onToggle,
+  pagination,
 }: ProductTableProps) {
   const [isAddOpen, setIsAddOpen] = usePersistentState("product-table-is-add-open", false);
   const [editingProduct, setEditingProduct] = usePersistentState<ProductRecord | null>(
@@ -57,24 +78,8 @@ export function ProductTable({
   );
   const [form, setForm] = usePersistentState<ProductFormState>("product-table-form", initialForm);
   const [actionError, setActionError] = usePersistentState<string | null>("product-table-action-error", null);
-  const [searchQuery, setSearchQuery] = usePersistentState("product-table-search", "");
-  const [statusFilter, setStatusFilter] = usePersistentState("product-table-status-filter", "");
-  const [productTypeFilter, setProductTypeFilter] = usePersistentState("product-table-type-filter", "");
 
-  const filteredProducts = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-
-    return products.filter((product) => {
-      const haystack = [product.name, product.type ?? ""].join(" ").toLowerCase();
-      const matchesQuery = !query || haystack.includes(query);
-      const matchesStatus = !statusFilter ? true : statusFilter === "active" ? product.is_active : !product.is_active;
-      const matchesType = !productTypeFilter ? true : (product.type ?? "") === productTypeFilter;
-
-      return matchesQuery && matchesStatus && matchesType;
-    });
-  }, [products, searchQuery, statusFilter, productTypeFilter]);
-
-  const hasRows = useMemo(() => filteredProducts.length > 0, [filteredProducts]);
+  const hasRows = products.length > 0;
 
   function downloadCsv(filename: string, rows: string[][]) {
     const csv = rows
@@ -92,7 +97,7 @@ export function ProductTable({
   function exportProductsCsv() {
     const rows = [
       ["Name", "Price", "Type", "Status", "Created"],
-      ...filteredProducts.map((product) => [
+      ...products.map((product) => [
         product.name,
         String(product.price),
         product.type ?? "",
@@ -164,13 +169,7 @@ export function ProductTable({
 
   return (
     <div className="space-y-4 rounded-[28px] border border-white/10 bg-[#080808] p-5 text-white shadow-[0_20px_60px_rgba(0,0,0,0.45)] sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
-          <div className="text-sm font-semibold uppercase tracking-[0.3em] text-red-500">Dashboard</div>
-          <h3 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Products</h3>
-          <p className="max-w-2xl text-sm text-white/70 sm:text-base">Manage all your products live.</p>
-        </div>
-
+      <div className="flex flex-wrap items-center justify-end gap-4">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -192,7 +191,7 @@ export function ProductTable({
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" />
           <input
             value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
+            onChange={(event) => onSearchChange(event.target.value)}
             placeholder="Search by product name or type"
             className="h-11 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-text placeholder:text-muted-foreground outline-none transition focus:border-red-500/60 focus:ring-2 focus:ring-red-500/20"
           />
@@ -202,7 +201,7 @@ export function ProductTable({
           <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" />
           <select
             value={productTypeFilter}
-            onChange={(e) => setProductTypeFilter(e.target.value)}
+            onChange={(e) => onProductTypeFilterChange(e.target.value)}
             className="h-11 w-full appearance-none rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-text outline-none transition focus:border-red-500/60 focus:ring-2 focus:ring-red-500/20"
           >
             <option value="">All types</option>
@@ -218,7 +217,7 @@ export function ProductTable({
           <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" />
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => onStatusFilterChange(e.target.value)}
             className="h-11 w-full appearance-none rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-text outline-none transition focus:border-red-500/60 focus:ring-2 focus:ring-red-500/20"
           >
             <option value="">Status</option>
@@ -233,13 +232,13 @@ export function ProductTable({
       )}
 
       <DataState
-        loading={loading}
+        loading={loading && !hasRows}
         error={error}
         empty={!loading && !error && !hasRows}
         emptyLabel={searchQuery ? "No products match your search." : "No products found."}
       />
 
-      {hasRows && !loading && !error && (
+      {hasRows && !error && (
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-white/10 text-base">
             <thead className="bg-black/20 text-left text-sm uppercase tracking-[0.2em] text-white/45">
@@ -252,7 +251,7 @@ export function ProductTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-white/10">
-              {filteredProducts.map((product) => (
+              {products.map((product) => (
                 <tr key={product.id} className="hover:bg-white/[0.03]">
                   <td className="px-4 py-4">
                     <div className="font-medium text-white">{product.name}</div>
@@ -293,6 +292,16 @@ export function ProductTable({
           </table>
         </div>
       )}
+
+      <ListPaginationControls
+        loadedCount={products.length}
+        totalCount={pagination.totalCount}
+        hasMore={pagination.hasMore}
+        loading={pagination.loadingMore}
+        onShowMore={pagination.onShowMore}
+        onShowAll={pagination.onShowAll}
+        itemLabel="products"
+      />
 
       <EntityModal open={isAddOpen} title="Add Product" onClose={() => setIsAddOpen(false)}>
         <ProductForm

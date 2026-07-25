@@ -32,6 +32,7 @@ export type RecipeRecord = {
   quantity_unit: InventoryUnit;
   created_at: string;
   productName: string;
+  productType: string | null;
   ingredientName: string;
   ingredientStock: number;
   ingredientThreshold: number | null;
