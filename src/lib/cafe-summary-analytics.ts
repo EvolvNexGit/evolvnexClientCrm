@@ -44,21 +44,12 @@ export type CustomerOverview = {
   previousWalkInSharePercent: number;
 };
 
-export type CafeSummaryAlert = {
-  id: string;
-  title: string;
-  message: string;
-  href?: string;
-  hrefLabel?: string;
-};
-
 export type CafeSummaryAnalytics = {
   kpis: CafeSummaryKpis;
   hourly: HourlyPoint[];
   topItems: TopSellingItem[];
   customers: CustomerOverview;
   peakHoursLabel: string;
-  alerts: CafeSummaryAlert[];
 };
 
 function filterTransactions(transactions: TransactionRecord[], range: CafeSummaryDateRange) {
@@ -276,48 +267,7 @@ export function buildCafeSummaryAnalytics(input: {
     input.currentRange,
     input.previousRange,
   );
-
-  const alerts: CafeSummaryAlert[] = [];
   const lowStockIngredients = input.ingredients.filter(isIngredientLowStock);
-
-  if (lowStockIngredients.length > 0) {
-    alerts.push({
-      id: "low-stock",
-      title: "Low Stock Alert",
-      message: lowStockIngredients
-        .slice(0, 3)
-        .map((ingredient) => ingredient.name)
-        .join(", "),
-      href: "/dashboard/ingredients",
-      hrefLabel: "View inventory",
-    });
-  }
-
-  alerts.push({
-    id: "peak-hours",
-    title: "Peak Hours",
-    message: buildPeakHoursLabel(currentTransactions),
-    href: "/dashboard/transaction",
-    hrefLabel: "View details",
-  });
-
-  if (kpis.discountPercentOfRevenue >= HIGH_DISCOUNT_RATIO * 100) {
-    alerts.push({
-      id: "high-discount",
-      title: "High Discount Usage",
-      message: `Discount given is ${kpis.discountPercentOfRevenue.toFixed(1)}% of total revenue in this period.`,
-    });
-  }
-
-  if (input.appointmentsToday > 0) {
-    alerts.push({
-      id: "appointments",
-      title: "Upcoming Appointments",
-      message: `${input.appointmentsToday} appointment${input.appointmentsToday === 1 ? "" : "s"} scheduled for today`,
-      href: "/dashboard/appointments",
-      hrefLabel: "View all",
-    });
-  }
 
   return {
     kpis,
@@ -325,7 +275,6 @@ export function buildCafeSummaryAnalytics(input: {
     topItems: buildTopItems(currentTransactions),
     customers: customersOverview,
     peakHoursLabel: buildPeakHoursLabel(currentTransactions),
-    alerts,
   };
 }
 

@@ -17,11 +17,8 @@ import {
   YAxis,
 } from "recharts";
 import {
-  AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
-  Bell,
-  CalendarDays,
   Clock3,
   IndianRupee,
   LineChart,
@@ -162,14 +159,6 @@ export default function CafeSummaryTab({ clientId }: { clientId: string }) {
         </div>
 
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          {analytics && analytics.alerts.length > 0 && (
-            <div className="relative rounded-xl border border-border bg-card p-2">
-              <Bell className="h-5 w-5 text-text" />
-              <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold text-white">
-                {analytics.alerts.length}
-              </span>
-            </div>
-          )}
           {refreshedAt && <span>Data as of: {formatIstDataTimestamp(refreshedAt)}</span>}
           <Button type="button" variant="secondary" onClick={() => void refresh()} disabled={loading}>
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
@@ -255,6 +244,19 @@ export default function CafeSummaryTab({ clientId }: { clientId: string }) {
               icon={<Tag className="h-5 w-5 text-white" />}
               iconClassName="bg-amber-500"
             />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <section className="rounded-2xl border border-border bg-card p-4">
+              <div className="mb-2 flex items-center gap-2 text-text">
+                <Clock3 className="h-4 w-4 text-primary" />
+                <h4 className="font-semibold">Peak Hours</h4>
+              </div>
+              <p className="text-sm text-muted-foreground">{analytics.peakHoursLabel}</p>
+              <Link href={"/dashboard/transaction" as never} className="mt-3 inline-block text-sm font-medium text-primary hover:underline">
+                View details
+              </Link>
+            </section>
           </div>
 
           <div className="grid gap-4 xl:grid-cols-3">
@@ -401,30 +403,6 @@ export default function CafeSummaryTab({ clientId }: { clientId: string }) {
             </section>
           </div>
 
-          {analytics.alerts.length > 0 && (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {analytics.alerts.map((alert) => (
-                <article key={alert.id} className="rounded-2xl border border-border bg-card p-4">
-                  <div className="mb-2 flex items-center gap-2 text-text">
-                    {alert.id === "low-stock" && <Package className="h-4 w-4 text-amber-400" />}
-                    {alert.id === "peak-hours" && <Clock3 className="h-4 w-4 text-primary" />}
-                    {alert.id === "high-discount" && <Tag className="h-4 w-4 text-amber-400" />}
-                    {alert.id === "appointments" && <CalendarDays className="h-4 w-4 text-primary" />}
-                    {!["low-stock", "peak-hours", "high-discount", "appointments"].includes(alert.id) && (
-                      <AlertTriangle className="h-4 w-4 text-primary" />
-                    )}
-                    <h4 className="font-semibold">{alert.title}</h4>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{alert.message}</p>
-                  {alert.href && alert.hrefLabel && (
-                    <Link href={alert.href as never} className="mt-3 inline-block text-sm font-medium text-primary hover:underline">
-                      {alert.hrefLabel}
-                    </Link>
-                  )}
-                </article>
-              ))}
-            </div>
-          )}
         </>
       )}
     </div>

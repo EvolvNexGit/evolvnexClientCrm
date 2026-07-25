@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getSupabaseClient } from "@/lib/supabase";
 import { usePersistentState } from "@/hooks/use-persistent-state";
@@ -34,9 +35,15 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
   const [tasksError, setTasksError] = useState<string | null>(null);
   const [titleInput, setTitleInput] = usePersistentState("summary-tab-title-input", "");
   const [descInput, setDescInput] = usePersistentState("summary-tab-desc-input", "");
+  const [hiddenTaskIds, setHiddenTaskIds] = usePersistentState<string[]>("summary-tab-hidden-task-ids", []);
 
-  const totalTasks = tasks.length;
-  const completedTasks = useMemo(() => tasks.filter((task) => task.is_completed).length, [tasks]);
+  const visibleTasks = useMemo(
+    () => tasks.filter((task) => !hiddenTaskIds.includes(task.id)),
+    [hiddenTaskIds, tasks],
+  );
+
+  const totalTasks = visibleTasks.length;
+  const completedTasks = useMemo(() => visibleTasks.filter((task) => task.is_completed).length, [visibleTasks]);
 
   const completionRate = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
 
@@ -71,7 +78,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
       }
 
       const rows = (data ?? []).map(hydrateTask);
-      setTasks(rows);
+      setTasks(rows.filter((row) => !hiddenTaskIds.includes(row.id)));
     } catch (error) {
       const reason = error instanceof Error ? error.message : "Unable to load tasks.";
       setTasksError(reason);
@@ -79,7 +86,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
     } finally {
       setTasksLoading(false);
     }
-  }, [clientId, hydrateTask]);
+  }, [clientId, hiddenTaskIds, hydrateTask]);
 
   useEffect(() => {
     let active = true;
@@ -248,6 +255,12 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
     }
   }
 
+  async function deleteTask(task: TaskRow) {
+    setTasksError(null);
+    setHiddenTaskIds((current) => (current.includes(task.id) ? current : [...current, task.id]));
+    setTasks((current) => current.filter((row) => row.id !== task.id));
+  }
+
   // display dates in IST using shared helper
 
   return (
@@ -325,19 +338,19 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
             <tbody className="divide-y divide-border">
               {!tasksLoading && tasks.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-3 py-4 text-center text-muted-foreground">
+                  <td colSpan={5} className="px-3 py-4 text-center text-muted-foreground">
                     No tasks yet.
                   </td>
                 </tr>
               )}
               {tasksLoading && (
                 <tr>
-                  <td colSpan={4} className="px-3 py-4 text-center text-muted-foreground">
+                  <td colSpan={5} className="px-3 py-4 text-center text-muted-foreground">
                     Loading tasks...
                   </td>
                 </tr>
               )}
-              {tasks.map((task) => (
+              {visibleTasks.map((task) => (
                 <tr key={task.id} className="hover:bg-muted/40">
                   <td className="px-3 py-2">
                     <input
@@ -352,6 +365,18 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">{task.desc ?? "-"}</td>
                   <td className="px-3 py-2 text-muted-foreground">{formatUtcToIst(task.created_at)}</td>
+                  <td className="px-3 py-2 text-right">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => void deleteTask(task)}
+                      disabled={tasksSaving}
+                      className="inline-flex items-center gap-2"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </Button>
+                  </td>
                 </tr>
               ))}
             </tbody>
