@@ -247,7 +247,7 @@ export async function setProductActive(
 }
 
 const BILL_TRANSACTION_SELECT =
-  "id, order_id, order_source, order_type, created_at, total_amount, discount, final_amount, walk_in_name, status, table_number, customers(name, phone), bill_items(id, quantity, price, total, products(name))";
+  "id, order_id, customer_id, order_source, order_type, created_at, total_amount, discount, final_amount, walk_in_name, status, table_number, customers(name, phone), bill_items(id, quantity, price, total, products(name))";
 
 export const ORDERS_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
@@ -282,6 +282,7 @@ function mapBillRowToTransaction(row: Record<string, unknown>): TransactionRecor
   return {
     id: String(row.id),
     order_id: row.order_id != null && String(row.order_id).trim() !== "" ? String(row.order_id) : null,
+    customer_id: row.customer_id != null && String(row.customer_id).trim() !== "" ? String(row.customer_id) : null,
     created_at: String(row.created_at ?? ""),
     total_amount: asNumber(row.total_amount),
     discount: asNumber(row.discount),
@@ -315,6 +316,25 @@ export async function fetchTransactions(clientId: string): Promise<TransactionRe
     .from("bills")
     .select(BILL_TRANSACTION_SELECT)
     .eq("client_id", clientId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map((row) => mapBillRowToTransaction(row as Record<string, unknown>));
+}
+
+export async function fetchTransactionsSince(
+  clientId: string,
+  sinceIso: string,
+): Promise<TransactionRecord[]> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("bills")
+    .select(BILL_TRANSACTION_SELECT)
+    .eq("client_id", clientId)
+    .gte("created_at", sinceIso)
     .order("created_at", { ascending: false });
 
   if (error) {

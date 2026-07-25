@@ -14,6 +14,57 @@ export type PromoApplyType = "AUTO" | "COUPON";
 
 export type PromoStatus = "ACTIVE" | "INACTIVE" | "SCHEDULED" | "EXPIRED";
 
+/** ISO weekday numbers stored in promotions.valid_days (1 = Monday … 7 = Sunday). */
+export const PROMO_VALID_DAY_OPTIONS = [
+  { value: 1, label: "Mon" },
+  { value: 2, label: "Tue" },
+  { value: 3, label: "Wed" },
+  { value: 4, label: "Thu" },
+  { value: 5, label: "Fri" },
+  { value: 6, label: "Sat" },
+  { value: 7, label: "Sun" },
+] as const;
+
+export type PromoValidDay = (typeof PROMO_VALID_DAY_OPTIONS)[number]["value"];
+
+const PROMO_VALID_DAY_NAME_TO_VALUE: Record<string, PromoValidDay> = {
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+  sunday: 7,
+};
+
+export function normalizePromoValidDay(value: unknown): PromoValidDay | null {
+  if (typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 7) {
+    return value as PromoValidDay;
+  }
+
+  const parsed = Number(value);
+  if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 7) {
+    return parsed as PromoValidDay;
+  }
+
+  const normalizedName = String(value ?? "").trim().toLowerCase();
+  return PROMO_VALID_DAY_NAME_TO_VALUE[normalizedName] ?? null;
+}
+
+export function normalizePromoValidDays(values: unknown): PromoValidDay[] {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(values.map((value) => normalizePromoValidDay(value)).filter((value): value is PromoValidDay => value != null)),
+  ).sort((left, right) => left - right);
+}
+
+export function formatPromoValidDay(value: PromoValidDay): string {
+  return PROMO_VALID_DAY_OPTIONS.find((option) => option.value === value)?.label ?? String(value);
+}
+
 export type PromotionTargetRecord = {
   id: string;
   promotion_id: string;
@@ -61,7 +112,7 @@ export type PromotionRecord = {
   valid_for_delivery: boolean;
   start_date: string;
   end_date: string | null;
-  valid_days: string[];
+  valid_days: PromoValidDay[];
   start_time: string | null;
   end_time: string | null;
   can_stack: boolean;
@@ -106,7 +157,7 @@ export type PromotionPayload = {
   validForDelivery: boolean;
   startDate: string;
   endDate: string | null;
-  validDays: string[];
+  validDays: PromoValidDay[];
   startTime: string | null;
   endTime: string | null;
   canStack: boolean;

@@ -1,5 +1,10 @@
+import { isSpecialtySummaryTab } from "@/lib/tabs";
+
 export const DASHBOARD_TAB_ROUTES: Record<string, string> = {
   summary: "/dashboard",
+  "cafe-summary": "/dashboard/cafe-summary",
+  "saloon-summary": "/dashboard/saloon-summary",
+  "doctor-summary": "/dashboard/doctor-summary",
   appointments: "/dashboard/appointments",
   subscription: "/dashboard/subscription",
   billing: "/dashboard/billing",
@@ -13,6 +18,10 @@ export const DASHBOARD_TAB_ROUTES: Record<string, string> = {
 };
 
 export function getDashboardTabPath(tabKey: string): string {
+  if (isSpecialtySummaryTab(tabKey) && !(tabKey in DASHBOARD_TAB_ROUTES)) {
+    return `/dashboard/${tabKey}`;
+  }
+
   return DASHBOARD_TAB_ROUTES[tabKey] ?? "/dashboard";
 }
 

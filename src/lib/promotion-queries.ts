@@ -1,10 +1,11 @@
-import { getSupabaseClient } from "@/lib/supabase";
-import type {
-  PromoStatus,
-  PromotionPayload,
-  PromotionRecord,
-  PromotionTargetRecord,
-  PromotionUsageRecord,
+import { formatSupabaseError, getSupabaseClient } from "@/lib/supabase";
+import {
+  normalizePromoValidDays,
+  type PromoStatus,
+  type PromotionPayload,
+  type PromotionRecord,
+  type PromotionTargetRecord,
+  type PromotionUsageRecord,
 } from "@/lib/promotion-types";
 
 function getClient() {
@@ -14,6 +15,10 @@ function getClient() {
   }
 
   return supabase;
+}
+
+function raiseQueryError(error: unknown, fallback: string): never {
+  throw new Error(formatSupabaseError(error, fallback));
 }
 
 function asNumber(value: unknown) {
@@ -36,7 +41,6 @@ function buildPromotionRow(clientId: string, payload: PromotionPayload) {
     min_order_amount: payload.minOrderAmount,
     total_usage_limit: payload.totalUsageLimit,
     usage_per_customer: payload.usagePerCustomer,
-    current_usage_count: 0,
     buy_quantity: payload.buyQuantity,
     get_quantity: payload.getQuantity,
     buy_product_id: payload.buyProductId,
@@ -51,7 +55,7 @@ function buildPromotionRow(clientId: string, payload: PromotionPayload) {
     valid_for_delivery: payload.validForDelivery,
     start_date: payload.startDate,
     end_date: payload.endDate,
-    valid_days: payload.validDays,
+    valid_days: payload.validDays.length > 0 ? payload.validDays : null,
     start_time: payload.startTime,
     end_time: payload.endTime,
     can_stack: payload.canStack,
@@ -122,9 +126,7 @@ function mapPromotion(
     valid_for_delivery: Boolean(row.valid_for_delivery),
     start_date: row.start_date ?? "",
     end_date: row.end_date ?? null,
-    valid_days: Array.isArray(row.valid_days)
-      ? row.valid_days.map((day: any) => String(day).trim()).filter(Boolean)
-      : [],
+    valid_days: Array.isArray(row.valid_days) ? normalizePromoValidDays(row.valid_days) : [],
     start_time: row.start_time ?? null,
     end_time: row.end_time ?? null,
     can_stack: Boolean(row.can_stack),
@@ -244,22 +246,32 @@ export async function fetchPromotions(clientId: string): Promise<PromotionRecord
 
 export async function createPromotion(clientId: string, payload: PromotionPayload): Promise<void> {
   const supabase = getClient();
-  const { data, error } = await supabase.from("promotions").insert(buildPromotionRow(clientId, payload)).select("id").single();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const insertRow = {
+    ...buildPromotionRow(clientId, payload),
+    current_usage_count: 0,
+    created_by: user?.id ?? null,
+  };
+
+  const { data, error } = await supabase.from("promotions").insert(insertRow).select("id");
 
   if (error) {
-    throw error;
+    raiseQueryError(error, "Unable to create promotion.");
   }
 
-  const promotionId = String(data?.id ?? "");
+  const promotionId = String(data?.[0]?.id ?? "");
   if (!promotionId) {
-    return;
+    raiseQueryError(null, "Promotion was created but no id was returned. Check Supabase RLS select policies.");
   }
 
   const targetRows = buildTargetRows(promotionId, payload);
   if (targetRows.length > 0) {
     const { error: targetError } = await supabase.from("promotion_targets").insert(targetRows);
     if (targetError) {
-      throw targetError;
+      raiseQueryError(targetError, "Unable to save promotion targets.");
     }
   }
 }
