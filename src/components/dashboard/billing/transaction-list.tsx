@@ -4,6 +4,7 @@ import { useMemo, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { Button } from "@/components/ui/button";
+import { ListPaginationControls } from "@/components/ui/list-pagination-controls";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import type { TransactionRecord } from "@/lib/billing-types";
 import { formatUtcToIst, formatUtcToIstDayMonth } from "@/lib/time-utils";
@@ -12,6 +13,19 @@ type TransactionListProps = {
   transactions: TransactionRecord[];
   loading: boolean;
   error: string | null;
+  searchQuery: string;
+  onSearchChange: (value: string) => void;
+  dateFrom: string;
+  onDateFromChange: (value: string) => void;
+  dateTo: string;
+  onDateToChange: (value: string) => void;
+  pagination: {
+    totalCount: number | null;
+    hasMore: boolean;
+    loadingMore: boolean;
+    onShowMore: () => void;
+    onShowAll: () => void;
+  };
 };
 
 function formatCurrency(amount: number) {
@@ -59,12 +73,20 @@ function TransactionField({
   );
 }
 
-export function TransactionList({ transactions, loading, error }: TransactionListProps) {
+export function TransactionList({
+  transactions,
+  loading,
+  error,
+  searchQuery,
+  onSearchChange,
+  dateFrom,
+  onDateFromChange,
+  dateTo,
+  onDateToChange,
+  pagination,
+}: TransactionListProps) {
   const [expanded, setExpanded] = usePersistentState<string[]>("transaction-list-expanded", []);
-  const [searchQuery, setSearchQuery] = usePersistentState("transaction-list-search", "");
   const [customerFilter, setCustomerFilter] = usePersistentState("transaction-list-customer-filter", "all");
-  const [dateFrom, setDateFrom] = usePersistentState("transaction-list-date-from", "");
-  const [dateTo, setDateTo] = usePersistentState("transaction-list-date-to", "");
 
   const customerOptions = useMemo(() => {
     const options = new Set<string>();
@@ -75,29 +97,18 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
     return Array.from(options).sort((left, right) => left.localeCompare(right));
   }, [transactions]);
 
+  // Customer filter applies within the currently loaded page only (search/date range are
+  // applied server-side via the page fetch); a distinct customer may require "Show more" first.
   const filteredTransactions = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    if (customerFilter === "all") {
+      return transactions;
+    }
 
     return transactions.filter((transaction) => {
       const displayCustomer = transaction.customerName ?? transaction.walk_in_name ?? "Walk-in";
-      const txDate = transaction.created_at ? new Date(transaction.created_at) : null;
-
-      const matchesCustomer = customerFilter === "all" || displayCustomer === customerFilter;
-
-      const matchesDateFrom = !dateFrom || (txDate ? txDate >= new Date(`${dateFrom}T00:00:00`) : false);
-
-      const matchesDateTo = !dateTo || (txDate ? txDate <= new Date(`${dateTo}T23:59:59`) : false);
-
-      const productNames = transaction.items.map((item) => item.productName).join(" ").toLowerCase();
-      const matchesSearch =
-        !query ||
-        [displayCustomer.toLowerCase(), transaction.id.toLowerCase(), transaction.order_id?.toLowerCase() ?? "", productNames].some(
-          (value) => value.includes(query),
-        );
-
-      return matchesCustomer && matchesDateFrom && matchesDateTo && matchesSearch;
+      return displayCustomer === customerFilter;
     });
-  }, [customerFilter, dateFrom, dateTo, searchQuery, transactions]);
+  }, [customerFilter, transactions]);
 
   function downloadCsv(filename: string, rows: string[][]) {
     const csv = rows
@@ -141,11 +152,7 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
 
   return (
     <div className="space-y-3 rounded-2xl border border-border bg-card p-3 sm:p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h3 className="text-base font-semibold text-text">Transactions</h3>
-          <p className="text-sm text-muted-foreground">Read-only bill history.</p>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-2">
         <Button
           type="button"
           variant="secondary"
@@ -162,7 +169,7 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
           <span className="mb-0.5 block">Search</span>
           <input
             value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
+            onChange={(event) => onSearchChange(event.target.value)}
             placeholder="Bill ID, customer, product"
             className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-sm text-text"
           />
@@ -189,7 +196,7 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
           <input
             type="date"
             value={dateFrom}
-            onChange={(event) => setDateFrom(event.target.value)}
+            onChange={(event) => onDateFromChange(event.target.value)}
             className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-sm text-text"
           />
         </label>
@@ -199,14 +206,14 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
           <input
             type="date"
             value={dateTo}
-            onChange={(event) => setDateTo(event.target.value)}
+            onChange={(event) => onDateToChange(event.target.value)}
             className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-sm text-text"
           />
         </label>
       </div>
 
       <DataState
-        loading={loading}
+        loading={loading && filteredTransactions.length === 0}
         error={error}
         empty={!loading && !error && filteredTransactions.length === 0}
         emptyLabel={
@@ -216,7 +223,7 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
         }
       />
 
-      {!loading && !error && filteredTransactions.length > 0 && (
+      {!error && filteredTransactions.length > 0 && (
         <div className="space-y-2">
           {filteredTransactions.map((transaction) => {
             const isExpanded = expanded.includes(transaction.id);
@@ -304,6 +311,16 @@ export function TransactionList({ transactions, loading, error }: TransactionLis
           })}
         </div>
       )}
+
+      <ListPaginationControls
+        loadedCount={transactions.length}
+        totalCount={pagination.totalCount}
+        hasMore={pagination.hasMore}
+        loading={pagination.loadingMore}
+        onShowMore={pagination.onShowMore}
+        onShowAll={pagination.onShowAll}
+        itemLabel="transactions"
+      />
     </div>
   );
 }

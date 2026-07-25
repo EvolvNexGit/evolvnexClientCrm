@@ -3,9 +3,8 @@ import type { TabDefinition } from "@/lib/types";
 
 const tabsCache = new Map<string, TabDefinition[]>();
 
-/** Default sidebar order (tabs not listed appear after these, by DB display_order). */
+/** Default sidebar order (tabs not listed appear before Summary / My Profile, by DB display_order). */
 export const DEFAULT_TAB_ORDER = [
-  "summary",
   "cafe-summary",
   "saloon-summary",
   "doctor-summary",
@@ -19,6 +18,7 @@ export const DEFAULT_TAB_ORDER = [
   "product",
   "recipes",
   "ingredients",
+  "summary",
 ] as const;
 
 /**
@@ -34,6 +34,8 @@ export const SPECIALTY_SUMMARY_TAB_KEYS = [
 export type SpecialtySummaryTabKey = (typeof SPECIALTY_SUMMARY_TAB_KEYS)[number];
 
 export const SPECIALTY_SUMMARY_DISPLAY_NAME = "AI-Analytics";
+export const SUMMARY_DISPLAY_NAME = "My Profile";
+export const INGREDIENTS_DISPLAY_NAME = "Inventory";
 
 export function isSpecialtySummaryTab(key: string): boolean {
   const normalized = normalizeTabKey(key);
@@ -92,38 +94,58 @@ function createDefaultSummaryTab(): TabDefinition {
   return {
     id: "summary",
     key: "summary",
-    name: "Summary",
-    label: "Summary",
+    name: SUMMARY_DISPLAY_NAME,
+    label: SUMMARY_DISPLAY_NAME,
     icon: "home",
     route: null,
     permissions: [],
-    displayName: "Summary",
-    displayOrder: 0,
+    displayName: SUMMARY_DISPLAY_NAME,
+    displayOrder: Number.MAX_SAFE_INTEGER,
     visible: true,
   };
 }
 
 /**
- * Always keep the default Summary tab, and surface specialty analytics tabs
- * (cafe / saloon / doctor / …) as a separate "AI-Analytics" entry when enabled.
+ * Always keep the default Summary tab (shown as "My Profile" at the bottom),
+ * rename Ingredients → Inventory, and surface specialty analytics as "AI-Analytics".
  */
 function applySummaryTabVisibility(tabs: TabDefinition[]): TabDefinition[] {
-  const withSpecialtyLabels = tabs.map((tab) =>
-    isSpecialtySummaryTab(tab.key)
-      ? {
-          ...tab,
-          name: SPECIALTY_SUMMARY_DISPLAY_NAME,
-          label: SPECIALTY_SUMMARY_DISPLAY_NAME,
-          displayName: SPECIALTY_SUMMARY_DISPLAY_NAME,
-        }
-      : tab,
-  );
+  const withDisplayLabels = tabs.map((tab) => {
+    if (isSpecialtySummaryTab(tab.key)) {
+      return {
+        ...tab,
+        name: SPECIALTY_SUMMARY_DISPLAY_NAME,
+        label: SPECIALTY_SUMMARY_DISPLAY_NAME,
+        displayName: SPECIALTY_SUMMARY_DISPLAY_NAME,
+      };
+    }
 
-  if (!withSpecialtyLabels.some((tab) => tab.id === "summary")) {
-    return [createDefaultSummaryTab(), ...withSpecialtyLabels];
+    if (normalizeTabKey(tab.key) === "summary") {
+      return {
+        ...tab,
+        name: SUMMARY_DISPLAY_NAME,
+        label: SUMMARY_DISPLAY_NAME,
+        displayName: SUMMARY_DISPLAY_NAME,
+      };
+    }
+
+    if (normalizeTabKey(tab.key) === "ingredients") {
+      return {
+        ...tab,
+        name: INGREDIENTS_DISPLAY_NAME,
+        label: INGREDIENTS_DISPLAY_NAME,
+        displayName: INGREDIENTS_DISPLAY_NAME,
+      };
+    }
+
+    return tab;
+  });
+
+  if (!withDisplayLabels.some((tab) => tab.id === "summary" || tab.key === "summary")) {
+    return [...withDisplayLabels, createDefaultSummaryTab()];
   }
 
-  return withSpecialtyLabels;
+  return withDisplayLabels;
 }
 
 // Map database tab keys (numeric) to code-based tab keys
@@ -140,6 +162,7 @@ const DB_KEY_TO_CODE_KEY: Record<string, string> = {
   "010": "promos",
   "011": "orders",
   "012": "cafe-summary",
+  "013": "doctor-summary",
 };
 
 function toPermissions(value: unknown): string[] {

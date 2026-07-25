@@ -20,6 +20,7 @@ import {
   PanelRightClose,
   ShieldCheck,
   ShoppingBag,
+  Stethoscope,
   Tag,
   User,
 } from "lucide-react";
@@ -49,6 +50,10 @@ const SummaryTab = dynamic(() => import("./tabs/summary-tab"), {
 });
 
 const CafeSummaryTab = dynamic(() => import("./tabs/cafe-summary-tab"), {
+  loading: () => <TabLoading />,
+});
+
+const DoctorSummaryTab = dynamic(() => import("./tabs/doctor-summary-tab"), {
   loading: () => <TabLoading />,
 });
 
@@ -90,6 +95,8 @@ function getTabIcon(tab: TabDefinition) {
       return Home;
     case "cafe-summary":
       return LineChart;
+    case "doctor-summary":
+      return Stethoscope;
     case "billing":
       return ShoppingBag;
     case "ingredients":
@@ -145,7 +152,6 @@ function DashboardPageContent() {
   const {
     loading,
     user,
-    authId,
     signOut,
     activeTabId,
     tabs,
@@ -311,7 +317,6 @@ function DashboardPageContent() {
     return (
       <ClientFallback
         clientError={clientError}
-        authId={authId}
         onLogout={signOut}
       />
     );
@@ -383,29 +388,16 @@ function DashboardPageContent() {
         </header>
 
         {/* Content */}
-        <section className="flex-1 min-h-0 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8" ref={contentSectionRef}>
+        <section className="flex-1 min-h-0 overflow-y-auto px-4 pb-6 pt-8 sm:px-6 sm:pt-10 lg:px-8" ref={contentSectionRef}>
           <div className="mx-auto flex max-w-6xl flex-col gap-6">
-            <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
-              <div>
-                <p className="text-base font-medium uppercase tracking-wider text-primary">
-                  Dashboard
-                </p>
-                <h1 className="mt-2 text-4xl font-semibold">
-                  {displayTab?.displayName ?? displayTab?.label ?? "Summary"}
-                </h1>
-                <p className="mt-2 max-w-2xl text-base text-muted-foreground">
-                  {isSpecialtySummaryTab(displayTab?.key ?? "")
-                    ? "Overview of your café performance."
-                    : "Client-scoped dashboard with dynamic tab system."}
-                </p>
-              </div>
-            </div>
-
             {displayTab?.key === "summary" && (
               <SummaryTab clientId={clientId} />
             )}
             {displayTab?.key === "cafe-summary" && (
               <CafeSummaryTab clientId={clientId} />
+            )}
+            {displayTab?.key === "doctor-summary" && (
+              <DoctorSummaryTab clientId={clientId} />
             )}
             {displayTab?.key === "appointments" && (
               <AppointmentsTab clientId={clientId} />
@@ -550,11 +542,9 @@ export function DashboardPage() {
 
 function ClientFallback({
   clientError,
-  authId,
   onLogout,
 }: {
   clientError: string | null;
-  authId: string | null;
   onLogout: () => Promise<void>;
 }) {
   return (
@@ -567,9 +557,6 @@ function ClientFallback({
         <p className="mt-4 text-base text-muted-foreground">
           {clientError ?? "No client record linked to this user."}
         </p>
-        <div className="mt-6 rounded-xl bg-muted p-4 text-sm text-muted-foreground">
-          Auth ID: {authId ?? "missing"}
-        </div>
         <div className="mt-6">
           <Button onClick={() => void onLogout()}>Logout</Button>
         </div>

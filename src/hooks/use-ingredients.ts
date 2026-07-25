@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { createIngredient, deleteIngredient, fetchIngredients, updateIngredient } from "@/lib/inventory-queries";
+import {
+  createIngredient,
+  deleteIngredient,
+  fetchIngredients,
+  setAllIngredientQuantities,
+  setAllIngredientQuantitiesToThreshold,
+  setIngredientQuantity,
+  updateIngredient,
+} from "@/lib/inventory-queries";
 import type { IngredientPayload, IngredientRecord } from "@/lib/inventory-types";
 
 export function useIngredients(clientId: string) {
@@ -66,6 +74,52 @@ export function useIngredients(clientId: string) {
     [clientId, refresh],
   );
 
+  const resetIngredientStock = useCallback(
+    async (ingredientId: string) => {
+      setSaving(true);
+      try {
+        await setIngredientQuantity(clientId, ingredientId, 0);
+        await refresh();
+      } finally {
+        setSaving(false);
+      }
+    },
+    [clientId, refresh],
+  );
+
+  const restockIngredientToThreshold = useCallback(
+    async (ingredientId: string, threshold: number | null) => {
+      setSaving(true);
+      try {
+        await setIngredientQuantity(clientId, ingredientId, threshold ?? 0);
+        await refresh();
+      } finally {
+        setSaving(false);
+      }
+    },
+    [clientId, refresh],
+  );
+
+  const resetAllIngredientStock = useCallback(async () => {
+    setSaving(true);
+    try {
+      await setAllIngredientQuantities(clientId, 0);
+      await refresh();
+    } finally {
+      setSaving(false);
+    }
+  }, [clientId, refresh]);
+
+  const restockAllIngredientsToThreshold = useCallback(async () => {
+    setSaving(true);
+    try {
+      await setAllIngredientQuantitiesToThreshold(clientId);
+      await refresh();
+    } finally {
+      setSaving(false);
+    }
+  }, [clientId, refresh]);
+
   return {
     ingredients,
     loading,
@@ -75,5 +129,9 @@ export function useIngredients(clientId: string) {
     addIngredient,
     editIngredient,
     removeIngredient,
+    resetIngredientStock,
+    restockIngredientToThreshold,
+    resetAllIngredientStock,
+    restockAllIngredientsToThreshold,
   };
 }
