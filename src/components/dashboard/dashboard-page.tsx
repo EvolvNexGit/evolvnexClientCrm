@@ -61,6 +61,10 @@ const AppointmentsTab = dynamic(() => import("./tabs/appointments-tab"), {
   loading: () => <TabLoading />,
 });
 
+const ConsultationTab = dynamic(() => import("./tabs/consultation-tab"), {
+  loading: () => <TabLoading />,
+});
+
 const SubscriptionTab = dynamic(() => import("./tabs/subscription-tab"), {
   loading: () => <TabLoading />,
 });
@@ -133,6 +137,9 @@ function getTabIcon(tab: TabDefinition) {
       return Tag;
     case "package":
       return Package;
+    case "Stethoscope":
+    case "stethoscope":
+      return Stethoscope;
     default:
       return ChevronRight;
   }
@@ -401,6 +408,9 @@ function DashboardPageContent() {
             )}
             {displayTab?.key === "appointments" && (
               <AppointmentsTab clientId={clientId} />
+            )}
+            {displayTab?.key === "consultation" && (
+              <ConsultationTab clientId={clientId} />
             )}
             {displayTab?.key === "subscription" && (
               <SubscriptionTab clientId={clientId} />
