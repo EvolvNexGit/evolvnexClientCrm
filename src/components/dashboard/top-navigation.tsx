@@ -26,35 +26,27 @@ export function TopNavigation({
 
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
-      <div className="flex h-14 items-center gap-3 px-3 sm:h-16 sm:px-5 lg:px-6">
+      <div className="flex h-14 items-center gap-3 px-3 sm:h-16 sm:gap-4 sm:px-5 lg:px-6">
         <button
           type="button"
           onClick={onOpenMobileSidebar}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-text xl:hidden"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-text xl:hidden"
           aria-label="Open sidebar"
         >
           <Menu className="h-5 w-5" />
         </button>
 
-        <div className="flex min-w-0 shrink-0 items-center gap-2">
-          <Image
-            src="/logo.png"
-            alt="EvolvNex"
-            width={120}
-            height={32}
-            className="h-7 w-auto object-contain sm:h-8"
-            priority
-          />
-          <div className="hidden min-w-0 flex-col leading-tight md:flex">
-            <span className="truncate text-sm font-semibold text-text">EvolvNex</span>
-            <span className="truncate text-[11px] text-muted-foreground">
-              <span className="text-primary">Business</span> Growth OS
-            </span>
-          </div>
-        </div>
+        <Image
+          src="/logo.png"
+          alt="EvolvNex"
+          width={120}
+          height={32}
+          className="h-7 w-auto shrink-0 object-contain sm:h-8"
+          priority
+        />
 
         <nav
-          className="flex min-w-0 flex-1 items-center justify-start gap-1 overflow-x-auto px-1 sm:justify-center sm:gap-2"
+          className="flex min-w-0 flex-1 items-center justify-start gap-1 overflow-x-auto sm:gap-2"
           aria-label="Product modules"
         >
           {visibleModules.map((module) => {
