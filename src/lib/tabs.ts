@@ -163,6 +163,7 @@ const DB_KEY_TO_CODE_KEY: Record<string, string> = {
   "011": "orders",
   "012": "cafe-summary",
   "013": "doctor-summary",
+  "014": "consultation",
 };
 
 function toPermissions(value: unknown): string[] {
