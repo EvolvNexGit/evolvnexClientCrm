@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Moon, Sun, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getSupabaseClient } from "@/lib/supabase";
 import { usePersistentState } from "@/hooks/use-persistent-state";
@@ -265,6 +265,13 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
 
   return (
     <section className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-semibold text-text">My Profile</h1>
+        <p className="mt-1 text-base text-muted-foreground">
+          Manage your account settings and workspace preferences.
+        </p>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-1">
         <article className="rounded-2xl border border-border bg-card p-4">
           <p className="text-sm text-muted-foreground">Completed tasks</p>
@@ -296,6 +303,43 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
             </div>
           </div>
         )}
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card p-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-text">Appearance</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Dark / Light mode control (theme switching coming soon).
+            </p>
+          </div>
+          {/* UI-only control — does not change theme yet */}
+          <div
+            className="inline-flex items-center gap-1 rounded-full border border-border bg-background p-1"
+            role="group"
+            aria-label="Theme preference"
+          >
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-sm font-medium text-white"
+              aria-pressed="true"
+              title="Dark mode (active)"
+            >
+              <Moon className="h-3.5 w-3.5" />
+              Dark
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-muted-foreground"
+              aria-pressed="false"
+              title="Light mode (coming soon)"
+              onClick={(event) => event.preventDefault()}
+            >
+              <Sun className="h-3.5 w-3.5" />
+              Light
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-4">
