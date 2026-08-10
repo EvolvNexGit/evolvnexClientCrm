@@ -86,6 +86,173 @@ function getInitials(name: string | null) {
     .join("") || "?";
 }
 
+function SearchableCreatableField({
+  label,
+  required,
+  value,
+  options,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  required?: boolean;
+  value: string;
+  options: string[];
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const normalizedValue = value.trim().toLowerCase();
+  const filteredOptions = useMemo(() => {
+    const unique = Array.from(new Set(options.map((option) => option.trim()).filter(Boolean)));
+    if (!normalizedValue) {
+      return unique;
+    }
+    return unique.filter((option) => option.toLowerCase().includes(normalizedValue));
+  }, [normalizedValue, options]);
+
+  const exactMatch = options.some((option) => option.trim().toLowerCase() === normalizedValue);
+  const canCreate = normalizedValue.length > 0 && !exactMatch;
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [normalizedValue, open]);
+
+  function selectOption(next: string) {
+    onChange(next);
+    setOpen(false);
+  }
+
+  return (
+    <label className="relative space-y-1 text-sm text-muted-foreground">
+      <span>
+        {label}
+        {required ? " *" : ""}
+      </span>
+      <div ref={containerRef} className="relative">
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <input
+            value={value}
+            onChange={(event) => {
+              onChange(event.target.value);
+              setOpen(true);
+            }}
+            onFocus={() => setOpen(true)}
+            onKeyDown={(event) => {
+              if (!open && (event.key === "ArrowDown" || event.key === "Enter")) {
+                setOpen(true);
+                return;
+              }
+
+              if (event.key === "Escape") {
+                setOpen(false);
+                return;
+              }
+
+              const itemCount = filteredOptions.length + (canCreate ? 1 : 0);
+              if (itemCount === 0) {
+                return;
+              }
+
+              if (event.key === "ArrowDown") {
+                event.preventDefault();
+                setActiveIndex((current) => (current + 1) % itemCount);
+              } else if (event.key === "ArrowUp") {
+                event.preventDefault();
+                setActiveIndex((current) => (current - 1 + itemCount) % itemCount);
+              } else if (event.key === "Enter") {
+                event.preventDefault();
+                if (canCreate && activeIndex === filteredOptions.length) {
+                  selectOption(value.trim());
+                  return;
+                }
+                const option = filteredOptions[activeIndex];
+                if (option) {
+                  selectOption(option);
+                } else if (canCreate) {
+                  selectOption(value.trim());
+                }
+              }
+            }}
+            placeholder={placeholder}
+            autoComplete="off"
+            className="w-full bg-transparent text-sm text-text outline-none placeholder:text-muted-foreground"
+          />
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </div>
+
+        {open && (
+          <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-border bg-card shadow-soft">
+            {filteredOptions.length === 0 && !canCreate ? (
+              <p className="px-3 py-2 text-sm text-muted-foreground">No matches. Type to add a new value.</p>
+            ) : (
+              <ul role="listbox">
+                {filteredOptions.map((option, index) => {
+                  const isActive = index === activeIndex;
+                  return (
+                    <li key={option}>
+                      <button
+                        type="button"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          selectOption(option);
+                        }}
+                        onMouseEnter={() => setActiveIndex(index)}
+                        className={
+                          isActive
+                            ? "flex w-full px-3 py-2 text-left text-sm bg-primary/10 text-primary"
+                            : "flex w-full px-3 py-2 text-left text-sm text-text hover:bg-muted"
+                        }
+                      >
+                        {option}
+                      </button>
+                    </li>
+                  );
+                })}
+                {canCreate && (
+                  <li>
+                    <button
+                      type="button"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        selectOption(value.trim());
+                      }}
+                      onMouseEnter={() => setActiveIndex(filteredOptions.length)}
+                      className={
+                        activeIndex === filteredOptions.length
+                          ? "flex w-full flex-col items-start border-t border-border bg-primary/10 px-3 py-2 text-left"
+                          : "flex w-full flex-col items-start border-t border-border px-3 py-2 text-left hover:bg-muted"
+                      }
+                    >
+                      <span className="text-sm font-medium text-primary">Add “{value.trim()}”</span>
+                      <span className="text-xs text-muted-foreground">Save as a new option</span>
+                    </button>
+                  </li>
+                )}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+    </label>
+  );
+}
+
 function getGroupKey(date: string | null): GroupKey {
   if (!date) {
     return "upcoming";
@@ -216,6 +383,28 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     event.preventDefault();
     setAddError(null);
 
+    const phoneDigits = form.phone.replace(/\D/g, "");
+
+    if (!form.name.trim()) {
+      setAddError("Customer name is required.");
+      return;
+    }
+
+    if (!phoneDigits) {
+      setAddError("Phone number is required.");
+      return;
+    }
+
+    if (!/^\d{10}$/.test(phoneDigits)) {
+      setAddError("Phone number must be exactly 10 digits.");
+      return;
+    }
+
+    if (!form.service.trim()) {
+      setAddError("Service is required.");
+      return;
+    }
+
     if (!form.date) {
       setAddError("Date is required.");
       return;
@@ -229,7 +418,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
     const payload = {
       name: toNullable(form.name),
-      phone: toNullable(form.phone),
+      phone: phoneDigits,
       email: toNullable(form.email),
       service: toNullable(form.service),
       staff_name: toNullable(form.staff_name),
@@ -261,7 +450,17 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
       await pagedAppointments.refresh();
       const options = await fetchAppointmentFilterOptions(clientId);
-      setFilterOptions(options);
+      const nextServices = Array.from(
+        new Set([...options.services, form.service.trim()].filter(Boolean)),
+      ).sort();
+      const nextStaff = Array.from(
+        new Set([...options.staff, form.staff_name.trim()].filter(Boolean)),
+      ).sort();
+      setFilterOptions({
+        ...options,
+        services: nextServices,
+        staff: nextStaff,
+      });
 
       setModalMode(null);
       setEditingAppointment(null);
@@ -464,7 +663,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search customer name or phone"
+                placeholder="Search or type new customer name"
                 className="w-full bg-transparent text-sm text-text outline-none placeholder:text-muted-foreground"
               />
             </div>
@@ -796,18 +995,26 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                 <input
                   value={form.name}
                   onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-                  placeholder="Search customer name or phone"
+                  placeholder="Search or type new customer name"
                   className="flex-1 bg-transparent text-sm text-text outline-none placeholder:text-muted-foreground"
                 />
               </div>
             </label>
 
             <label className="space-y-1 text-sm text-muted-foreground">
-              <span>Phone</span>
+              <span>Phone *</span>
               <input
                 value={form.phone}
-                onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
-                placeholder="Phone"
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    phone: event.target.value.replace(/\D/g, "").slice(0, 10),
+                  }))
+                }
+                inputMode="numeric"
+                pattern="\d{10}"
+                maxLength={10}
+                placeholder="10-digit phone number"
                 className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted-foreground"
               />
             </label>
@@ -823,34 +1030,41 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
               />
             </label>
 
-            <label className="space-y-1 text-sm text-muted-foreground">
-              <span>Service *</span>
-              <input
-                value={form.service}
-                onChange={(event) => setForm((current) => ({ ...current, service: event.target.value }))}
-                placeholder="Select service"
-                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted-foreground"
-              />
-            </label>
+            <SearchableCreatableField
+              label="Service"
+              required
+              value={form.service}
+              options={serviceOptions}
+              placeholder="Search or add service"
+              onChange={(service) => setForm((current) => ({ ...current, service }))}
+            />
+
+            <SearchableCreatableField
+              label="Staff"
+              value={form.staff_name}
+              options={staffOptions}
+              placeholder="Search or add staff"
+              onChange={(staff_name) => setForm((current) => ({ ...current, staff_name }))}
+            />
 
             <label className="space-y-1 text-sm text-muted-foreground">
-              <span>Staff</span>
-              <input
-                value={form.staff_name}
-                onChange={(event) => setForm((current) => ({ ...current, staff_name: event.target.value }))}
-                placeholder="Select staff"
-                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted-foreground"
-              />
-            </label>
-
-            <label className="space-y-1 text-sm text-muted-foreground">
-              <span>Location *</span>
-              <input
+              <span>Location</span>
+              <select
                 value={form.location}
                 onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))}
-                placeholder="Select location"
-                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted-foreground"
-              />
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+              >
+                <option value="">Select location</option>
+                {Array.from(
+                  new Set(
+                    [...(locationOptions ?? []), form.location].filter((value) => Boolean(value?.trim())),
+                  ),
+                ).map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label className="space-y-1 text-sm text-muted-foreground sm:col-span-2">
