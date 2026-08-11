@@ -25,31 +25,52 @@ export function TopNavigation({
   const visibleModules = MODULES.filter((module) => visibleModuleIds.includes(module.id));
 
   return (
-    <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
-      <div className="flex h-14 items-center sm:h-16">
+    <header className="sticky top-0 z-20 border-b border-border bg-background/95 pt-safe backdrop-blur">
+      {/* Mobile / tablet (< xl): menu + logo + avatar. No module chip scroller. */}
+      <div className="flex h-14 min-w-0 items-center gap-2 px-3 xl:hidden">
         <button
           type="button"
           onClick={onOpenMobileSidebar}
-          className="ml-3 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-text xl:hidden"
-          aria-label="Open sidebar"
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-text"
+          aria-label="Open menu"
         >
           <Menu className="h-5 w-5" />
         </button>
 
-        {/* Logo slot aligned to sidebar width on desktop so it never overlaps the sidebar edge */}
-        <div className="flex h-full shrink-0 items-center px-4 xl:w-64 xl:px-5">
+        <div className="flex min-w-0 flex-1 items-center">
           <Image
             src="/logo.png"
             alt="EvolvNex"
             width={140}
             height={28}
-            className="h-5 w-auto max-w-[140px] object-contain object-left sm:h-6"
+            className="h-5 w-auto max-h-5 max-w-[140px] object-contain object-left"
+            priority
+          />
+        </div>
+
+        <UserMenu
+          userLabel={userLabel}
+          onOpenProfile={onOpenProfile}
+          onLogout={onLogout}
+          compact
+        />
+      </div>
+
+      {/* Desktop (xl+): existing logo slot + module tabs + user menu */}
+      <div className="hidden h-16 min-w-0 items-center xl:flex">
+        <div className="flex h-full w-64 shrink-0 items-center px-5">
+          <Image
+            src="/logo.png"
+            alt="EvolvNex"
+            width={140}
+            height={28}
+            className="h-6 w-auto max-w-[140px] object-contain object-left"
             priority
           />
         </div>
 
         <nav
-          className="flex min-w-0 flex-1 items-center justify-start gap-1 overflow-x-auto px-2 sm:gap-2 sm:px-3"
+          className="flex min-w-0 flex-1 items-center justify-start gap-2 px-3"
           aria-label="Product modules"
         >
           {visibleModules.map((module) => {
@@ -61,8 +82,8 @@ export function TopNavigation({
                 onClick={() => onModuleChange(module.id)}
                 className={
                   isActive
-                    ? "shrink-0 rounded-lg border border-primary px-2.5 py-1.5 text-sm font-medium text-primary sm:px-3"
-                    : "shrink-0 rounded-lg border border-transparent px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition hover:text-text sm:px-3"
+                    ? "shrink-0 rounded-lg border border-primary px-3 py-1.5 text-sm font-medium text-primary"
+                    : "shrink-0 rounded-lg border border-transparent px-3 py-1.5 text-sm font-medium text-muted-foreground transition hover:text-text"
                 }
               >
                 {module.label}
@@ -71,7 +92,7 @@ export function TopNavigation({
           })}
         </nav>
 
-        <div className="ml-auto shrink-0 px-3 sm:px-5 lg:px-6">
+        <div className="ml-auto shrink-0 px-6">
           <UserMenu userLabel={userLabel} onOpenProfile={onOpenProfile} onLogout={onLogout} />
         </div>
       </div>
