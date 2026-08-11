@@ -672,7 +672,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium uppercase tracking-wider text-primary">Consultation Queue</p>
-              <h2 className="mt-2 text-2xl font-semibold text-text">Manage today's consultations and patient queue.</h2>
+              <h2 className="enx-page-title mt-2">Manage today's consultations and patient queue.</h2>
               <p className="mt-1 text-sm text-muted-foreground">Select a patient and start the consult when you're ready.</p>
             </div>
 
@@ -692,14 +692,14 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
           <div className="rounded-xl border border-primary/50 bg-primary/10 p-5 text-base text-primary">{error}</div>
         )}
 
-        <div className="grid gap-4 xl:grid-cols-5 lg:grid-cols-3 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
           {queueStats.map((item) => (
             <StatCard key={item.label} {...item} />
           ))}
         </div>
 
         <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
-          <div className="flex items-center gap-6 border-b border-border px-5 pt-4 text-sm font-medium">
+          <div className="flex min-w-0 items-center gap-4 overflow-x-auto border-b border-border px-4 pt-4 text-sm font-medium [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {[
               { key: "All", label: "Today's Queue", count: queueTabCounts.all },
               { key: "In Progress", label: "In Progress", count: queueTabCounts.inProgress },
@@ -711,8 +711,8 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                 onClick={() => setQueueView(tab.key as QueueView)}
                 className={
                   queueView === tab.key
-                    ? "border-b-2 border-primary pb-3 text-primary"
-                    : "pb-3 text-muted-foreground hover:text-text"
+                    ? "shrink-0 border-b-2 border-primary pb-3 text-primary"
+                    : "shrink-0 pb-3 text-muted-foreground hover:text-text"
                 }
               >
                 {tab.label} ({tab.count})
@@ -726,7 +726,36 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
               Loading consultations...
             </div>
           ) : (
-            <div className="overflow-x-auto p-4">
+            <div className="min-w-0 p-4">
+              <div className="space-y-3 xl:hidden">
+                {queueRowsByView.length === 0 ? (
+                  <DataState loading={false} error={null} empty emptyLabel="No consultations scheduled for today." />
+                ) : (
+                  queueRowsByView.map((row) => (
+                    <article key={row.id} className="rounded-2xl border border-border bg-background p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#6d28d9] text-sm font-semibold text-white">
+                          {row.initials}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-semibold text-text">{row.name}</p>
+                          <p className="text-sm text-muted-foreground">{row.time} · {row.type}</p>
+                          <p className="mt-1 truncate text-sm text-muted-foreground">{row.reason}</p>
+                        </div>
+                        <StatusPill status={row.status} />
+                      </div>
+                      <Button
+                        className="mt-3 w-full bg-[#6d28d9] text-white hover:bg-[#5b21b6]"
+                        disabled={saving || row.status === "Completed"}
+                        onClick={() => void handleStartConsult(row)}
+                      >
+                        {row.status === "In Progress" ? "Continue" : "Start Consult"}
+                      </Button>
+                    </article>
+                  ))
+                )}
+              </div>
+              <div className="hidden min-w-0 overflow-x-auto xl:block">
               <table className="w-full min-w-[900px] border-collapse text-left">
                 <thead>
                   <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
@@ -794,6 +823,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
@@ -824,7 +854,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
             </button>
             <div>
               <p className="text-sm font-medium uppercase tracking-wider text-primary">Consultation</p>
-              <h2 className="mt-2 text-2xl font-semibold text-text">{visitType} Consult</h2>
+              <h2 className="enx-page-title mt-2">{visitType} Consult</h2>
             </div>
           </div>
 

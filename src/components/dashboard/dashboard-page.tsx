@@ -549,7 +549,7 @@ function DashboardPageContent() {
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <section
-            className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-auto px-4 pb-6 pt-6 sm:px-6 sm:pt-8 lg:px-8"
+            className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-6 pt-6 sm:px-6 sm:pt-8 lg:px-8"
             ref={contentSectionRef}
           >
             <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6">

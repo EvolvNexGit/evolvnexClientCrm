@@ -433,7 +433,25 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
                 </button>
 
                 {!isCollapsed && (
-                  <div className="overflow-x-auto">
+                  <div className="min-w-0">
+                    <div className="space-y-3 p-3 xl:hidden">
+                      {group.rows.map((recipe) => {
+                        const rowTone = getRowTone(recipe);
+                        return (
+                          <div key={recipe.id} className={`rounded-xl border border-white/10 p-3 ${rowTone.bg}`}>
+                            <p className="font-medium text-white">{recipe.ingredientName}</p>
+                            <p className="mt-1 text-sm text-white/70">
+                              Qty {formatQuantity(recipe.quantity)} {recipe.quantity_unit} · Stock {formatQuantity(recipe.ingredientStock)} {recipe.ingredientStockUnit}
+                            </p>
+                            <div className="mt-3 flex gap-2">
+                              <button type="button" onClick={() => openEdit(recipe)} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-white/10 text-sm text-white/80" disabled={saving}>Edit</button>
+                              <button type="button" onClick={() => setPendingDeleteRecipe(recipe)} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-white/10 text-sm text-white/80" disabled={saving}>Delete</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="hidden overflow-x-auto xl:block">
                     <table className="min-w-full divide-y divide-white/10 text-sm">
                       <thead className="bg-black/20 text-left uppercase tracking-[0.2em] text-white/45">
                         <tr>
@@ -494,6 +512,7 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
                         })}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 )}
               </div>

@@ -30,6 +30,7 @@ import {
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ResponsiveKpiGrid } from "@/components/ui/responsive";
 import { useCafeSummary } from "@/hooks/use-cafe-summary";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import {
@@ -105,7 +106,7 @@ function KpiCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">{title}</p>
-          <p className="mt-2 text-2xl font-semibold text-text">{value}</p>
+          <p className="enx-kpi-value mt-2">{value}</p>
           {trendLabel && trend != null && <div className="mt-2"><TrendBadge value={trend} label={trendLabel} /></div>}
           {note && <p className="mt-2 text-sm text-muted-foreground">{note}</p>}
         </div>
@@ -140,14 +141,14 @@ export default function CafeSummaryTab({ clientId }: { clientId: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex min-w-0 gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {RANGE_OPTIONS.map((option) => (
             <button
               key={option.key}
               type="button"
               onClick={() => setRangePreset(option.key)}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+              className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition ${
                 rangePreset === option.key
                   ? "bg-primary text-white"
                   : "border border-border bg-card text-muted-foreground hover:text-text"
@@ -204,7 +205,7 @@ export default function CafeSummaryTab({ clientId }: { clientId: string }) {
 
       {analytics && (
         <>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <ResponsiveKpiGrid desktopCols={5}>
             <KpiCard
               title="Total Revenue"
               value={formatInr(analytics.kpis.revenue.value)}
@@ -244,7 +245,7 @@ export default function CafeSummaryTab({ clientId }: { clientId: string }) {
               icon={<Tag className="h-5 w-5 text-white" />}
               iconClassName="bg-amber-500"
             />
-          </div>
+          </ResponsiveKpiGrid>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <section className="rounded-2xl border border-border bg-card p-4">
@@ -266,7 +267,7 @@ export default function CafeSummaryTab({ clientId }: { clientId: string }) {
                   Area
                 </span>
               </div>
-              <div className="h-72">
+              <div className="h-48 min-w-0 md:h-64 xl:h-72">
                 {analytics.hourly.some((point) => point.revenue > 0) ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={analytics.hourly}>
@@ -326,7 +327,7 @@ export default function CafeSummaryTab({ clientId }: { clientId: string }) {
 
           <div className="grid gap-4 xl:grid-cols-2">
             <section className="rounded-2xl border border-border bg-card p-4">
-              <div className="grid gap-4 md:grid-cols-[180px_1fr] md:items-center">
+              <div className="grid min-w-0 gap-4 md:grid-cols-[180px_1fr] md:items-center">
                 <div className="h-44">
                   {customerPieData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">

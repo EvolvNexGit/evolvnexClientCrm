@@ -408,13 +408,13 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
   return (
     <section className="space-y-5 rounded-[28px] border border-white/10 bg-[#080808] p-5 text-white shadow-[0_20px_60px_rgba(0,0,0,0.45)] sm:p-6">
-      <div className="flex flex-wrap items-center justify-end gap-4">
-        <div className="flex items-center gap-3">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
           <button
             type="button"
             onClick={() => setShowFilters((current) => !current)}
             aria-expanded={showFilters}
-            className={`inline-flex h-11 items-center gap-2 rounded-2xl border px-4 text-sm font-semibold transition ${
+            className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-semibold transition sm:w-auto ${
               showFilters
                 ? "border-red-500/40 bg-red-500/10 text-white"
                 : "border-white/10 bg-black/30 text-white/80 hover:border-white/20 hover:bg-white/5 hover:text-white"
@@ -426,7 +426,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           <button
             type="button"
             onClick={openAddModal}
-            className="inline-flex h-11 items-center gap-2 rounded-2xl bg-red-600 px-5 text-sm font-semibold text-white transition hover:bg-red-500"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 text-sm font-semibold text-white transition hover:bg-red-500 sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             Add appointment
@@ -434,7 +434,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
         </div>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-4">
         {[
           { key: "today" as const, label: "Today", accent: "bg-red-500", count: summaryCounts.today },
           { key: "tomorrow" as const, label: "Tomorrow", accent: "bg-purple-600", count: summaryCounts.tomorrow },
@@ -448,7 +448,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
               </div>
               <div>
                 <div className="text-sm text-white/60">{card.label}</div>
-                <div className="text-3xl font-semibold text-white">{card.count}</div>
+                <div className="enx-kpi-value text-white">{card.count}</div>
               </div>
             </div>
           </article>
@@ -658,47 +658,43 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                       key={appointment.id}
                       className="rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-white/20 hover:bg-black/30"
                     >
-                      <div className="flex items-center gap-4">
+                      <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center">
                         <button
                           type="button"
                           onClick={() => toggleExpanded(appointment.id)}
-                          className="grid flex-1 grid-cols-[96px_56px_1fr_240px_auto] items-center gap-4 text-left"
+                          className="flex min-w-0 flex-1 flex-col gap-3 text-left xl:flex-row xl:items-center xl:gap-4"
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="text-xl font-semibold text-white">
-                              {formatAppointmentTimeRange(appointment.date, appointment.start_time, appointment.end_time)}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-center">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-sm font-semibold text-white">
+                          <div className="flex min-w-0 items-start gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-semibold text-white">
                               {getInitials(appointment.name)}
                             </div>
-                          </div>
-
-                          <div className="min-w-0">
-                            <div className="truncate text-base font-semibold text-white">
-                              {appointment.name ?? "Unnamed appointment"}
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-semibold text-white">
+                                {formatAppointmentTimeRange(appointment.date, appointment.start_time, appointment.end_time)}
+                              </div>
+                              <div className="truncate font-semibold text-white">
+                                {appointment.name ?? "Unnamed appointment"}
+                              </div>
+                              <div className="truncate text-sm text-white/55">{appointment.phone ?? "-"}</div>
+                              <div className="mt-1 truncate text-sm text-white/55 xl:hidden">
+                                {appointment.service ?? "-"}
+                              </div>
                             </div>
-                            <div className="truncate text-sm text-white/55">{appointment.phone ?? "-"}</div>
+                            <span className={`shrink-0 rounded-xl px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${statusTone}`}>
+                              {appointment.status ?? "tentative"}
+                            </span>
                           </div>
 
-                          <div className="hidden min-w-0 lg:block">
+                          <div className="hidden min-w-0 xl:block xl:w-56">
                             <div className="truncate text-base font-semibold text-white">{appointment.service ?? "-"}</div>
                             <div className="flex items-center gap-1 text-sm text-white/55">
                               <MapPin className="h-3.5 w-3.5" />
                               {appointment.location ?? "-"}
                             </div>
                           </div>
-
-                          <div className="flex items-center justify-end">
-                            <span className={`rounded-xl px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusTone}`}>
-                              {appointment.status ?? "tentative"}
-                            </span>
-                          </div>
                         </button>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 self-end xl:self-auto">
                           <button
                             type="button"
                             onClick={() => openEditModal(appointment, "reschedule")}

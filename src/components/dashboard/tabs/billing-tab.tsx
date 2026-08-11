@@ -699,7 +699,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
   }
 
   return (
-    <section className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
+    <section className="space-y-4 rounded-2xl border border-border bg-card p-4 pb-28 sm:p-5 xl:pb-5">
       {loadError && (
         <div className="rounded-lg border border-primary/50 bg-primary/10 p-3 text-sm text-primary">{loadError}</div>
       )}
@@ -791,8 +791,45 @@ export default function BillingTab({ clientId }: { clientId: string }) {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
-        <div className="overflow-x-auto rounded-xl border border-border">
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[2fr_1fr]">
+        <div className="min-w-0 space-y-3 xl:hidden">
+          {cart.length === 0 ? (
+            <div className="rounded-xl border border-border px-3 py-6 text-center text-muted-foreground">Cart is empty.</div>
+          ) : (
+            cart.map((item) => (
+              <article key={item.productId} className="rounded-xl border border-border bg-background p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-text">{item.name}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{formatCurrency(item.unitPrice)} each</p>
+                  </div>
+                  <p className="shrink-0 font-semibold text-text">{formatCurrency(item.unitPrice * item.quantity)}</p>
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <button type="button" onClick={() => decreaseQuantity(item.productId)} className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border text-lg">
+                    -
+                  </button>
+                  <input
+                    value={item.quantity}
+                    onChange={(event) =>
+                      setCart(orderService.updateQuantity(cart, item.productId, Number(event.target.value || 0)))
+                    }
+                    min="0"
+                    type="number"
+                    className="h-11 w-16 rounded-xl border border-border bg-background text-center text-base text-text"
+                  />
+                  <button type="button" onClick={() => increaseQuantity(item.productId)} className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border text-lg">
+                    +
+                  </button>
+                  <button type="button" onClick={() => removeItem(item.productId)} className="ml-auto h-11 rounded-xl border border-primary/50 px-3 text-sm text-primary">
+                    Remove
+                  </button>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+        <div className="hidden min-w-0 overflow-x-auto rounded-xl border border-border xl:block">
           <table className="min-w-full divide-y divide-border text-base">
             <thead className="bg-muted text-left text-sm uppercase tracking-wide text-muted-foreground">
               <tr>
@@ -888,8 +925,8 @@ export default function BillingTab({ clientId }: { clientId: string }) {
 
             {billingMode === "customer" ? (
               <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <label className="block flex-1 text-sm text-muted-foreground">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <label className="block min-w-0 flex-1 text-sm text-muted-foreground">
                     Customer
                     <div className="relative mt-1">
                       <input
@@ -1166,7 +1203,19 @@ export default function BillingTab({ clientId }: { clientId: string }) {
             </div>
           )}
 
-          <Button type="button" onClick={() => void handleCreateBill()} className="w-full">
+          <Button type="button" onClick={() => void handleCreateBill()} className="hidden w-full xl:inline-flex">
+            {isCreatingBill ? "Creating Bill..." : "Create Bill"}
+          </Button>
+        </div>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 px-4 py-3 pb-safe backdrop-blur xl:hidden">
+        <div className="mx-auto flex max-w-6xl items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm text-muted-foreground">Total</p>
+            <p className="text-lg font-semibold text-text">{formatCurrency(totals.finalTotal)}</p>
+          </div>
+          <Button type="button" onClick={() => void handleCreateBill()} className="min-h-11 shrink-0">
             {isCreatingBill ? "Creating Bill..." : "Create Bill"}
           </Button>
         </div>
