@@ -220,6 +220,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
     phone: "",
     email: "",
     dob: "",
+    outreachStatus: "",
   });
   const [cart, setCart] = useState<CartItem[]>(storedSession?.cart ?? []);
   const [cartActionError, setCartActionError] = useState<string | null>(null);
@@ -482,6 +483,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
       phone: "",
       email: "",
       dob: "",
+      outreachStatus: "",
     });
   }
 
@@ -495,6 +497,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
         phone: customerForm.phone?.trim() || null,
         email: customerForm.email?.trim() || null,
         dob: customerForm.dob || null,
+        outreachStatus: customerForm.outreachStatus?.trim() || null,
       });
 
       setBillingMode("customer");
@@ -1209,6 +1212,18 @@ export default function BillingTab({ clientId }: { clientId: string }) {
               type="date"
               value={customerForm.dob ?? ""}
               onChange={(event) => setCustomerForm((current) => ({ ...current, dob: event.target.value }))}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
+            />
+          </label>
+
+          <label className="block text-base text-muted-foreground">
+            <span className="mb-1 block">Outreach status</span>
+            <input
+              value={customerForm.outreachStatus ?? ""}
+              onChange={(event) =>
+                setCustomerForm((current) => ({ ...current, outreachStatus: event.target.value }))
+              }
+              placeholder="e.g. new, follow-up, vip"
               className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
             />
           </label>

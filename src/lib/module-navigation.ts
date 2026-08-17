@@ -100,7 +100,7 @@ export const MODULES: ModuleConfig[] = [
       { id: "contacts", label: "Contacts", kind: "coming-soon", pathKey: "leads-contacts", icon: Contact },
       { id: "campaigns", label: "Campaigns", kind: "coming-soon", pathKey: "leads-campaigns", icon: Megaphone },
       { id: "templates", label: "Templates", kind: "coming-soon", pathKey: "leads-templates", icon: Layers },
-      { id: "automation", label: "Automation", kind: "coming-soon", pathKey: "leads-automation", icon: Workflow },
+      { id: "automation", label: "Auto Replies", kind: "coming-soon", pathKey: "leads-automation", icon: Workflow },
       { id: "segments", label: "Segments", kind: "coming-soon", pathKey: "leads-segments", icon: LayoutDashboard },
     ],
   },

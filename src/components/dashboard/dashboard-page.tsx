@@ -92,6 +92,14 @@ const OrdersTab = dynamic(() => import("./tabs/orders-tab"), {
   loading: () => <TabLoading />,
 });
 
+const ContactsTab = dynamic(() => import("./tabs/contacts-tab"), {
+  loading: () => <TabLoading />,
+});
+
+const WhatsAppAutoReplyTab = dynamic(() => import("./tabs/whatsapp-auto-reply-tab"), {
+  loading: () => <TabLoading />,
+});
+
 const ComingSoonTab = dynamic(() => import("./coming-soon-tab"), {
   loading: () => <TabLoading />,
 });
@@ -555,7 +563,11 @@ function DashboardPageContent() {
                   activeSubTab={displayTabKey as BillingSubTab}
                 />
               )}
-              {comingSoonKey && (
+              {comingSoonKey === "leads-automation" && <WhatsAppAutoReplyTab clientId={clientId} />}
+              {comingSoonKey === "leads-contacts" && <ContactsTab clientId={clientId} />}
+              {comingSoonKey &&
+                comingSoonKey !== "leads-automation" &&
+                comingSoonKey !== "leads-contacts" && (
                 <ComingSoonTab title={comingSoonMeta?.label ?? "Coming Soon"} />
               )}
               {resolvedView.type === "empty" && <EmptyState />}
