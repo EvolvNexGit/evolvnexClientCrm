@@ -20,7 +20,6 @@ import {
   isDashboardTabPath,
 } from "@/lib/dashboard-tab-routes";
 import type { BillingSubTab } from "@/lib/billing-types";
-import { requestNotificationPermissionOnce } from "@/lib/order-notifications";
 import { isSpecialtySummaryTab } from "@/lib/tabs";
 import {
   getComingSoonItem,
@@ -142,14 +141,6 @@ function DashboardPageContent() {
       router.replace("/login");
     }
   }, [loading, router, user]);
-
-  useEffect(() => {
-    if (loading || !user) {
-      return;
-    }
-
-    requestNotificationPermissionOnce();
-  }, [loading, user]);
 
   useEffect(() => {
     if (!mobileOpen) {
