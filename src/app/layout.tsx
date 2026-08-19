@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -24,8 +25,9 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en" className={`dark ${inter.className}`}>
+    <html lang="en" className={`dark ${inter.className}`} suppressHydrationWarning>
       <body className="bg-background text-text antialiased">
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <AppShell>{children}</AppShell>
       </body>
     </html>

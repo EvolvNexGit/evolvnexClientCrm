@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { Menu } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 import { MODULES, type ModuleId } from "@/lib/module-navigation";
 import { UserMenu } from "@/components/dashboard/user-menu";
 
@@ -79,9 +79,7 @@ export function TopNavigation({
         </button>
 
         <div className="flex min-w-0 flex-1 items-center">
-          <Image
-            src="/logo.png"
-            alt="EvolvNex"
+          <BrandLogo
             width={140}
             height={28}
             className="h-5 w-auto max-h-5 max-w-[140px] object-contain object-left"
@@ -110,9 +108,7 @@ export function TopNavigation({
           </button>
 
           <div className="flex min-w-0 shrink-0 items-center">
-            <Image
-              src="/logo.png"
-              alt="EvolvNex"
+            <BrandLogo
               width={140}
               height={28}
               className="h-5 w-auto max-h-5 max-w-[132px] object-contain object-left"
@@ -136,9 +132,7 @@ export function TopNavigation({
       {/* Desktop (xl+): existing logo slot + module tabs + user menu */}
       <div className="hidden h-16 min-w-0 items-center xl:flex">
         <div className="flex h-full w-64 shrink-0 items-center px-5">
-          <Image
-            src="/logo.png"
-            alt="EvolvNex"
+          <BrandLogo
             width={140}
             height={28}
             className="h-6 w-auto max-w-[140px] object-contain object-left"
