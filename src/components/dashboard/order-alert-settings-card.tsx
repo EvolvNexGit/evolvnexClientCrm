@@ -4,7 +4,7 @@ import { Bell } from "lucide-react";
 import { useOrderAlertSettings } from "@/contexts/order-alert-context";
 
 export function OrderAlertSettingsCard() {
-  const { enabled, busy, statusLabel, error, setEnabled } = useOrderAlertSettings();
+  const { enabled, busy, statusLabel, error, setEnabled, testAlert } = useOrderAlertSettings();
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
@@ -48,6 +48,16 @@ export function OrderAlertSettingsCard() {
             On
           </button>
         </div>
+      </div>
+      <div className="mt-4">
+        <button
+          type="button"
+          className="text-sm font-medium text-primary underline-offset-4 hover:underline disabled:opacity-50"
+          disabled={busy}
+          onClick={() => void testAlert()}
+        >
+          Test sound and notification
+        </button>
       </div>
     </div>
   );

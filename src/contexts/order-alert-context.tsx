@@ -8,7 +8,7 @@ import {
   readOrderAlertsEnabled,
   ORDER_ALERTS_CHANGED_EVENT,
 } from "@/lib/order-alert-preference";
-import { unlockOrderAlertAudio } from "@/lib/order-notifications";
+import { unlockOrderAlertAudio, triggerOrderAlert } from "@/lib/order-notifications";
 import {
   canUseWebPush,
   isWebPushConfigured,
@@ -27,6 +27,7 @@ type OrderAlertContextValue = {
   error: string | null;
   statusLabel: string;
   setEnabled: (enabled: boolean) => Promise<void>;
+  testAlert: () => Promise<void>;
 };
 
 const OrderAlertContext = createContext<OrderAlertContextValue | null>(null);
@@ -191,6 +192,33 @@ export function OrderAlertProvider({ children }: { children: ReactNode }) {
     [clientId, user],
   );
 
+  const testAlert = useCallback(async () => {
+    setError(null);
+
+    if (!("Notification" in window)) {
+      setError("This browser does not support notifications.");
+      return;
+    }
+
+    unlockOrderAlertAudio();
+    const nextPermission =
+      window.Notification.permission === "granted"
+        ? window.Notification.permission
+        : await window.Notification.requestPermission();
+    setPermission(nextPermission);
+
+    if (nextPermission !== "granted") {
+      setError("Allow notifications in the browser prompt to hear and see a test alert.");
+      return;
+    }
+
+    triggerOrderAlert({
+      orderId: `test-${Date.now()}`,
+      tableNumber: "Test",
+      finalAmount: 0,
+    });
+  }, []);
+
   useEffect(() => {
     if (!enabled || !clientId || !user || permission !== "granted") {
       return;
@@ -238,8 +266,9 @@ export function OrderAlertProvider({ children }: { children: ReactNode }) {
       error,
       statusLabel,
       setEnabled,
+      testAlert,
     }),
-    [busy, enabled, error, permission, pushConfigured, pushReady, setEnabled, statusLabel],
+    [busy, enabled, error, permission, pushConfigured, pushReady, setEnabled, statusLabel, testAlert],
   );
 
   return <OrderAlertContext.Provider value={value}>{children}</OrderAlertContext.Provider>;
