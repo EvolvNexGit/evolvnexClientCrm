@@ -31,7 +31,7 @@
   --ring: 0 85% 55%;
 }
 
-/* ☀️ LIGHT MODE (future toggle) */
+/* ☀️ LIGHT MODE (html.light) */
 .light {
   color-scheme: light;
 
