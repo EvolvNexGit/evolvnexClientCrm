@@ -1,6 +1,7 @@
 "use client";
 
-const PERMISSION_REQUESTED_KEY = "crm-order-notification-permission-requested";
+import { buildOrderAlertCopy, type OrderAlertPayload } from "@/lib/order-alert-format";
+
 const ORDER_IDS_KEY_PREFIX = "crm-order-notification-known-ids";
 const MAX_STORED_ORDER_IDS = 400;
 const ALERT_TONE_FREQUENCY_HZ = 880;
@@ -15,11 +16,9 @@ type BrowserWindowWithAudio = Window & {
   webkitAudioContext?: typeof AudioContext;
 };
 
-export type OrderNotificationPayload = {
-  orderId: string;
-  tableNumber?: string | null;
-  finalAmount?: number | null;
-};
+export type { OrderAlertPayload as OrderNotificationPayload };
+
+let sharedAudioContext: AudioContext | null = null;
 
 function hasWindow() {
   return typeof window !== "undefined";
@@ -31,11 +30,6 @@ function canNotify() {
 
 function getKnownOrderStorageKey(clientId: string) {
   return `${ORDER_IDS_KEY_PREFIX}-${clientId}`;
-}
-
-function formatAmount(value: number | null | undefined) {
-  const amount = Number.isFinite(Number(value)) ? Number(value) : 0;
-  return `₹${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(amount)}`;
 }
 
 function persistKnownOrderIds(clientId: string, orderIds: Set<string>) {
@@ -82,82 +76,85 @@ export function saveKnownOrderIds(clientId: string, orderIds: Set<string>) {
   persistKnownOrderIds(clientId, orderIds);
 }
 
-export function requestNotificationPermissionOnce() {
-  if (!canNotify()) {
+function getAudioContext() {
+  if (!hasWindow()) {
+    return null;
+  }
+
+  const browserWindow = window as BrowserWindowWithAudio;
+  const AudioCtx = browserWindow.AudioContext ?? browserWindow.webkitAudioContext;
+  if (!AudioCtx) {
+    return null;
+  }
+
+  if (!sharedAudioContext) {
+    sharedAudioContext = new AudioCtx();
+  }
+
+  return sharedAudioContext;
+}
+
+export function unlockOrderAlertAudio() {
+  const audioContext = getAudioContext();
+  if (!audioContext) {
     return;
   }
 
-  if (window.Notification.permission !== "default") {
-    return;
+  if (audioContext.state === "suspended") {
+    void audioContext.resume().catch(() => undefined);
   }
-
-  try {
-    if (window.localStorage.getItem(PERMISSION_REQUESTED_KEY) === "1") {
-      return;
-    }
-
-    window.localStorage.setItem(PERMISSION_REQUESTED_KEY, "1");
-  } catch {
-    return;
-  }
-
-  void window.Notification.requestPermission().catch(() => undefined);
 }
 
 export function playOrderAlertSound() {
-  if (!hasWindow()) {
+  const audioContext = getAudioContext();
+  if (!audioContext) {
     return;
   }
 
   try {
-    const browserWindow = window as BrowserWindowWithAudio;
-    const AudioCtx = browserWindow.AudioContext ?? browserWindow.webkitAudioContext;
-    if (!AudioCtx) {
-      return;
+    if (audioContext.state === "suspended") {
+      void audioContext.resume().catch(() => undefined);
     }
 
-    const audioContext = new AudioCtx();
     const oscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
+    const now = audioContext.currentTime;
 
     oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(ALERT_TONE_FREQUENCY_HZ, audioContext.currentTime);
-    gain.gain.setValueAtTime(ALERT_TONE_MIN_GAIN, audioContext.currentTime);
-    gain.gain.exponentialRampToValueAtTime(ALERT_TONE_MAX_GAIN, audioContext.currentTime + ALERT_TONE_ATTACK_SECONDS);
-    gain.gain.exponentialRampToValueAtTime(ALERT_TONE_MIN_GAIN, audioContext.currentTime + ALERT_TONE_DECAY_SECONDS);
+    oscillator.frequency.setValueAtTime(ALERT_TONE_FREQUENCY_HZ, now);
+    gain.gain.setValueAtTime(ALERT_TONE_MIN_GAIN, now);
+    gain.gain.exponentialRampToValueAtTime(ALERT_TONE_MAX_GAIN, now + ALERT_TONE_ATTACK_SECONDS);
+    gain.gain.exponentialRampToValueAtTime(ALERT_TONE_MIN_GAIN, now + ALERT_TONE_DECAY_SECONDS);
 
     oscillator.connect(gain);
     gain.connect(audioContext.destination);
-    oscillator.start();
-    oscillator.stop(audioContext.currentTime + ALERT_TONE_TOTAL_SECONDS);
+    oscillator.start(now);
+    oscillator.stop(now + ALERT_TONE_TOTAL_SECONDS);
     oscillator.onended = () => {
-      void audioContext.close().catch(() => undefined);
+      oscillator.disconnect();
+      gain.disconnect();
     };
   } catch {
     // no-op
   }
 }
 
-export function showOrderNotification(payload: OrderNotificationPayload) {
-  if (!canNotify()) {
+export function showOrderNotification(payload: OrderAlertPayload) {
+  if (!canNotify() || window.Notification.permission !== "granted") {
     return;
   }
 
-  if (window.Notification.permission !== "granted") {
-    return;
-  }
-
-  const tableLabel = payload.tableNumber ? `Table ${payload.tableNumber}` : "Walk-in";
-  const body = `${tableLabel} • ${formatAmount(payload.finalAmount)}`;
+  const copy = buildOrderAlertCopy(payload);
 
   try {
-    const notification = new window.Notification("New Order", {
-      body,
-      tag: `new-order-${payload.orderId}`,
+    const notification = new window.Notification(copy.title, {
+      body: copy.body,
+      tag: copy.tag,
     });
 
     notification.onclick = () => {
       window.focus();
+      window.location.assign(copy.url);
       notification.close();
     };
   } catch {
@@ -165,7 +162,15 @@ export function showOrderNotification(payload: OrderNotificationPayload) {
   }
 }
 
-export function triggerOrderAlert(payload: OrderNotificationPayload) {
-  playOrderAlertSound();
-  showOrderNotification(payload);
+export function triggerOrderAlert(
+  payload: OrderAlertPayload,
+  options?: { playSound?: boolean; showNotification?: boolean },
+) {
+  if (options?.playSound !== false) {
+    playOrderAlertSound();
+  }
+
+  if (options?.showNotification !== false) {
+    showOrderNotification(payload);
+  }
 }
