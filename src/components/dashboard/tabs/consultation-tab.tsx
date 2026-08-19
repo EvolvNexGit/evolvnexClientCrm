@@ -27,7 +27,7 @@ import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 import { Button } from "@/components/ui/button";
 import { useConsultations } from "@/hooks/use-consultations";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { fetchCustomersPage } from "@/lib/billing-queries";
+import { fetchCustomersPage, createCustomer } from "@/lib/billing-queries";
 import type { CustomerRecord } from "@/lib/billing-types";
 import {
   formatPatientAge,
@@ -43,6 +43,14 @@ import {
   type ConsultDisplayType,
 } from "@/lib/consultation-types";
 import { formatUtcToIstTimeLabel } from "@/lib/time-utils";
+
+function digitsOnly(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function isValidPhone10(value: string) {
+  return /^\d{10}$/.test(value);
+}
 
 type ConsultMode = "queue" | "editor";
 type QueueView = "All" | ConsultDisplayStatus;
@@ -313,13 +321,18 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
   const [isNewConsultOpen, setIsNewConsultOpen] = useState(false);
   const [newVisitType, setNewVisitType] = useState<ConsultDisplayType>("New");
   const [patientSearch, setPatientSearch] = useState("");
+  const [patientPhone, setPatientPhone] = useState("");
   const [patientResults, setPatientResults] = useState<CustomerRecord[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<CustomerRecord | null>(null);
   const [patientsLoading, setPatientsLoading] = useState(false);
+  const [newConsultError, setNewConsultError] = useState<string | null>(null);
   const [attachmentName, setAttachmentName] = useState("");
   const [attachmentUrl, setAttachmentUrl] = useState("");
 
   const debouncedPatientSearch = useDebouncedValue(patientSearch, 250);
+
+  const canStartNewConsult =
+    patientSearch.trim().length > 0 && isValidPhone10(patientPhone) && !saving;
 
   useEffect(() => {
     if (activeConsultation) {
@@ -518,42 +531,86 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
   }
 
   async function handleCreateConsult() {
-    if (!selectedPatient) {
+    setNewConsultError(null);
+
+    const name = patientSearch.trim();
+    const phone = digitsOnly(patientPhone);
+
+    if (!name) {
+      setNewConsultError("Customer name is required.");
       return;
     }
 
-    const detail = await addConsultation({
-      patientId: selectedPatient.id,
-      visitType: toDbVisitType(newVisitType),
-      status: "IN_PROGRESS",
-    });
-
-    if (!detail) {
+    if (!isValidPhone10(phone)) {
+      setNewConsultError("Phone number must be exactly 10 digits.");
       return;
     }
 
-    setSelectedRow({
-      id: detail.id,
-      patientId: selectedPatient.id,
-      name: selectedPatient.name,
-      initials: getPatientInitials(selectedPatient.name),
-      code: getPatientCode(selectedPatient.id),
-      ageGender: formatPatientAge(selectedPatient.dob),
-      type: newVisitType,
-      reason: "—",
-      time: "—",
-      status: "In Progress",
-      appointmentId: null,
-      appointmentDate: null,
-      appointmentTime: null,
-      phone: selectedPatient.phone,
-      source: "consultation",
-    });
+    try {
+      let patient = selectedPatient;
+
+      if (!patient || digitsOnly(patient.phone ?? "") !== phone) {
+        const matchInResults = patientResults.find((item) => digitsOnly(item.phone ?? "") === phone);
+        if (matchInResults) {
+          patient = matchInResults;
+        } else {
+          const phoneSearch = await fetchCustomersPage(clientId, {
+            limit: 20,
+            offset: 0,
+            search: phone,
+          });
+          const matchByPhone = phoneSearch.items.find((item) => digitsOnly(item.phone ?? "") === phone);
+          patient = matchByPhone ?? (await createCustomer(clientId, { name, phone }));
+        }
+      } else if (patient.name.trim() !== name) {
+        // Keep selected patient id, but prefer typed name for display after create path.
+        patient = { ...patient, name };
+      }
+
+      const detail = await addConsultation({
+        patientId: patient.id,
+        visitType: toDbVisitType(newVisitType),
+        status: "IN_PROGRESS",
+      });
+
+      setSelectedRow({
+        id: detail.id,
+        patientId: patient.id,
+        name: patient.name,
+        initials: getPatientInitials(patient.name),
+        code: getPatientCode(patient.id),
+        ageGender: formatPatientAge(patient.dob),
+        type: newVisitType,
+        reason: "—",
+        time: "—",
+        status: "In Progress",
+        appointmentId: null,
+        appointmentDate: null,
+        appointmentTime: null,
+        phone: patient.phone,
+        source: "consultation",
+      });
+      setIsNewConsultOpen(false);
+      setSelectedPatient(null);
+      setPatientSearch("");
+      setPatientPhone("");
+      setNewConsultError(null);
+      setNewVisitType("New");
+      setMode("editor");
+    } catch (createError) {
+      setNewConsultError(
+        createError instanceof Error ? createError.message : "Unable to create consultation.",
+      );
+    }
+  }
+
+  function resetNewConsultForm() {
     setIsNewConsultOpen(false);
     setSelectedPatient(null);
     setPatientSearch("");
+    setPatientPhone("");
+    setNewConsultError(null);
     setNewVisitType("New");
-    setMode("editor");
   }
 
   async function handleAddAttachment() {
@@ -573,7 +630,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
     <EntityModal
       open={isNewConsultOpen}
       title="New Consult"
-      onClose={() => setIsNewConsultOpen(false)}
+      onClose={resetNewConsultForm}
       contentClassName="sm:max-w-xl"
     >
       <div className="space-y-4">
@@ -598,7 +655,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-medium text-text">Patient</label>
+          <label className="mb-2 block text-sm font-medium text-text">Customer name *</label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -606,8 +663,9 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
               onChange={(event) => {
                 setPatientSearch(event.target.value);
                 setSelectedPatient(null);
+                setNewConsultError(null);
               }}
-              placeholder="Search by name, phone, or email"
+              placeholder="Search or type new customer name"
               className="h-11 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-text outline-none"
             />
           </div>
@@ -619,7 +677,9 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                 Searching patients...
               </div>
             ) : patientResults.length === 0 ? (
-              <p className="px-3 py-4 text-sm text-muted-foreground">No patients found.</p>
+              <p className="px-3 py-4 text-sm text-muted-foreground">
+                No matching customers. Keep the name to create a new customer.
+              </p>
             ) : (
               patientResults.map((patient) => {
                 const isSelected = selectedPatient?.id === patient.id;
@@ -630,6 +690,8 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                     onClick={() => {
                       setSelectedPatient(patient);
                       setPatientSearch(patient.name);
+                      setPatientPhone(digitsOnly(patient.phone ?? "").slice(0, 10));
+                      setNewConsultError(null);
                     }}
                     className={
                       isSelected
@@ -648,13 +710,36 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
           </div>
         </div>
 
+        <div>
+          <label className="mb-2 block text-sm font-medium text-text">Phone number *</label>
+          <input
+            value={patientPhone}
+            onChange={(event) => {
+              setPatientPhone(digitsOnly(event.target.value).slice(0, 10));
+              setNewConsultError(null);
+            }}
+            inputMode="numeric"
+            pattern="\d{10}"
+            maxLength={10}
+            placeholder="10-digit phone number"
+            className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text outline-none"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">Enter exactly 10 digits. Letters are not allowed.</p>
+        </div>
+
+        {newConsultError && (
+          <div className="rounded-xl border border-primary/50 bg-primary/10 p-3 text-sm text-primary">
+            {newConsultError}
+          </div>
+        )}
+
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="secondary" onClick={() => setIsNewConsultOpen(false)}>
+          <Button variant="secondary" onClick={resetNewConsultForm}>
             Cancel
           </Button>
           <Button
             className="bg-[#6d28d9] text-white hover:bg-[#5b21b6]"
-            disabled={!selectedPatient || saving}
+            disabled={!canStartNewConsult}
             onClick={() => void handleCreateConsult()}
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
@@ -894,7 +979,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
           Loading consultation...
         </div>
       ) : (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
           <div className="space-y-6">
             <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
@@ -1191,27 +1276,28 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
               )}
             </section>
 
-            <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+            <div className="grid gap-6 grid-cols-1 2xl:grid-cols-2">
               <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
                 <div className="p-0 pb-3">
                   <SectionLabel number="4" title="Attachments" icon={Paperclip} />
                 </div>
                 <div className="grid gap-4">
-                  <div className="grid gap-3 rounded-2xl border border-border bg-background p-4 sm:grid-cols-[1fr_1fr_auto]">
+                  <div className="grid gap-3 rounded-2xl border border-border bg-muted/30 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto]">
                     <input
                       value={attachmentName}
                       onChange={(event) => setAttachmentName(event.target.value)}
                       placeholder="File name"
-                      className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
+                      className="min-h-11 w-full min-w-0 rounded-xl border border-border bg-background px-3 py-2 text-sm text-text outline-none placeholder:text-muted-foreground"
                     />
                     <input
                       value={attachmentUrl}
                       onChange={(event) => setAttachmentUrl(event.target.value)}
                       placeholder="File URL"
-                      className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
+                      className="min-h-11 w-full min-w-0 rounded-xl border border-border bg-background px-3 py-2 text-sm text-text outline-none placeholder:text-muted-foreground"
                     />
                     <Button
                       variant="secondary"
+                      className="min-h-11"
                       disabled={saving || !attachmentName.trim() || !attachmentUrl.trim()}
                       onClick={() => void handleAddAttachment()}
                     >
@@ -1219,7 +1305,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                     </Button>
                   </div>
 
-                  <div className="rounded-2xl border border-border bg-background p-5">
+                  <div className="rounded-2xl border border-border bg-muted/30 p-5">
                     <p className="text-sm font-medium text-text">
                       Attached Files ({activeConsultation?.attachments.length ?? 0})
                     </p>
@@ -1231,13 +1317,13 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                               href={attachment.file_url}
                               target="_blank"
                               rel="noreferrer"
-                              className="text-sm text-primary hover:underline"
+                              className="truncate text-sm text-primary hover:underline"
                             >
                               {attachment.file_name}
                             </a>
                             <Button
                               variant="secondary"
-                              className="h-8 w-8 p-0"
+                              className="h-8 w-8 shrink-0 p-0"
                               disabled={saving}
                               onClick={() => void removeAttachment(activeConsultation.id, attachment.id)}
                             >
@@ -1260,8 +1346,10 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
 
                 <div className="space-y-4">
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-border bg-background p-4">
-                      <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Duration (days)</p>
+                    <label className="block min-w-0 space-y-2 rounded-2xl border border-border bg-muted/30 p-4">
+                      <span className="block text-[11px] uppercase tracking-wider text-muted-foreground">
+                        Duration (days)
+                      </span>
                       <input
                         type="number"
                         min={0}
@@ -1273,11 +1361,13 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                           }))
                         }
                         placeholder="7"
-                        className="mt-2 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text outline-none"
+                        className="min-h-11 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text outline-none placeholder:text-muted-foreground"
                       />
-                    </div>
-                    <div className="rounded-2xl border border-border bg-background p-4">
-                      <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Follow-up Date</p>
+                    </label>
+                    <label className="block min-w-0 space-y-2 rounded-2xl border border-border bg-muted/30 p-4">
+                      <span className="block text-[11px] uppercase tracking-wider text-muted-foreground">
+                        Follow-up Date
+                      </span>
                       <input
                         type="date"
                         value={editorForm.followupDate}
@@ -1287,13 +1377,15 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                             followupDate: event.target.value,
                           }))
                         }
-                        className="mt-2 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text outline-none"
+                        className="min-h-11 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text outline-none"
                       />
-                    </div>
+                    </label>
                   </div>
 
-                  <div className="rounded-2xl border border-border bg-background p-4">
-                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Notes (Optional)</p>
+                  <label className="block space-y-2 rounded-2xl border border-border bg-muted/30 p-4">
+                    <span className="block text-[11px] uppercase tracking-wider text-muted-foreground">
+                      Notes (Optional)
+                    </span>
                     <textarea
                       rows={4}
                       value={editorForm.followupNotes}
@@ -1304,12 +1396,12 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                         }))
                       }
                       placeholder="e.g. Review pain score and ROM..."
-                      className="mt-2 w-full resize-none rounded-xl border border-border bg-card px-3 py-2 text-sm text-text outline-none placeholder:text-muted-foreground"
+                      className="min-h-[120px] w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm text-text outline-none placeholder:text-muted-foreground"
                     />
-                    <div className="mt-2 text-right text-xs text-muted-foreground">
+                    <div className="text-right text-xs text-muted-foreground">
                       {editorForm.followupNotes.length} / 300
                     </div>
-                  </div>
+                  </label>
                 </div>
               </section>
             </div>

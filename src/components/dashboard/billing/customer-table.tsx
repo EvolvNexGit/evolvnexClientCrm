@@ -39,6 +39,7 @@ type CustomerFormState = {
   phone: string;
   email: string;
   dob: string;
+  outreachStatus: string;
 };
 
 const initialForm: CustomerFormState = {
@@ -46,6 +47,7 @@ const initialForm: CustomerFormState = {
   phone: "",
   email: "",
   dob: "",
+  outreachStatus: "",
 };
 
 
@@ -99,12 +101,13 @@ export function CustomerTable({
 
   function exportCustomersCsv() {
     const rows = [
-      ["Name", "Phone", "Email", "DOB", "Created", "Orders", "Total Spent"],
+      ["Name", "Phone", "Email", "DOB", "Status", "Created", "Orders", "Total Spent"],
       ...customers.map((customer) => [
         customer.name,
         customer.phone ?? "",
         customer.email ?? "",
         customer.dob ?? "",
+        customer.outreach_status ?? "",
         formatUtcToIst(customer.created_at),
         String(customer.totalOrders),
         String(customer.totalSpent),
@@ -131,6 +134,7 @@ export function CustomerTable({
       phone: customer.phone ?? "",
       email: customer.email ?? "",
       dob: customer.dob ?? "",
+      outreachStatus: customer.outreach_status ?? "",
     });
   }
 
@@ -144,6 +148,7 @@ export function CustomerTable({
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
         dob: form.dob || null,
+        outreachStatus: form.outreachStatus.trim() || null,
       });
       setIsAddOpen(false);
       resetForm();
@@ -167,6 +172,7 @@ export function CustomerTable({
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
         dob: form.dob || null,
+        outreachStatus: form.outreachStatus.trim() || null,
       });
       setEditingCustomer(null);
       resetForm();
@@ -200,7 +206,7 @@ export function CustomerTable({
           <input
             value={searchQuery}
             onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Search by name, phone, or email"
+            placeholder="Search by name, phone, email, or status"
             className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
           />
         }
@@ -234,6 +240,9 @@ export function CustomerTable({
                   <p className="truncate font-semibold text-text">{customer.name}</p>
                   <p className="mt-1 truncate text-sm text-muted-foreground">{customer.phone ?? "-"}</p>
                   <p className="truncate text-sm text-muted-foreground">{customer.email ?? "-"}</p>
+                  <p className="mt-1 truncate text-sm text-muted-foreground">
+                    Status: {customer.outreach_status || "-"}
+                  </p>
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="text-sm text-muted-foreground">{customer.totalOrders} orders</p>
@@ -258,6 +267,7 @@ export function CustomerTable({
                     <th className="px-3 py-3">Name</th>
                     <th className="px-3 py-3">Phone</th>
                     <th className="px-3 py-3">Email</th>
+                    <th className="px-3 py-3">Status</th>
                     <th className="px-3 py-3">DOB</th>
                     <th className="px-3 py-3">Created</th>
                     <th className="px-3 py-3">Orders</th>
@@ -271,6 +281,7 @@ export function CustomerTable({
                       <td className="px-3 py-3 text-text">{customer.name}</td>
                       <td className="px-3 py-3 text-muted-foreground">{customer.phone ?? "-"}</td>
                       <td className="px-3 py-3 text-muted-foreground">{customer.email ?? "-"}</td>
+                      <td className="px-3 py-3 text-muted-foreground">{customer.outreach_status || "-"}</td>
                       <td className="px-3 py-3 text-muted-foreground">{formatDateOnly(customer.dob)}</td>
                       <td className="px-3 py-3 text-muted-foreground">{formatUtcToIst(customer.created_at)}</td>
                       <td className="px-3 py-3 text-muted-foreground">{customer.totalOrders}</td>
@@ -412,6 +423,16 @@ function CustomerForm({
           type="date"
           value={form.dob}
           onChange={(event) => onChange({ ...form, dob: event.target.value })}
+          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
+        />
+      </label>
+
+      <label className="block text-base text-muted-foreground">
+        <span className="mb-1 block">Outreach status</span>
+        <input
+          value={form.outreachStatus}
+          onChange={(event) => onChange({ ...form, outreachStatus: event.target.value })}
+          placeholder="e.g. new, follow-up, vip"
           className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
         />
       </label>
