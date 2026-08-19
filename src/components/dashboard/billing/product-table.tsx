@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 import { ListPaginationControls } from "@/components/ui/list-pagination-controls";
+import { RecordCard, ResponsiveRecordList } from "@/components/ui/responsive";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import type { ProductPayload, ProductRecord } from "@/lib/billing-types";
 import { formatUtcToIst } from "@/lib/time-utils";
@@ -239,6 +240,42 @@ export function ProductTable({
       />
 
       {hasRows && !error && (
+        <ResponsiveRecordList
+          cards={products.map((product) => (
+            <RecordCard key={product.id} className="border-white/10 bg-[#101010]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-white">{product.name}</p>
+                  <p className="mt-1 text-sm text-white/55">{product.type ?? "-"}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-semibold text-white">{formatCurrency(product.price)}</p>
+                  <span className={`mt-2 inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold uppercase ${
+                    product.is_active ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-red-500/30 bg-red-500/10 text-red-300"
+                  }`}>{product.is_active ? "ACTIVE" : "NOT ACTIVE"}</span>
+                </div>
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => openEdit(product)}
+                  className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-white/10 bg-black/30 text-sm font-semibold text-white/80"
+                  disabled={saving}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void onToggle(product.id, !product.is_active)}
+                  className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-white/10 text-sm font-semibold text-white/80"
+                  disabled={saving}
+                >
+                  {product.is_active ? "Deactivate" : "Activate"}
+                </button>
+              </div>
+            </RecordCard>
+          ))}
+          table={
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-white/10 text-base">
             <thead className="bg-black/20 text-left text-sm uppercase tracking-[0.2em] text-white/45">
@@ -291,6 +328,8 @@ export function ProductTable({
             </tbody>
           </table>
         </div>
+          }
+        />
       )}
 
       <ListPaginationControls

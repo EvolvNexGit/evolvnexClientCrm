@@ -63,7 +63,7 @@ function OrderCard({
   const orderType = formatOrderLabel(order.order_type);
 
   return (
-    <article className="w-[min(100%,17.5rem)] shrink-0 snap-start">
+    <article className="min-w-0 w-full">
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#141414] shadow-soft">
         <div className="relative flex items-center bg-[#1f1f1f] px-4 py-2.5">
           <span className="max-w-[38%] truncate text-sm font-semibold tracking-wide text-primary">
@@ -157,7 +157,7 @@ export function OrderList({ orders, loading, error, onUpdateStatus }: OrderListP
       {updateError && <p className="text-sm text-rose-400">{updateError}</p>}
 
       {!loading && !error && sortedOrders.length > 0 && (
-        <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2 snap-x snap-mandatory">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {sortedOrders.map((order) => (
             <OrderCard key={order.id} order={order} onStatusClick={openStatusModal} />
           ))}

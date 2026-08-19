@@ -11,6 +11,7 @@ import { useApp, useClient } from "@/contexts/app-context";
 import { Button } from "@/components/ui/button";
 import { TopNavigation } from "@/components/dashboard/top-navigation";
 import { DynamicSidebar } from "@/components/dashboard/dynamic-sidebar";
+import { MobileDrawer } from "@/components/dashboard/mobile-drawer";
 import {
   getAiInsightsNavPath,
   getComingSoonKeyFromPath,
@@ -149,6 +150,27 @@ function DashboardPageContent() {
 
     requestNotificationPermissionOnce();
   }, [loading, user]);
+
+  useEffect(() => {
+    if (!mobileOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+      }
+    }
+
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [mobileOpen]);
 
   const tabFromUrl = searchParams.get("tab");
 
@@ -451,8 +473,23 @@ function DashboardPageContent() {
     });
   }
 
+  function handleMobileModuleChange(moduleId: ModuleId) {
+    handleModuleChange(moduleId);
+    setMobileOpen(false);
+  }
+
+  function handleMobileItemSelect(item: ResolvedSidebarItem) {
+    handleSidebarItemSelect(item);
+    setMobileOpen(false);
+  }
+
   function handleOpenProfile() {
     navigateToKey("summary");
+  }
+
+  function handleMobileOpenProfile() {
+    handleOpenProfile();
+    setMobileOpen(false);
   }
 
   const userLabel =
@@ -476,7 +513,7 @@ function DashboardPageContent() {
   const comingSoonMeta = comingSoonKey ? getComingSoonItem(comingSoonKey) : undefined;
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background text-text">
+    <div className="flex h-dvh max-h-dvh min-w-0 flex-col overflow-hidden bg-background text-text">
       <TopNavigation
         activeModuleId={activeModuleId}
         visibleModuleIds={visibleModuleIds}
@@ -487,12 +524,12 @@ function DashboardPageContent() {
         userLabel={userLabel}
       />
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
         <aside
           className={
             sidebarCollapsed
-              ? "hidden h-full w-20 border-r border-border bg-card px-3 py-5 xl:flex xl:flex-col xl:overflow-y-auto"
-              : "hidden h-full w-64 border-r border-border bg-card px-4 py-5 xl:flex xl:flex-col xl:overflow-y-auto"
+              ? "hidden h-full w-20 shrink-0 border-r border-border bg-card px-3 py-5 xl:flex xl:flex-col xl:overflow-y-auto"
+              : "hidden h-full w-64 shrink-0 border-r border-border bg-card px-4 py-5 xl:flex xl:flex-col xl:overflow-y-auto"
           }
         >
           <DynamicSidebar
@@ -505,34 +542,25 @@ function DashboardPageContent() {
           />
         </aside>
 
-        {mobileOpen && (
-          <div
-            className="fixed inset-0 z-30 bg-black/60 xl:hidden"
-            onClick={() => setMobileOpen(false)}
-          >
-            <aside
-              className="absolute inset-y-0 left-0 w-80 max-w-[85vw] border-r border-border bg-card p-5 shadow-soft"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <DynamicSidebar
-                moduleId={activeModuleId}
-                items={sidebarItems}
-                activeNavKey={displayTabKey === "summary" ? null : activeNavKey}
-                collapsed={false}
-                onToggleCollapse={() => setSidebarCollapsed((current) => !current)}
-                onNavigate={() => setMobileOpen(false)}
-                onItemSelect={handleSidebarItemSelect}
-              />
-            </aside>
-          </div>
-        )}
+        <MobileDrawer
+          open={mobileOpen}
+          activeModuleId={activeModuleId}
+          visibleModuleIds={visibleModuleIds}
+          items={sidebarItems}
+          activeNavKey={displayTabKey === "summary" ? null : activeNavKey}
+          onClose={() => setMobileOpen(false)}
+          onModuleChange={handleMobileModuleChange}
+          onItemSelect={handleMobileItemSelect}
+          onOpenProfile={handleMobileOpenProfile}
+          onLogout={signOut}
+        />
 
-        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <section
-            className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-6 sm:px-6 sm:pt-8 lg:px-8"
+            className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-6 pt-6 sm:px-6 sm:pt-8 lg:px-8"
             ref={contentSectionRef}
           >
-            <div className="mx-auto flex max-w-6xl flex-col gap-6">
+            <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6">
               {displayTabKey === "summary" && <SummaryTab clientId={clientId} />}
               {displayTabKey === "cafe-summary" && <CafeSummaryTab clientId={clientId} />}
               {displayTabKey === "doctor-summary" && <DoctorSummaryTab clientId={clientId} />}
