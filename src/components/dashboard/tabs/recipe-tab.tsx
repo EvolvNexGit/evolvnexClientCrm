@@ -195,26 +195,26 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
   function getRowTone(recipe: RecipeRecord) {
     if (isRecipeNegativeStock(recipe)) {
       return {
-        border: "border-red-500/40",
-        bg: "bg-red-500/10",
-        text: "text-red-400",
+        border: "border-primary/40",
+        bg: "bg-primary/10",
+        text: "text-primary",
         badge: "NEGATIVE",
       };
     }
 
     if (isRecipeLowStock(recipe)) {
       return {
-        border: "border-amber-500/40",
-        bg: "bg-amber-500/10",
-        text: "text-amber-400",
+        border: "border-primary/40",
+        bg: "bg-primary/10",
+        text: "text-primary",
         badge: "LOW STOCK",
       };
     }
 
     return {
       border: "border-border",
-      bg: "bg-card",
-      text: "text-emerald-400",
+      bg: "bg-background",
+      text: "text-muted-foreground",
     };
   }
 
@@ -324,19 +324,19 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
   }
 
   return (
-    <section className="space-y-5 rounded-[28px] border border-white/10 bg-[#080808] p-5 text-white shadow-[0_20px_60px_rgba(0,0,0,0.45)] sm:p-6">
+    <section className="space-y-5 rounded-2xl border border-border bg-card p-4 text-text sm:p-5">
       <div className="flex flex-wrap items-center justify-end gap-4">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={handleDownloadCsv}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-black/30 text-white/80 transition hover:border-white/20 hover:bg-white/5 hover:text-white"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition hover:bg-muted hover:text-text"
             aria-label="Download displayed recipes as CSV"
             title="Download CSV"
           >
             <Download className="h-5 w-5" />
           </button>
-          <Button type="button" onClick={openAdd} className="h-11 rounded-2xl bg-red-600 px-6 text-base font-semibold text-white hover:bg-red-500">
+          <Button type="button" onClick={openAdd} className="h-11 rounded-2xl px-6 text-base font-semibold">
             <Plus className="mr-2 h-4 w-4" />
             Add recipe
           </Button>
@@ -344,24 +344,24 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
       </div>
 
       <div className="grid gap-3 lg:grid-cols-[1.7fr_0.8fr_0.8fr_0.8fr]">
-        <label className="relative block text-sm text-white/70">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" />
+        <label className="relative block text-sm text-muted-foreground">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search by recipe or ingredient name or type"
-            className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 pl-10 pr-3 text-sm text-white placeholder:text-white/45 outline-none transition focus:border-red-500/60 focus:ring-2 focus:ring-red-500/20"
+            className="h-11 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-text placeholder:text-muted-foreground outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
           />
         </label>
 
         {/* Sort dropdown removed; results are ordered by product then ingredient */}
 
-        <label className="relative block text-sm text-white/70">
-          <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" />
+        <label className="relative block text-sm text-muted-foreground">
+          <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <select
             value={productTypeFilter}
             onChange={(event) => setProductTypeFilter(event.target.value)}
-            className="h-11 w-full appearance-none rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-text outline-none transition focus:border-red-500/60 focus:ring-2 focus:ring-red-500/20"
+            className="h-11 w-full appearance-none rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-text outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
           >
             <option value="">All types</option>
             {productTypes.map((t) => (
@@ -376,23 +376,23 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <label className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-sm text-white/75">
+        <label className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm text-muted-foreground">
           <input
             type="checkbox"
             checked={showLowStockOnly}
             onChange={(event) => setShowLowStockOnly(event.target.checked)}
-            className="h-4 w-4 rounded border-white/20 bg-transparent accent-red-500"
+            className="h-4 w-4 rounded border-border bg-transparent accent-primary"
           />
           Show low stock recipes only
         </label>
 
-        <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-sm font-medium text-amber-300">
+        <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
           Low stock recipes: {lowStockRecipeCount}
         </span>
       </div>
 
       {actionError && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{actionError}</div>
+        <div className="rounded-xl border border-primary/40 bg-primary/10 p-3 text-sm text-primary">{actionError}</div>
       )}
 
       <DataState
@@ -409,26 +409,26 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
             const lowStockInGroup = group.rows.filter((recipe) => isRecipeLowStock(recipe)).length;
 
             return (
-              <div key={group.productId} className="overflow-hidden rounded-2xl border border-white/10 bg-[#101010]">
+              <div key={group.productId} className="overflow-hidden rounded-2xl border border-border bg-background">
                 <button
                   type="button"
                   onClick={() => toggleProductGroup(group.productId)}
-                  className="flex w-full items-center justify-between gap-4 border-b border-white/10 px-4 py-4 text-left transition hover:bg-white/[0.03]"
+                  className="flex w-full items-center justify-between gap-4 border-b border-border px-4 py-4 text-left transition hover:bg-muted/40"
                 >
                   <div>
-                    <p className="text-base font-semibold text-white">{group.productName}</p>
-                    <p className="text-sm text-white/55">
+                    <p className="text-base font-semibold text-text">{group.productName}</p>
+                    <p className="text-sm text-muted-foreground">
                       {group.rows.length} ingredients{lowStockInGroup > 0 ? `, ${lowStockInGroup} low stock` : ""}
                     </p>
                   </div>
 
                   <div className="flex items-center gap-3">
                     {lowStockInGroup > 0 ? (
-                      <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-300">
+                      <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
                         Needs attention
                       </span>
                     ) : null}
-                    {isCollapsed ? <ChevronRight className="h-5 w-5 text-white/50" /> : <ChevronDown className="h-5 w-5 text-white/50" />}
+                    {isCollapsed ? <ChevronRight className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
                   </div>
                 </button>
 
@@ -438,22 +438,22 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
                       {group.rows.map((recipe) => {
                         const rowTone = getRowTone(recipe);
                         return (
-                          <div key={recipe.id} className={`rounded-xl border border-white/10 p-3 ${rowTone.bg}`}>
-                            <p className="font-medium text-white">{recipe.ingredientName}</p>
-                            <p className="mt-1 text-sm text-white/70">
+                          <div key={recipe.id} className={`rounded-xl border border-border p-3 ${rowTone.bg}`}>
+                            <p className="font-medium text-text">{recipe.ingredientName}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">
                               Qty {formatQuantity(recipe.quantity)} {recipe.quantity_unit} · Stock {formatQuantity(recipe.ingredientStock)} {recipe.ingredientStockUnit}
                             </p>
                             <div className="mt-3 flex gap-2">
-                              <button type="button" onClick={() => openEdit(recipe)} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-white/10 text-sm text-white/80" disabled={saving}>Edit</button>
-                              <button type="button" onClick={() => setPendingDeleteRecipe(recipe)} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-white/10 text-sm text-white/80" disabled={saving}>Delete</button>
+                              <button type="button" onClick={() => openEdit(recipe)} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-border text-sm text-text" disabled={saving}>Edit</button>
+                              <button type="button" onClick={() => setPendingDeleteRecipe(recipe)} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-primary/30 text-sm text-primary" disabled={saving}>Delete</button>
                             </div>
                           </div>
                         );
                       })}
                     </div>
                     <div className="hidden overflow-x-auto xl:block">
-                    <table className="min-w-full divide-y divide-white/10 text-sm">
-                      <thead className="bg-black/20 text-left uppercase tracking-[0.2em] text-white/45">
+                    <table className="min-w-full divide-y divide-border text-sm">
+                      <thead className="bg-muted text-left uppercase tracking-wide text-muted-foreground">
                         <tr>
                           <th className="px-4 py-3">Ingredient</th>
                           <th className="px-4 py-3">Quantity</th>
@@ -462,25 +462,25 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
                           <th className="px-4 py-3 text-right">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-white/10">
+                      <tbody className="divide-y divide-border">
                         {group.rows.map((recipe) => {
                           const rowTone = getRowTone(recipe);
 
                           return (
-                            <tr key={recipe.id} className={`${rowTone.bg} hover:bg-white/[0.03]`}>
+                            <tr key={recipe.id} className={`${rowTone.bg} hover:bg-muted/40`}>
                               <td className="px-4 py-4">
-                                <div className="font-medium text-white">{recipe.ingredientName}</div>
-                                <div className="text-xs text-white/45">Product: {recipe.productName}</div>
+                                <div className="font-medium text-text">{recipe.ingredientName}</div>
+                                <div className="text-xs text-muted-foreground">Product: {recipe.productName}</div>
                               </td>
-                              <td className="px-4 py-4 text-white/80">
+                              <td className="px-4 py-4 text-muted-foreground">
                                 {formatQuantity(recipe.quantity)} {recipe.quantity_unit}
                               </td>
-                              <td className="px-4 py-4 text-white/70">
+                              <td className="px-4 py-4 text-muted-foreground">
                                 {formatQuantity(recipe.ingredientStock)} {recipe.ingredientStockUnit}
                               </td>
                               <td className="px-4 py-4">
                                 {rowTone.badge ? (
-                                  <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${rowTone.border} ${rowTone.text}`}>
+                                  <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${rowTone.border} ${rowTone.bg} ${rowTone.text}`}>
                                     {rowTone.badge}
                                   </span>
                                 ) : null}
@@ -490,7 +490,7 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
                                   <button
                                     type="button"
                                     onClick={() => openEdit(recipe)}
-                                    className="inline-flex items-center gap-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white/70 transition hover:border-white/20 hover:text-white"
+                                    className="inline-flex items-center gap-1 rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground transition hover:text-text"
                                     disabled={saving}
                                   >
                                     <Pencil className="h-3.5 w-3.5" />
@@ -499,7 +499,7 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
                                   <button
                                     type="button"
                                     onClick={() => setPendingDeleteRecipe(recipe)}
-                                    className="inline-flex items-center gap-1 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-red-300 transition hover:bg-red-500/20"
+                                    className="inline-flex items-center gap-1 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary/15"
                                     disabled={saving}
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
@@ -666,7 +666,7 @@ function RecipeForm({
                 });
                 onChange({ ...form, items: nextItems, ingredient_id: "", quantity: "1" });
               }}
-              className="ml-2 rounded-2xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500"
+              className="ml-2 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
             >
               Add Ingredient to recipe
             </button>
@@ -676,8 +676,8 @@ function RecipeForm({
         {/* Items table */}
         {(form.items && form.items.length > 0) && (
           <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full divide-y divide-white/10 text-sm">
-              <thead className="bg-black/20 text-left uppercase tracking-[0.2em] text-white/45">
+            <table className="min-w-full divide-y divide-border text-sm">
+              <thead className="bg-muted text-left uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">Ingredient</th>
                   <th className="px-4 py-3">Quantity</th>
@@ -685,9 +685,9 @@ function RecipeForm({
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10">
+              <tbody className="divide-y divide-border">
                 {form.items!.map((it, idx) => (
-                  <tr key={`${it.ingredient_id}-${idx}`} className="bg-card">
+                  <tr key={`${it.ingredient_id}-${idx}`} className="bg-background">
                     <td className="px-4 py-4">{it.name ?? ingredients.find((i) => i.id === it.ingredient_id)?.name}</td>
                     <td className="px-4 py-4">{it.quantity}</td>
                     <td className="px-4 py-4">{it.quantity_unit}</td>
@@ -698,7 +698,7 @@ function RecipeForm({
                           const next = (form.items ?? []).filter((_, i) => i !== idx);
                           onChange({ ...form, items: next });
                         }}
-                        className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-red-300"
+                        className="rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-primary"
                       >
                         Remove
                       </button>
