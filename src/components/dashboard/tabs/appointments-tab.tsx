@@ -588,7 +588,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
   if (loading && displayedAppointments.length === 0) {
     return (
-      <div className="flex min-h-[240px] items-center justify-center rounded-3xl border border-white/10 bg-[#080808] text-base text-white/60 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+      <div className="flex min-h-[240px] items-center justify-center rounded-2xl border border-border bg-card text-base text-muted-foreground">
         <span className="inline-flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" />
           Fetching appointments
@@ -599,14 +599,14 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
   if (error) {
     return (
-      <div className="rounded-3xl border border-rose-500/40 bg-[#080808] p-6 text-base text-rose-400 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+      <div className="rounded-2xl border border-primary/40 bg-card p-6 text-base text-primary">
         Unable to load appointments: {error}
       </div>
     );
   }
 
   return (
-    <section className="space-y-5 rounded-[28px] border border-white/10 bg-[#080808] p-5 text-white shadow-[0_20px_60px_rgba(0,0,0,0.45)] sm:p-6">
+    <section className="space-y-5 rounded-2xl border border-border bg-card p-4 text-text sm:p-5">
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
           <button
@@ -615,8 +615,8 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
             aria-expanded={showFilters}
             className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-semibold transition sm:w-auto ${
               showFilters
-                ? "border-red-500/40 bg-red-500/10 text-white"
-                : "border-white/10 bg-black/30 text-white/80 hover:border-white/20 hover:bg-white/5 hover:text-white"
+                ? "border-primary/40 bg-primary/10 text-text"
+                : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-text"
             }`}
           >
             <Filter className="h-4 w-4" />
@@ -625,7 +625,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           <button
             type="button"
             onClick={openAddModal}
-            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 text-sm font-semibold text-white transition hover:bg-red-500 sm:w-auto"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-sm font-semibold text-white transition hover:bg-primary/90 sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             Add appointment
@@ -640,14 +640,14 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           { key: "upcoming" as const, label: "Upcoming", accent: "bg-blue-600", count: summaryCounts.upcoming },
           { key: "past" as const, label: "Total", accent: "bg-slate-700", count: pagedAppointments.totalCount ?? displayedAppointments.length },
         ].map((card) => (
-          <article key={card.key} className="rounded-2xl border border-white/10 bg-[#111111] p-4 shadow-[0_12px_28px_rgba(0,0,0,0.25)]">
+          <article key={card.key} className="rounded-2xl border border-border bg-background p-4">
             <div className="flex items-center gap-3">
               <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${card.accent}`}>
                 <CalendarDays className="h-5 w-5 text-white" />
               </div>
               <div>
-                <div className="text-sm text-white/60">{card.label}</div>
-                <div className="enx-kpi-value text-white">{card.count}</div>
+                <div className="text-sm text-muted-foreground">{card.label}</div>
+                <div className="enx-kpi-value text-text">{card.count}</div>
               </div>
             </div>
           </article>
@@ -655,9 +655,9 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       </div>
 
       {showFilters && (
-        <div className="grid gap-3 rounded-2xl border border-white/10 bg-[#111111] p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          <label className="space-y-1 text-sm text-white/70 xl:col-span-2">
-            <span className="block text-white/60">Search</span>
+        <div className="grid gap-3 rounded-2xl border border-border bg-background p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <label className="space-y-1 text-sm text-muted-foreground xl:col-span-2">
+            <span className="block text-muted-foreground">Search</span>
             <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2">
               <Search className="h-4 w-4 text-muted-foreground" />
               <input
@@ -669,8 +669,8 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
             </div>
           </label>
 
-          <label className="space-y-1 text-sm text-white/70">
-            <span className="block text-white/60">Location</span>
+          <label className="space-y-1 text-sm text-muted-foreground">
+            <span className="block text-muted-foreground">Location</span>
             <select
               value={locationFilter}
               onChange={(event) => setLocationFilter(event.target.value)}
@@ -685,8 +685,8 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
             </select>
           </label>
 
-          <label className="space-y-1 text-sm text-white/70">
-            <span className="block text-white/60">Date</span>
+          <label className="space-y-1 text-sm text-muted-foreground">
+            <span className="block text-muted-foreground">Date</span>
             <div className="space-y-2">
               <select
                 value={dateFilterMode}
@@ -745,8 +745,8 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
             )}
           </label>
 
-          <label className="space-y-1 text-sm text-white/70">
-            <span className="block text-white/60">Status</span>
+          <label className="space-y-1 text-sm text-muted-foreground">
+            <span className="block text-muted-foreground">Status</span>
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
@@ -761,8 +761,8 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
             </select>
           </label>
 
-          <label className="space-y-1 text-sm text-white/70">
-            <span className="block text-white/60">Service</span>
+          <label className="space-y-1 text-sm text-muted-foreground">
+            <span className="block text-muted-foreground">Service</span>
             <select
               value={serviceFilter}
               onChange={(event) => setServiceFilter(event.target.value)}
@@ -777,8 +777,8 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
             </select>
           </label>
 
-          <label className="space-y-1 text-sm text-white/70">
-            <span className="block text-white/60">Staff</span>
+          <label className="space-y-1 text-sm text-muted-foreground">
+            <span className="block text-muted-foreground">Staff</span>
             <select
               value={staffFilter}
               onChange={(event) => setStaffFilter(event.target.value)}
@@ -794,7 +794,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           </label>
 
           <div className="sm:col-span-2 lg:col-span-3 xl:col-span-6">
-            <div className="mb-1 text-sm text-white/60">Actions</div>
+            <div className="mb-1 text-sm text-muted-foreground">Actions</div>
             <button
               type="button"
               onClick={clearAllFiltersAndSort}
@@ -814,7 +814,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
       <div className="space-y-4">
         {displayedAppointments.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-white/10 bg-[#111111] p-6 text-base text-white/60">
+          <div className="rounded-2xl border border-dashed border-border bg-background p-6 text-base text-muted-foreground">
             No appointments found for the selected filters.
           </div>
         ) : null}
@@ -828,14 +828,14 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           const groupLabel = groupKey.charAt(0).toUpperCase() + groupKey.slice(1);
 
           return (
-            <section key={groupKey} className="space-y-3 rounded-2xl border border-white/10 bg-[#111111] p-4">
+            <section key={groupKey} className="space-y-3 rounded-2xl border border-border bg-background p-4">
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-white/80">
-                  <CalendarDays className="h-4 w-4 text-red-500" />
+                <div className="flex items-center gap-2 text-text">
+                  <CalendarDays className="h-4 w-4 text-primary" />
                   <span className="font-semibold">{groupLabel}</span>
-                  <span className="text-sm text-white/50">• {groupItems.length} appointments</span>
+                  <span className="text-sm text-muted-foreground">• {groupItems.length} appointments</span>
                 </div>
-                <button type="button" className="text-sm text-white/50 hover:text-white">
+                <button type="button" className="text-sm text-muted-foreground hover:text-text">
                   View all
                 </button>
               </div>
@@ -845,17 +845,17 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                   const isExpanded = expandedIds.includes(appointment.id);
                   const statusTone =
                     appointment.status === "booked"
-                      ? "bg-blue-500/20 text-blue-300"
+                      ? "bg-blue-500/15 text-blue-600"
                       : appointment.status === "completed"
-                        ? "bg-emerald-500/20 text-emerald-300"
+                        ? "bg-emerald-500/15 text-emerald-600"
                         : appointment.status === "cancelled"
-                          ? "bg-rose-500/20 text-rose-300"
-                          : "bg-amber-500/20 text-amber-300";
+                          ? "bg-rose-500/15 text-rose-600"
+                          : "bg-amber-500/15 text-amber-600";
 
                   return (
                     <article
                       key={appointment.id}
-                      className="rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-white/20 hover:bg-black/30"
+                      className="rounded-2xl border border-border bg-card p-4 transition hover:bg-muted/60"
                     >
                       <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center">
                         <button
@@ -864,18 +864,18 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                           className="flex min-w-0 flex-1 flex-col gap-3 text-left xl:flex-row xl:items-center xl:gap-4"
                         >
                           <div className="flex min-w-0 items-start gap-3">
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-semibold text-white">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-text">
                               {getInitials(appointment.name)}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="text-sm font-semibold text-white">
+                              <div className="text-sm font-semibold text-text">
                                 {formatAppointmentTimeRange(appointment.date, appointment.start_time, appointment.end_time)}
                               </div>
-                              <div className="truncate font-semibold text-white">
+                              <div className="truncate font-semibold text-text">
                                 {appointment.name ?? "Unnamed appointment"}
                               </div>
-                              <div className="truncate text-sm text-white/55">{appointment.phone ?? "-"}</div>
-                              <div className="mt-1 truncate text-sm text-white/55 xl:hidden">
+                              <div className="truncate text-sm text-muted-foreground">{appointment.phone ?? "-"}</div>
+                              <div className="mt-1 truncate text-sm text-muted-foreground xl:hidden">
                                 {appointment.service ?? "-"}
                               </div>
                             </div>
@@ -885,8 +885,8 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                           </div>
 
                           <div className="hidden min-w-0 xl:block xl:w-56">
-                            <div className="truncate text-base font-semibold text-white">{appointment.service ?? "-"}</div>
-                            <div className="flex items-center gap-1 text-sm text-white/55">
+                            <div className="truncate text-base font-semibold text-text">{appointment.service ?? "-"}</div>
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
                               <MapPin className="h-3.5 w-3.5" />
                               {appointment.location ?? "-"}
                             </div>
@@ -897,7 +897,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                           <button
                             type="button"
                             onClick={() => openEditModal(appointment, "reschedule")}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:border-white/20 hover:text-white"
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition hover:text-text"
                             title="Reschedule"
                             aria-label="Reschedule appointment"
                           >
@@ -906,7 +906,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                           <button
                             type="button"
                             onClick={() => openEditModal(appointment, "edit")}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:border-white/20 hover:text-white"
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition hover:text-text"
                             title="Edit"
                             aria-label="Edit appointment"
                           >
@@ -921,7 +921,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                                 nextStatus: "cancelled",
                               });
                             }}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:border-rose-500/30 hover:text-rose-300"
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition hover:border-rose-500/30 hover:text-rose-600"
                             title="Cancel"
                             aria-label="Cancel appointment"
                           >
@@ -930,7 +930,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                           <button
                             type="button"
                             onClick={() => toggleExpanded(appointment.id)}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:border-white/20 hover:text-white"
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition hover:text-text"
                             aria-label={isExpanded ? "Collapse details" : "Expand details"}
                           >
                             <ChevronDown className={`h-4 w-4 transition ${isExpanded ? "rotate-180" : "rotate-0"}`} />
@@ -939,7 +939,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                       </div>
 
                       {isExpanded && (
-                        <div className="mt-4 grid gap-2 border-t border-white/10 pt-4 text-sm text-white/60 sm:grid-cols-2 lg:grid-cols-4">
+                        <div className="mt-4 grid gap-2 border-t border-border pt-4 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
                           <div>Customer: {appointment.name ?? "-"}</div>
                           <div>Phone: {appointment.phone ?? "-"}</div>
                           <div>Email: {appointment.email ?? "-"}</div>
