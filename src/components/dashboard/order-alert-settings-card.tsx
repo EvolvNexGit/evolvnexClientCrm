@@ -15,7 +15,7 @@ export function OrderAlertSettingsCard() {
             Order alerts
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Sound and browser notification when an Air Menu order arrives. POS billing is ignored.
+            Sound and browser notification when a new Air Menu order arrives. Keep this On, then place a fresh order — tickets already in the queue will not replay.
           </p>
           <p className="mt-2 text-sm text-text">{statusLabel}</p>
           {error && <p className="mt-2 text-sm text-primary">{error}</p>}

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { fetchActiveOrders } from "@/lib/billing-queries";
 import type { TransactionRecord } from "@/lib/billing-types";
-import { isNotifiableOrderSource } from "@/lib/order-alert-policy";
+import { isLocalPosOrderId } from "@/lib/order-alert-policy";
 import {
   loadKnownOrderIds,
   saveKnownOrderIds,
@@ -11,8 +11,9 @@ import {
   unlockOrderAlertAudio,
 } from "@/lib/order-notifications";
 import { getSupabaseClient } from "@/lib/supabase";
+import { parseDbTimestamp } from "@/lib/time-utils";
 
-const ALERT_POLL_MS = 8_000;
+const ALERT_POLL_MS = 3_000;
 
 type PushMessagePayload = {
   orderId?: string;
@@ -74,6 +75,7 @@ export function useOrderAlerts(clientId: string | null, enabled: boolean) {
 
     const activeClientId = clientId;
     const supabase = getSupabaseClient();
+    const watchStartedAtMs = Date.now() - 2_000;
     knownOrderIdsRef.current = loadKnownOrderIds(activeClientId);
     hasHydratedRef.current = false;
     pendingRealtimeRef.current = [];
@@ -83,8 +85,15 @@ export function useOrderAlerts(clientId: string | null, enabled: boolean) {
       saveKnownOrderIds(activeClientId, knownOrderIdsRef.current);
     };
 
+    const shouldSkip = (orderId: string) => {
+      return !orderId || knownOrderIdsRef.current.has(orderId) || isLocalPosOrderId(activeClientId, orderId);
+    };
+
     const alertIfNew = (payload: AlertPayload) => {
-      if (!payload.orderId || knownOrderIdsRef.current.has(payload.orderId)) {
+      if (shouldSkip(payload.orderId)) {
+        if (payload.orderId) {
+          rememberOrder(payload.orderId);
+        }
         return;
       }
 
@@ -94,11 +103,15 @@ export function useOrderAlerts(clientId: string | null, enabled: boolean) {
 
     const scanOrders = (orders: TransactionRecord[], mode: "hydrate" | "poll") => {
       for (const order of orders) {
-        if (knownOrderIdsRef.current.has(order.id)) {
+        if (shouldSkip(order.id)) {
+          rememberOrder(order.id);
           continue;
         }
 
-        if (!isNotifiableOrderSource(order.order_source) || mode === "hydrate") {
+        const createdAtMs = parseDbTimestamp(order.created_at)?.getTime() ?? 0;
+        const placedAfterWatchStarted = createdAtMs >= watchStartedAtMs;
+
+        if (mode === "hydrate" && !placedAfterWatchStarted) {
           rememberOrder(order.id);
           continue;
         }
@@ -149,11 +162,6 @@ export function useOrderAlerts(clientId: string | null, enabled: boolean) {
           const inserted = asInsertedBill(payload.new);
           const orderId = inserted?.id != null ? String(inserted.id) : "";
           if (!orderId) {
-            return;
-          }
-
-          if (!isNotifiableOrderSource(inserted?.order_source)) {
-            rememberOrder(orderId);
             return;
           }
 

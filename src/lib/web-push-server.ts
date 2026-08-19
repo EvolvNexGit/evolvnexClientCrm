@@ -1,7 +1,7 @@
 import webpush from "web-push";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import { buildOrderAlertCopy, type OrderAlertPayload } from "@/lib/order-alert-format";
-import { isNotifiableOrderSource } from "@/lib/order-alert-policy";
+import { isPosOrderSource } from "@/lib/order-alert-policy";
 
 type PushSubscriptionRow = {
   id: string;
@@ -39,7 +39,7 @@ export function extractInsertedBill(payload: Record<string, unknown>) {
 }
 
 export function shouldSendOrderPush(bill: Record<string, unknown>) {
-  return isNotifiableOrderSource(bill.order_source);
+  return !isPosOrderSource(bill.order_source);
 }
 
 export function billToAlertPayload(bill: Record<string, unknown>): OrderAlertPayload | null {

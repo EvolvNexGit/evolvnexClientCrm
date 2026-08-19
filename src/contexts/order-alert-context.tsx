@@ -212,6 +212,9 @@ export function OrderAlertProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    persistOrderAlertsEnabled(true);
+    setEnabledState(true);
+
     triggerOrderAlert({
       orderId: `test-${Date.now()}`,
       tableNumber: "Test",
@@ -242,7 +245,7 @@ export function OrderAlertProvider({ children }: { children: ReactNode }) {
     };
   }, [clientId, enabled, permission, user]);
 
-  useOrderAlerts(clientId, enabled && Boolean(user) && permission === "granted");
+  useOrderAlerts(clientId, enabled && Boolean(user));
 
   const statusLabel = useMemo(
     () =>
