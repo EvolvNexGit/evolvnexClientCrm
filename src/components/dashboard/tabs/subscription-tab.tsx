@@ -258,7 +258,7 @@ export default function SubscriptionTab({ clientId }: { clientId: string }) {
           </Button>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3">
           <MetricCard label="Total" value={String(subscriptions.length)} />
           <MetricCard label="Active" value={String(activeCount)} />
           <MetricCard label="Inactive" value={String(inactiveCount)} />
@@ -298,7 +298,32 @@ export default function SubscriptionTab({ clientId }: { clientId: string }) {
         {subscriptions.length === 0 ? (
           <p className="text-base text-muted-foreground">No subscriptions added yet.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="space-y-3 xl:hidden">
+            {subscriptions.map((subscription) => {
+              const isActive = subscription.status === "active";
+              return (
+                <article key={subscription.id} className="rounded-2xl border border-border bg-background p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-text">{subscription.name}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{subscription.planCode} · {cycleLabel(subscription.billingCycle)}</p>
+                    </div>
+                    <p className="shrink-0 font-semibold text-text">{formatCurrency(subscription.amount)}</p>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <button type="button" onClick={() => toggleStatus(subscription.id)} className="min-h-11 flex-1 rounded-xl border border-border text-sm">
+                      {isActive ? "Deactivate" : "Activate"}
+                    </button>
+                    <button type="button" onClick={() => openEdit(subscription)} className="min-h-11 flex-1 rounded-xl border border-border text-sm">
+                      Modify
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          <div className="hidden overflow-x-auto xl:block">
             <table className="min-w-full divide-y divide-border text-left text-base">
               <thead>
                 <tr className="text-sm uppercase tracking-wide text-muted-foreground">
@@ -358,6 +383,7 @@ export default function SubscriptionTab({ clientId }: { clientId: string }) {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
     </div>
@@ -368,7 +394,7 @@ function MetricCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-border bg-background px-4 py-3">
       <p className="text-sm uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 text-3xl font-semibold text-text">{value}</p>
+      <p className="enx-kpi-value mt-1">{value}</p>
     </div>
   );
 }

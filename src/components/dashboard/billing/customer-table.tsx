@@ -2,6 +2,7 @@
 
 import { ListPaginationControls } from "@/components/ui/list-pagination-controls";
 import { Button } from "@/components/ui/button";
+import { RecordCard, ResponsivePageToolbar, ResponsiveRecordList, ResponsiveTableScroll } from "@/components/ui/responsive";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 import { usePersistentState } from "@/hooks/use-persistent-state";
@@ -200,23 +201,24 @@ export function CustomerTable({
 
   return (
     <div className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" onClick={exportCustomersCsv} disabled={customers.length === 0}>
-            Export CSV
-          </Button>
-          <Button type="button" onClick={openAdd}>Add Customer</Button>
-        </div>
-      </div>
-
-      <div>
-        <input
-          value={searchQuery}
-          onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search by name, phone, email, or status"
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
-        />
-      </div>
+      <ResponsivePageToolbar
+        search={
+          <input
+            value={searchQuery}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder="Search by name, phone, email, or status"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
+          />
+        }
+        actions={
+          <>
+            <Button type="button" variant="secondary" onClick={exportCustomersCsv} disabled={customers.length === 0} className="w-full sm:w-auto">
+              Export CSV
+            </Button>
+            <Button type="button" onClick={openAdd} className="w-full sm:w-auto">Add Customer</Button>
+          </>
+        }
+      />
 
       {actionError && (
         <div className="rounded-lg border border-primary/50 bg-primary/10 p-3 text-sm text-primary">{actionError}</div>
@@ -230,57 +232,87 @@ export function CustomerTable({
       />
 
       {hasRows && !error && (
-        <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="min-w-full divide-y divide-border text-base">
-            <thead className="bg-muted text-left text-sm uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-3 py-3">Name</th>
-                <th className="px-3 py-3">Phone</th>
-                <th className="px-3 py-3">Email</th>
-                <th className="px-3 py-3">Status</th>
-                <th className="px-3 py-3">DOB</th>
-                <th className="px-3 py-3">Created</th>
-                <th className="px-3 py-3">Orders</th>
-                <th className="px-3 py-3">Spent</th>
-                <th className="px-3 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {customers.map((customer) => (
-                <tr key={customer.id} className="hover:bg-muted/40">
-                  <td className="px-3 py-3 text-text">{customer.name}</td>
-                  <td className="px-3 py-3 text-muted-foreground">{customer.phone ?? "-"}</td>
-                  <td className="px-3 py-3 text-muted-foreground">{customer.email ?? "-"}</td>
-                  <td className="px-3 py-3 text-muted-foreground">{customer.outreach_status || "-"}</td>
-                  <td className="px-3 py-3 text-muted-foreground">{formatDateOnly(customer.dob)}</td>
-                  <td className="px-3 py-3 text-muted-foreground">{formatUtcToIst(customer.created_at)}</td>
-                  <td className="px-3 py-3 text-muted-foreground">{customer.totalOrders}</td>
-                  <td className="px-3 py-3 text-muted-foreground">{formatCurrency(customer.totalSpent)}</td>
-                  <td className="px-3 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(customer)}
-                        className="rounded-md border border-border px-2 py-1 text-sm text-muted-foreground hover:text-text"
-                        disabled={saving}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPendingDeleteCustomer(customer)}
-                        className="rounded-md border border-primary/50 px-2 py-1 text-sm text-primary"
-                        disabled={saving}
-                      >
-                        Deactivate
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ResponsiveRecordList
+          cards={customers.map((customer) => (
+            <RecordCard key={customer.id}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-text">{customer.name}</p>
+                  <p className="mt-1 truncate text-sm text-muted-foreground">{customer.phone ?? "-"}</p>
+                  <p className="truncate text-sm text-muted-foreground">{customer.email ?? "-"}</p>
+                  <p className="mt-1 truncate text-sm text-muted-foreground">
+                    Status: {customer.outreach_status || "-"}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm text-muted-foreground">{customer.totalOrders} orders</p>
+                  <p className="mt-1 font-semibold text-text">{formatCurrency(customer.totalSpent)}</p>
+                </div>
+              </div>
+              <div className="mt-3 flex gap-2">
+                <Button type="button" variant="secondary" onClick={() => openEdit(customer)} disabled={saving} className="flex-1">
+                  Edit
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => setPendingDeleteCustomer(customer)} disabled={saving} className="flex-1">
+                  Deactivate
+                </Button>
+              </div>
+            </RecordCard>
+          ))}
+          table={
+            <ResponsiveTableScroll>
+              <table className="min-w-full divide-y divide-border text-base">
+                <thead className="bg-muted text-left text-sm uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-3">Name</th>
+                    <th className="px-3 py-3">Phone</th>
+                    <th className="px-3 py-3">Email</th>
+                    <th className="px-3 py-3">Status</th>
+                    <th className="px-3 py-3">DOB</th>
+                    <th className="px-3 py-3">Created</th>
+                    <th className="px-3 py-3">Orders</th>
+                    <th className="px-3 py-3">Spent</th>
+                    <th className="px-3 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {customers.map((customer) => (
+                    <tr key={customer.id} className="hover:bg-muted/40">
+                      <td className="px-3 py-3 text-text">{customer.name}</td>
+                      <td className="px-3 py-3 text-muted-foreground">{customer.phone ?? "-"}</td>
+                      <td className="px-3 py-3 text-muted-foreground">{customer.email ?? "-"}</td>
+                      <td className="px-3 py-3 text-muted-foreground">{customer.outreach_status || "-"}</td>
+                      <td className="px-3 py-3 text-muted-foreground">{formatDateOnly(customer.dob)}</td>
+                      <td className="px-3 py-3 text-muted-foreground">{formatUtcToIst(customer.created_at)}</td>
+                      <td className="px-3 py-3 text-muted-foreground">{customer.totalOrders}</td>
+                      <td className="px-3 py-3 text-muted-foreground">{formatCurrency(customer.totalSpent)}</td>
+                      <td className="px-3 py-3">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(customer)}
+                            className="rounded-md border border-border px-2 py-1 text-sm text-muted-foreground hover:text-text"
+                            disabled={saving}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPendingDeleteCustomer(customer)}
+                            className="rounded-md border border-primary/50 px-2 py-1 text-sm text-primary"
+                            disabled={saving}
+                          >
+                            Deactivate
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ResponsiveTableScroll>
+          }
+        />
       )}
 
       <ListPaginationControls

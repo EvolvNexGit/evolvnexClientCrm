@@ -7,10 +7,12 @@ export function UserMenu({
   userLabel,
   onOpenProfile,
   onLogout,
+  compact = false,
 }: {
   userLabel: string;
   onOpenProfile: () => void;
   onLogout: () => Promise<void>;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -48,17 +50,26 @@ export function UserMenu({
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-2 py-1.5 text-left hover:bg-muted sm:px-3"
+        className={
+          compact
+            ? "inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-left hover:bg-muted"
+            : "inline-flex items-center gap-2 rounded-xl border border-border bg-card px-2 py-1.5 text-left hover:bg-muted sm:px-3"
+        }
+        aria-label={compact ? userLabel : undefined}
         aria-haspopup="menu"
         aria-expanded={open}
       >
         <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
           {initials}
         </span>
-        <span className="hidden max-w-[120px] truncate text-sm font-medium text-text sm:inline">
-          {userLabel}
-        </span>
-        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        {!compact ? (
+          <>
+            <span className="hidden max-w-[120px] truncate text-sm font-medium text-text sm:inline">
+              {userLabel}
+            </span>
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          </>
+        ) : null}
       </button>
 
       {open ? (

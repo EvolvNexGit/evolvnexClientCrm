@@ -418,7 +418,7 @@ function PromotionModal({ open, mode, promotion, products, productTypes, saving,
       open={open}
       title={mode === "create" ? "New promotion" : `Edit ${promotion?.name ?? "promotion"}`}
       onClose={onClose}
-      contentClassName="sm:max-w-6xl"
+      contentClassName="xl:max-w-6xl"
     >
       <form className="space-y-6" onSubmit={handleSubmit}>
         {error && <div className="rounded-xl border border-primary/50 bg-primary/10 p-3 text-sm text-primary">{error}</div>}
@@ -823,7 +823,7 @@ export default function PromosTab({ clientId }: { clientId: string }) {
         </Button>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-border bg-background p-4">
           <div className="text-sm text-muted-foreground">Total promos</div>
           <div className="mt-2 text-2xl font-semibold text-text">{summary.total}</div>

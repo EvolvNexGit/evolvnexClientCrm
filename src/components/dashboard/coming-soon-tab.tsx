@@ -10,7 +10,7 @@ export default function ComingSoonTab({
   description?: string;
 }) {
   return (
-    <section className="flex min-h-[420px] flex-col items-center justify-center rounded-2xl border border-border bg-card px-6 py-16 text-center">
+    <section className="flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-border bg-card px-6 py-12 text-center md:min-h-[360px]">
       <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary">
         <Sparkles className="h-5 w-5" />
       </div>

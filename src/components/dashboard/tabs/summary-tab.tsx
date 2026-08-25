@@ -2,7 +2,9 @@
 
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Moon, Sun, Trash2 } from "lucide-react";
+import { OrderAlertSettingsCard } from "@/components/dashboard/order-alert-settings-card";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/contexts/theme-context";
 import { getSupabaseClient } from "@/lib/supabase";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import { formatUtcToIst } from "@/lib/time-utils";
@@ -27,6 +29,7 @@ type TaskRow = {
 const TASK_COLUMNS = "id, title, desc, is_completed, created_at";
 
 export default function SummaryTab({ clientId }: { clientId: string }) {
+  const { theme, setTheme } = useTheme();
   const [clientInfo, setClientInfo] = useState<ClientInfo | null>(null);
   const [clientInfoError, setClientInfoError] = useState<string | null>(null);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
@@ -266,7 +269,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
   return (
     <section className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold text-text">My Profile</h1>
+        <h1 className="enx-page-title">My Profile</h1>
         <p className="mt-1 text-base text-muted-foreground">
           Manage your account settings and workspace preferences.
         </p>
@@ -310,10 +313,9 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
           <div>
             <h2 className="text-base font-semibold text-text">Appearance</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Dark / Light mode control (theme switching coming soon).
+              Switch between dark and light. Saved on this device.
             </p>
           </div>
-          {/* UI-only control — does not change theme yet */}
           <div
             className="inline-flex items-center gap-1 rounded-full border border-border bg-background p-1"
             role="group"
@@ -321,19 +323,24 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
           >
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-sm font-medium text-white"
-              aria-pressed="true"
-              title="Dark mode (active)"
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ${
+                theme === "dark" ? "bg-primary text-white" : "text-muted-foreground"
+              }`}
+              aria-pressed={theme === "dark"}
+              title="Dark mode"
+              onClick={() => setTheme("dark")}
             >
               <Moon className="h-3.5 w-3.5" />
               Dark
             </button>
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-muted-foreground"
-              aria-pressed="false"
-              title="Light mode (coming soon)"
-              onClick={(event) => event.preventDefault()}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ${
+                theme === "light" ? "bg-primary text-white" : "text-muted-foreground"
+              }`}
+              aria-pressed={theme === "light"}
+              title="Light mode"
+              onClick={() => setTheme("light")}
             >
               <Sun className="h-3.5 w-3.5" />
               Light
@@ -342,6 +349,8 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
         </div>
       </div>
 
+      <OrderAlertSettingsCard />
+
       <div className="rounded-2xl border border-border bg-card p-4">
         <div className="flex items-center justify-end gap-3">
           <Button type="button" variant="secondary" onClick={() => void refreshTasks()} disabled={tasksLoading || tasksSaving}>
@@ -349,7 +358,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
           </Button>
         </div>
 
-        <form className="mt-4 grid gap-3 sm:grid-cols-[1.2fr_2fr_auto]" onSubmit={(event) => void addTask(event)}>
+        <form className="mt-4 grid gap-3 md:grid-cols-[1.2fr_2fr_auto]" onSubmit={(event) => void addTask(event)}>
           <input
             value={titleInput}
             onChange={(event) => setTitleInput(event.target.value)}
@@ -369,7 +378,23 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
 
         {tasksError && <p className="mt-3 rounded-lg border border-primary/50 bg-primary/10 p-2 text-sm text-primary">{tasksError}</p>}
 
-        <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+        <div className="mt-4 space-y-3 xl:hidden">
+          {visibleTasks.map((task) => (
+            <article key={task.id} className="rounded-xl border border-border bg-background p-3">
+              <label className="flex items-start gap-3">
+                <input type="checkbox" checked={task.is_completed} onChange={() => void toggleTask(task)} disabled={tasksSaving} className="mt-1 h-4 w-4" />
+                <span className={task.is_completed ? "min-w-0 text-muted-foreground line-through" : "min-w-0 text-text"}>
+                  <span className="block font-medium">{task.title}</span>
+                  <span className="mt-1 block text-sm text-muted-foreground">{task.desc ?? "-"}</span>
+                </span>
+              </label>
+              <Button type="button" variant="secondary" onClick={() => void deleteTask(task)} disabled={tasksSaving} className="mt-3 w-full">
+                Delete
+              </Button>
+            </article>
+          ))}
+        </div>
+        <div className="mt-4 hidden overflow-x-auto rounded-xl border border-border xl:block">
           <table className="min-w-full divide-y divide-border text-base">
             <thead className="bg-muted text-left text-sm uppercase tracking-wide text-muted-foreground">
               <tr>

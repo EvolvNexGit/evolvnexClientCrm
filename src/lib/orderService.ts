@@ -1,6 +1,7 @@
 import { getSupabaseClient } from "@/lib/supabase";
 import type { ProductRecord } from "@/lib/billing-types";
 import { BILL_ORDER_SOURCE_POS } from "@/lib/billing-types";
+import { rememberLocalPosOrderId } from "@/lib/order-alert-policy";
 import type { InventoryUnit } from "@/lib/inventory-types";
 
 export type CartItem = {
@@ -312,6 +313,8 @@ export const orderService = {
     if (!orderResult) {
       throw new Error("Order created but RPC response was missing the bill identifier.");
     }
+
+    rememberLocalPosOrderId(clientId, orderResult.billId);
 
     return {
       billId: orderResult.billId,

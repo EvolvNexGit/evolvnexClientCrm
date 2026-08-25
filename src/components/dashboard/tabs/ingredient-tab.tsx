@@ -149,9 +149,9 @@ function ActionsMenu({
                 }}
                 className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${
                   item.tone === "danger"
-                    ? "text-rose-300 hover:bg-rose-500/10"
+                    ? "text-primary hover:bg-primary/10"
                     : item.tone === "accent"
-                      ? "text-emerald-300 hover:bg-emerald-500/10"
+                      ? "text-text hover:bg-muted/70"
                       : "text-text hover:bg-muted/70"
                 }`}
               >
@@ -427,7 +427,7 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
       </div>
 
       {lowStockIngredients.length > 0 && (
-        <p className="text-sm text-amber-300">
+        <p className="text-sm text-primary">
           {lowStockIngredients.length} ingredient{lowStockIngredients.length === 1 ? "" : "s"} below threshold or out of stock
         </p>
       )}
@@ -437,12 +437,12 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
       )}
 
       {!loading && !error && lowStockIngredients.length > 0 && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-300">
-          <p className="font-medium text-amber-200">Low ingredient warning</p>
-          <p className="mt-1">
+        <div className="rounded-lg border border-primary/40 bg-primary/10 p-3 text-sm text-text">
+          <p className="font-medium text-primary">Low ingredient warning</p>
+          <p className="mt-1 text-muted-foreground">
             {lowStockIngredients.length} ingredient{lowStockIngredients.length === 1 ? "" : "s"} need restocking:
           </p>
-          <ul className="mt-2 list-inside list-disc space-y-1 text-amber-200/90">
+          <ul className="mt-2 list-inside list-disc space-y-1 text-text">
             {lowStockIngredients.map((ingredient) => (
               <li key={ingredient.id}>
                 {ingredient.name} — {formatNumber(ingredient.quantity)} {ingredient.quantity_unit}
@@ -466,7 +466,72 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
       />
 
       {hasRows && !pagedIngredients.error && (
-        <div className="overflow-x-auto rounded-xl border border-border">
+        <>
+        <div className="space-y-3 xl:hidden">
+          {displayedIngredients.map((ingredient) => {
+            const lowStock = isIngredientLowStock(ingredient);
+            const outOfStock = isIngredientOutOfStock(ingredient);
+            const rowMenuItems: MenuItem[] = [
+              ...(showStockTools
+                ? [
+                    {
+                      id: `reset-${ingredient.id}`,
+                      label: "Reset to 0",
+                      icon: <RotateCcw className="h-4 w-4" />,
+                      onClick: () => setPendingStockAction({ type: "reset-one", ingredient }),
+                      disabled: saving || ingredient.quantity === 0,
+                    },
+                    {
+                      id: `restock-${ingredient.id}`,
+                      label: "Set to threshold",
+                      icon: <PackagePlus className="h-4 w-4" />,
+                      tone: "accent" as const,
+                      onClick: () => setPendingStockAction({ type: "restock-one", ingredient }),
+                      disabled: saving || ingredient.quantity === (ingredient.threshold ?? 0),
+                    },
+                  ]
+                : []),
+              {
+                id: `edit-${ingredient.id}`,
+                label: "Edit",
+                icon: <Pencil className="h-4 w-4" />,
+                onClick: () => openEdit(ingredient),
+                disabled: saving,
+                separatorBefore: showStockTools,
+              },
+              {
+                id: `delete-${ingredient.id}`,
+                label: "Delete",
+                icon: <Trash2 className="h-4 w-4" />,
+                tone: "danger",
+                onClick: () => setPendingDeleteIngredient(ingredient),
+                disabled: saving,
+              },
+            ];
+
+            return (
+              <article key={ingredient.id} className="rounded-2xl border border-border bg-background p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-text">{ingredient.name}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {formatNumber(ingredient.quantity)} {ingredient.quantity_unit}
+                      {ingredient.threshold !== null ? ` · threshold ${formatNumber(ingredient.threshold)}` : ""}
+                    </p>
+                    <p className="truncate text-sm text-muted-foreground">{ingredient.seller_name ?? "-"}</p>
+                  </div>
+                  <ActionsMenu label={`Actions for ${ingredient.name}`} disabled={saving} items={rowMenuItems} />
+                </div>
+                {outOfStock ? (
+                  <span className="mt-2 inline-flex rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">Out of stock</span>
+                ) : lowStock ? (
+                  <span className="mt-2 inline-flex rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">Low stock</span>
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
+        <div className="hidden overflow-x-auto rounded-xl border border-border xl:block">
           <table className="min-w-full divide-y divide-border text-base">
             <thead className="bg-muted text-left text-sm uppercase tracking-wide text-muted-foreground">
               <tr>
@@ -524,22 +589,20 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
                 <tr
                   key={ingredient.id}
                   className={
-                    outOfStock
-                      ? "bg-rose-500/10 hover:bg-rose-500/15"
-                      : lowStock
-                        ? "bg-amber-500/10 hover:bg-amber-500/15"
-                        : "hover:bg-muted/40"
+                    outOfStock || lowStock
+                      ? "bg-primary/10 hover:bg-primary/15"
+                      : "hover:bg-muted/40"
                   }
                 >
                   <td className="px-3 py-3 text-text">
                     <div className="flex flex-wrap items-center gap-2">
                       <span>{ingredient.name}</span>
                       {outOfStock ? (
-                        <span className="rounded-md bg-rose-500/20 px-2 py-0.5 text-xs font-semibold text-rose-300">
+                        <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
                           Out of stock
                         </span>
                       ) : lowStock ? (
-                        <span className="rounded-md bg-amber-500/20 px-2 py-0.5 text-xs font-semibold text-amber-300">
+                        <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
                           Low stock
                         </span>
                       ) : null}
@@ -565,6 +628,7 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       <ListPaginationControls
