@@ -6,6 +6,8 @@ import {
   type CommunicationAutoReply,
   type CommunicationAutoReplyPayload,
   type CommunicationMessageEvent,
+  type MessageTemplatePayload,
+  type MessageTemplateRecord,
   type WhatsAppConnectionPublic,
 } from "@/lib/communication-types";
 
@@ -142,6 +144,117 @@ export async function deleteAutoReply(clientId: string, replyId: string): Promis
 
   if (error) {
     raise(error, "Unable to delete auto-reply.");
+  }
+}
+
+function mapMessageTemplate(row: Record<string, unknown>): MessageTemplateRecord {
+  return {
+    id: String(row.id),
+    client_id: String(row.client_id),
+    title: String(row.title ?? ""),
+    body: String(row.body ?? ""),
+    category: row.category == null || row.category === "" ? null : String(row.category),
+    notes: row.notes == null || row.notes === "" ? null : String(row.notes),
+    created_at: String(row.created_at ?? ""),
+    updated_at: String(row.updated_at ?? ""),
+  };
+}
+
+function normalizeOptionalText(value: string | null | undefined): string | null {
+  if (value == null) {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export async function fetchMessageTemplates(clientId: string): Promise<MessageTemplateRecord[]> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("communication_message_templates")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    raise(error, "Unable to load message templates.");
+  }
+
+  return (data ?? []).map((row) => mapMessageTemplate(row as Record<string, unknown>));
+}
+
+export async function createMessageTemplate(
+  clientId: string,
+  payload: MessageTemplatePayload,
+): Promise<void> {
+  const supabase = getClient();
+  const title = payload.title.trim();
+  const body = payload.body.trim();
+
+  if (!title) {
+    throw new Error("Title is required.");
+  }
+  if (!body) {
+    throw new Error("Body is required.");
+  }
+
+  const { error } = await supabase.from("communication_message_templates").insert({
+    client_id: clientId,
+    title,
+    body,
+    category: normalizeOptionalText(payload.category),
+    notes: normalizeOptionalText(payload.notes),
+    updated_at: new Date().toISOString(),
+  });
+
+  if (error) {
+    raise(error, "Unable to create message template.");
+  }
+}
+
+export async function updateMessageTemplate(
+  clientId: string,
+  templateId: string,
+  payload: MessageTemplatePayload,
+): Promise<void> {
+  const supabase = getClient();
+  const title = payload.title.trim();
+  const body = payload.body.trim();
+
+  if (!title) {
+    throw new Error("Title is required.");
+  }
+  if (!body) {
+    throw new Error("Body is required.");
+  }
+
+  const { error } = await supabase
+    .from("communication_message_templates")
+    .update({
+      title,
+      body,
+      category: normalizeOptionalText(payload.category),
+      notes: normalizeOptionalText(payload.notes),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("client_id", clientId)
+    .eq("id", templateId);
+
+  if (error) {
+    raise(error, "Unable to update message template.");
+  }
+}
+
+export async function deleteMessageTemplate(clientId: string, templateId: string): Promise<void> {
+  const supabase = getClient();
+  const { error } = await supabase
+    .from("communication_message_templates")
+    .delete()
+    .eq("client_id", clientId)
+    .eq("id", templateId);
+
+  if (error) {
+    raise(error, "Unable to delete message template.");
   }
 }
 

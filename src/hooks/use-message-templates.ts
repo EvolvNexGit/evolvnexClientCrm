@@ -3,18 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { formatSupabaseError } from "@/lib/supabase";
 import {
-  createAutoReply,
-  deleteAutoReply,
-  ensureDefaultAutoReplies,
-  updateAutoReply,
+  createMessageTemplate,
+  deleteMessageTemplate,
+  fetchMessageTemplates,
+  updateMessageTemplate,
 } from "@/lib/communication-queries";
-import type {
-  CommunicationAutoReply,
-  CommunicationAutoReplyPayload,
-} from "@/lib/communication-types";
+import type { MessageTemplatePayload, MessageTemplateRecord } from "@/lib/communication-types";
 
-export function useWhatsAppAutoReplies(clientId: string) {
-  const [replies, setReplies] = useState<CommunicationAutoReply[]>([]);
+export function useMessageTemplates(clientId: string) {
+  const [templates, setTemplates] = useState<MessageTemplateRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,10 +20,10 @@ export function useWhatsAppAutoReplies(clientId: string) {
     try {
       setLoading(true);
       setError(null);
-      const nextReplies = await ensureDefaultAutoReplies(clientId);
-      setReplies(nextReplies);
+      const nextTemplates = await fetchMessageTemplates(clientId);
+      setTemplates(nextTemplates);
     } catch (fetchError) {
-      setError(formatSupabaseError(fetchError, "Unable to load WhatsApp auto-replies."));
+      setError(formatSupabaseError(fetchError, "Unable to load message templates."));
     } finally {
       setLoading(false);
     }
@@ -36,15 +33,15 @@ export function useWhatsAppAutoReplies(clientId: string) {
     void refresh();
   }, [refresh]);
 
-  const addReply = useCallback(
-    async (payload: CommunicationAutoReplyPayload) => {
+  const addTemplate = useCallback(
+    async (payload: MessageTemplatePayload) => {
       setSaving(true);
       try {
         setError(null);
-        await createAutoReply(clientId, payload);
+        await createMessageTemplate(clientId, payload);
         await refresh();
       } catch (saveError) {
-        setError(formatSupabaseError(saveError, "Unable to create auto-reply."));
+        setError(formatSupabaseError(saveError, "Unable to create message template."));
         throw saveError;
       } finally {
         setSaving(false);
@@ -53,15 +50,15 @@ export function useWhatsAppAutoReplies(clientId: string) {
     [clientId, refresh],
   );
 
-  const editReply = useCallback(
-    async (replyId: string, payload: CommunicationAutoReplyPayload) => {
+  const editTemplate = useCallback(
+    async (templateId: string, payload: MessageTemplatePayload) => {
       setSaving(true);
       try {
         setError(null);
-        await updateAutoReply(clientId, replyId, payload);
+        await updateMessageTemplate(clientId, templateId, payload);
         await refresh();
       } catch (saveError) {
-        setError(formatSupabaseError(saveError, "Unable to update auto-reply."));
+        setError(formatSupabaseError(saveError, "Unable to update message template."));
         throw saveError;
       } finally {
         setSaving(false);
@@ -70,15 +67,15 @@ export function useWhatsAppAutoReplies(clientId: string) {
     [clientId, refresh],
   );
 
-  const removeReply = useCallback(
-    async (replyId: string) => {
+  const removeTemplate = useCallback(
+    async (templateId: string) => {
       setSaving(true);
       try {
         setError(null);
-        await deleteAutoReply(clientId, replyId);
+        await deleteMessageTemplate(clientId, templateId);
         await refresh();
       } catch (saveError) {
-        setError(formatSupabaseError(saveError, "Unable to delete auto-reply."));
+        setError(formatSupabaseError(saveError, "Unable to delete message template."));
         throw saveError;
       } finally {
         setSaving(false);
@@ -88,13 +85,13 @@ export function useWhatsAppAutoReplies(clientId: string) {
   );
 
   return {
-    replies,
+    templates,
     loading,
     saving,
     error,
     refresh,
-    addReply,
-    editReply,
-    removeReply,
+    addTemplate,
+    editTemplate,
+    removeTemplate,
   };
 }

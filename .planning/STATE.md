@@ -1,0 +1,103 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+current_phase: 1
+current_phase_name: Conversation model
+status: planning
+stopped_at: Phase 1 context gathered
+last_updated: "2026-08-26T22:40:00.000Z"
+last_activity: 2026-08-26
+last_activity_desc: Completed quick task 260826-5p8 — merged develop into feature/consultation-tab
+progress:
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+---
+
+# Project State
+
+## Project Reference
+
+See: .planning/PROJECT.md (updated 2026-08-20)
+
+**Core value:** A tenant's people and conversations live in one isolated system — CRM plus inbox — without mixing tenants, leaking secrets, or baking WhatsApp into Communication.
+**Current focus:** Phase 1: Conversation model
+
+## Current Position
+
+Phase: 1 of 6 (Conversation model)
+Plan: none (ready to plan)
+Status: Ready to plan
+Last activity: 2026-08-23 — Onboarding complete; Phase 1 context captured
+
+Progress: ░░░░░░░░░░ 0%
+
+## Performance Metrics
+
+**Velocity:**
+
+- Total plans completed: 0
+- Average duration: —
+- Total execution time: 0 hours
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
+
+**Recent Trend:**
+
+- Last 5 plans: —
+- Trend: —
+
+*Updated after each plan completion*
+
+## Accumulated Context
+
+### Decisions
+
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
+
+- v1 = keep CRM tabs + Conversations/inbox (WhatsApp first provider)
+- Campaigns/automation/POS/LEADS/HRM/AirMenu deferred
+- Generic conversation model; Constitution non-negotiable
+- Researchers stalled; research docs authored by orchestrator 2026-08-20
+- Vertical MVP phases (`**Mode:** mvp`)
+
+### Pending Todos
+
+None yet.
+
+### Blockers/Concerns
+
+- Numbered architecture specs live outside this repo — stop if a change needs them
+- Core CRM schema/RLS still not fully versioned; inbox tables must still ship with RLS
+- Known webhook HMAC/status bugs must be fixed in Phase 2, not papered over
+
+## Deferred Items
+
+Items acknowledged and carried forward from previous milestone close:
+
+| Category | Item | Status | Deferred At |
+|----------|------|--------|-------------|
+| *(none)* | | | |
+
+## Quick Tasks Completed
+
+| ID | Title | Date | Summary |
+|----|-------|------|---------|
+| 260826-4tb | LEADS Templates tab CRUD for prefilled messages | 2026-08-26 | `.planning/quick/260826-4tb-leads-templates-tab-crud-for-prefilled-m/260826-4tb-SUMMARY.md` |
+| 260826-56h | Templates tab centered list + slide editor | 2026-08-26 | `.planning/quick/260826-56h-templates-tab-ui-centered-list-as-defaul/260826-56h-SUMMARY.md` |
+| 260826-59z | Auto Replies tab strip credentials and extras | 2026-08-26 | `.planning/quick/260826-59z-remove-whatsapp-cloud-api-credentials-se/260826-59z-SUMMARY.md` |
+| 260826-5fh | LEADS WhatsApp Settings credentials sub-tab | 2026-08-26 | `.planning/quick/260826-5fh-leads-whatsapp-settings-sub-tab-single-p/260826-5fh-SUMMARY.md` |
+| 260826-5p8 | Merge develop into feature/consultation-tab | 2026-08-26 | `.planning/quick/260826-5p8-pull-latest-develop-into-feature-consult/260826-5p8-SUMMARY.md` |
+
+## Session Continuity
+
+Last session: 2026-08-26T22:40:00Z
+Stopped at: Completed quick task 260826-5p8 (merge develop)
+Resume file: None
