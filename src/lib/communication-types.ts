@@ -20,6 +20,24 @@ export type CommunicationAutoReplyPayload = {
   sortOrder?: number;
 };
 
+export type MessageTemplateRecord = {
+  id: string;
+  client_id: string;
+  title: string;
+  body: string;
+  category: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MessageTemplatePayload = {
+  title: string;
+  body: string;
+  category: string | null;
+  notes: string | null;
+};
+
 export type CommunicationMessageEvent = {
   id: string;
   client_id: string;
