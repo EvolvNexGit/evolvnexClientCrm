@@ -167,6 +167,44 @@ export async function getWhatsAppCredentialPublic(
   return mapPublicConnection(clientId, account);
 }
 
+export async function disconnectWhatsAppCredentials(params: {
+  supabase: SupabaseClient;
+  clientId: string;
+}): Promise<WhatsAppCredentialPublic> {
+  const { error: credError } = await params.supabase
+    .from("communication_whatsapp_credentials")
+    .delete()
+    .eq("client_id", params.clientId);
+
+  if (credError) {
+    throw credError;
+  }
+
+  const { error: accountError } = await params.supabase.from("communication_provider_accounts").upsert(
+    {
+      client_id: params.clientId,
+      provider: "whatsapp",
+      status: "disconnected",
+      phone_number_id: null,
+      display_phone: null,
+      waba_id: null,
+      metadata: {
+        has_access_token: false,
+        has_app_secret: false,
+        has_verify_token: false,
+      },
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "client_id,provider" },
+  );
+
+  if (accountError) {
+    throw accountError;
+  }
+
+  return getWhatsAppCredentialPublic(params.supabase, params.clientId);
+}
+
 async function decryptClientSecrets(clientId: string): Promise<WhatsAppCredentialSecrets> {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase

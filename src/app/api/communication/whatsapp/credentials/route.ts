@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { saveWhatsAppCredentials } from "@/lib/communication-credentials";
+import { saveWhatsAppCredentials, disconnectWhatsAppCredentials } from "@/lib/communication-credentials";
 import { getAuthenticatedRequestClient } from "@/lib/server/request-auth";
 
 export const runtime = "nodejs";
@@ -37,6 +37,22 @@ export async function POST(request: NextRequest) {
         : message.includes("required")
           ? 400
           : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { clientId, supabase } = await getAuthenticatedRequestClient(
+      request.headers.get("authorization"),
+    );
+
+    const connection = await disconnectWhatsAppCredentials({ supabase, clientId });
+    return NextResponse.json({ connection });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unable to disconnect WhatsApp credentials.";
+    const status = message.includes("session") ? 401 : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

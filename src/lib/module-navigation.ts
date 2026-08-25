@@ -23,6 +23,7 @@ import {
   ChefHat,
   UserRound,
   CalendarDays,
+  Settings,
 } from "lucide-react";
 import { isSpecialtySummaryTab } from "@/lib/tabs";
 import type { TabDefinition } from "@/lib/types";
@@ -100,6 +101,7 @@ export const MODULES: ModuleConfig[] = [
       { id: "contacts", label: "Contacts", kind: "coming-soon", pathKey: "leads-contacts", icon: Contact },
       { id: "campaigns", label: "Campaigns", kind: "coming-soon", pathKey: "leads-campaigns", icon: Megaphone },
       { id: "templates", label: "Templates", kind: "coming-soon", pathKey: "leads-templates", icon: Layers },
+      { id: "whatsapp-settings", label: "WhatsApp Settings", kind: "coming-soon", pathKey: "leads-whatsapp-settings", icon: Settings },
       { id: "automation", label: "Auto Replies", kind: "coming-soon", pathKey: "leads-automation", icon: Workflow },
       { id: "segments", label: "Segments", kind: "coming-soon", pathKey: "leads-segments", icon: LayoutDashboard },
     ],
