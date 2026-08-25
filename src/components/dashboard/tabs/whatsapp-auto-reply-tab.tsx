@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ArrowLeft, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataState } from "@/components/dashboard/billing/data-state";
+import { LeadsTabHeader } from "@/components/dashboard/leads/leads-tab-header";
+import { SlideEditorPanel, useSlideEditorPanel } from "@/components/dashboard/leads/slide-editor-panel";
 import { useWhatsAppAutoReplies } from "@/hooks/use-whatsapp-auto-replies";
 import type { AutoReplyMatchMode, CommunicationAutoReply } from "@/lib/communication-types";
 import { cn } from "@/lib/utils";
@@ -23,7 +25,6 @@ const emptyForm: FormState = {
 };
 
 const PREVIEW_MAX_LENGTH = 100;
-const PANEL_TRANSITION_MS = 300;
 
 function replyPreview(reply: CommunicationAutoReply): string {
   const text = reply.response_text.trim();
@@ -41,20 +42,7 @@ export default function WhatsAppAutoReplyTab({ clientId }: { clientId: string })
   const [form, setForm] = useState<FormState>(emptyForm);
   const [formError, setFormError] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
-  const [panelVisible, setPanelVisible] = useState(false);
-
-  useEffect(() => {
-    if (!panelOpen) {
-      setPanelVisible(false);
-      return;
-    }
-
-    setPanelVisible(false);
-    const frame = requestAnimationFrame(() => {
-      requestAnimationFrame(() => setPanelVisible(true));
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [panelOpen]);
+  const { panelVisible, closeWithAnimation } = useSlideEditorPanel(panelOpen);
 
   function openEditor(reply?: CommunicationAutoReply) {
     if (reply) {
@@ -74,13 +62,12 @@ export default function WhatsAppAutoReplyTab({ clientId }: { clientId: string })
   }
 
   function closeEditor() {
-    setPanelVisible(false);
-    window.setTimeout(() => {
+    closeWithAnimation(() => {
       setPanelOpen(false);
       setSelectedId(null);
       setForm(emptyForm);
       setFormError(null);
-    }, PANEL_TRANSITION_MS);
+    });
   }
 
   async function handleSave() {
@@ -117,21 +104,16 @@ export default function WhatsAppAutoReplyTab({ clientId }: { clientId: string })
 
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium uppercase tracking-wider text-primary">LEADS</p>
-            <h2 className="mt-2 text-2xl font-semibold text-text">Auto replies</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Configure keyword triggers and automatic WhatsApp responses for incoming messages.
-            </p>
-          </div>
+      <LeadsTabHeader
+        title="Auto replies"
+        description="Configure keyword triggers and automatic WhatsApp responses for incoming messages."
+        action={
           <Button type="button" variant="secondary" onClick={() => openEditor()} disabled={saving}>
             <Plus className="mr-2 h-4 w-4" />
             New
           </Button>
-        </div>
-      </section>
+        }
+      />
 
       {(error || formError) && !panelOpen && (
         <div className="rounded-xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-primary">
@@ -182,123 +164,70 @@ export default function WhatsAppAutoReplyTab({ clientId }: { clientId: string })
         )}
       </section>
 
-      {panelOpen ? (
-        <div className="fixed inset-0 z-40" role="presentation" onClick={closeEditor}>
-          <div
-            className={cn(
-              "absolute inset-0 bg-black/60 transition-opacity duration-300",
-              panelVisible ? "opacity-100" : "opacity-0",
-            )}
-          />
-          <aside
-            className={cn(
-              "fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-border bg-card shadow-soft transition-transform duration-300 ease-out",
-              panelVisible ? "translate-x-0" : "translate-x-full",
-            )}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="auto-reply-editor-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
-              <div className="flex min-w-0 items-center gap-2">
-                <button
-                  type="button"
-                  onClick={closeEditor}
-                  className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-muted hover:text-text"
-                  aria-label="Back"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </button>
-                <h3 id="auto-reply-editor-title" className="truncate text-lg font-semibold text-text">
-                  {selectedId ? "Edit auto-reply" : "New auto-reply"}
-                </h3>
-              </div>
-              <div className="flex shrink-0 flex-wrap gap-2">
-                {selectedId ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => void handleDelete()}
-                    disabled={saving}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </Button>
-                ) : null}
-                <Button type="button" onClick={() => void handleSave()} disabled={saving}>
-                  {saving ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="mr-2 h-4 w-4" />
-                  )}
-                  Save
-                </Button>
-              </div>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
-              {formError ? (
-                <div className="mb-4 rounded-xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-primary">
-                  {formError}
-                </div>
-              ) : null}
-
-              <div className="grid gap-3">
-                <label className="space-y-1 text-sm text-muted-foreground">
-                  <span>When customer sends *</span>
-                  <input
-                    value={form.triggerText}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, triggerText: event.target.value }))
-                    }
-                    placeholder="hi"
-                    className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text outline-none"
-                  />
-                </label>
-                <label className="space-y-1 text-sm text-muted-foreground">
-                  <span>Match mode</span>
-                  <select
-                    value={form.matchMode}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        matchMode: event.target.value === "contains" ? "contains" : "exact",
-                      }))
-                    }
-                    className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text"
-                  >
-                    <option value="exact">Exact match</option>
-                    <option value="contains">Contains</option>
-                  </select>
-                </label>
-                <label className="space-y-1 text-sm text-muted-foreground">
-                  <span>We reply with *</span>
-                  <textarea
-                    value={form.responseText}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, responseText: event.target.value }))
-                    }
-                    placeholder="Hello! Following are our offered services..."
-                    rows={8}
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text outline-none"
-                  />
-                </label>
-                <label className="inline-flex items-center gap-2 text-sm text-text">
-                  <input
-                    type="checkbox"
-                    checked={form.isActive}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, isActive: event.target.checked }))
-                    }
-                  />
-                  Active
-                </label>
-              </div>
-            </div>
-          </aside>
+      <SlideEditorPanel
+        open={panelOpen}
+        panelVisible={panelVisible}
+        title={selectedId ? "Edit auto-reply" : "New auto-reply"}
+        titleId="auto-reply-editor-title"
+        saving={saving}
+        canDelete={Boolean(selectedId)}
+        formError={formError}
+        onClose={closeEditor}
+        onSave={() => void handleSave()}
+        onDelete={() => void handleDelete()}
+      >
+        <div className="grid gap-3">
+          <label className="space-y-1 text-sm text-muted-foreground">
+            <span>When customer sends *</span>
+            <input
+              value={form.triggerText}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, triggerText: event.target.value }))
+              }
+              placeholder="hi"
+              className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text outline-none"
+            />
+          </label>
+          <label className="space-y-1 text-sm text-muted-foreground">
+            <span>Match mode</span>
+            <select
+              value={form.matchMode}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  matchMode: event.target.value === "contains" ? "contains" : "exact",
+                }))
+              }
+              className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text"
+            >
+              <option value="exact">Exact match</option>
+              <option value="contains">Contains</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-sm text-muted-foreground">
+            <span>We reply with *</span>
+            <textarea
+              value={form.responseText}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, responseText: event.target.value }))
+              }
+              placeholder="Hello! Following are our offered services..."
+              rows={8}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text outline-none"
+            />
+          </label>
+          <label className="inline-flex items-center gap-2 text-sm text-text">
+            <input
+              type="checkbox"
+              checked={form.isActive}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, isActive: event.target.checked }))
+              }
+            />
+            Active
+          </label>
         </div>
-      ) : null}
+      </SlideEditorPanel>
     </div>
   );
 }

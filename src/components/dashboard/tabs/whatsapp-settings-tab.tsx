@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Copy, Loader2, Save, Unplug } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DataState } from "@/components/dashboard/billing/data-state";
+import { LeadsTabHeader } from "@/components/dashboard/leads/leads-tab-header";
 import { useWhatsAppSettings } from "@/hooks/use-whatsapp-settings";
 import { cn } from "@/lib/utils";
 
@@ -77,40 +79,20 @@ export default function WhatsAppSettingsTab({ clientId }: { clientId: string }) 
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[220px] items-center justify-center gap-2 rounded-2xl border border-border bg-card text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading WhatsApp settings...
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium uppercase tracking-wider text-primary">LEADS</p>
-            <h2 className="mt-2 text-2xl font-semibold text-text">WhatsApp Settings</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Connect your tenant to the official WhatsApp Cloud API. Secrets are encrypted and never
-              shown again after save.
-            </p>
-          </div>
+      <LeadsTabHeader
+        title="WhatsApp Settings"
+        description="Connect your tenant to the official WhatsApp Cloud API. Secrets are encrypted and never shown again after save."
+        aside={
           <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm">
             <p className="text-muted-foreground">Connection</p>
-            <p
-              className={cn(
-                "mt-1 font-medium",
-                isConnected ? "text-primary" : "text-text",
-              )}
-            >
+            <p className={cn("mt-1 font-medium", isConnected ? "text-primary" : "text-text")}>
               {isConnected ? "Connected" : "Not connected"}
             </p>
           </div>
-        </div>
-      </section>
+        }
+      />
 
       {(error || formMessage) && (
         <div
@@ -125,101 +107,112 @@ export default function WhatsAppSettingsTab({ clientId }: { clientId: string }) 
         </div>
       )}
 
-      <section className="mx-auto w-full max-w-2xl rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
-        <h3 className="text-lg font-semibold text-text">Webhook URL</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Paste this callback URL in your Meta app webhook configuration. Use the same verify token
-          you enter below.
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <input
-            readOnly
-            value={webhookUrl}
-            className="min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 text-sm text-text outline-none"
-          />
-          <Button type="button" variant="secondary" onClick={() => void handleCopyWebhook()}>
-            <Copy className="mr-2 h-4 w-4" />
-            Copy
-          </Button>
-        </div>
-      </section>
+      <DataState loading={loading} error={null} empty={false} emptyLabel="" />
 
-      <section className="mx-auto w-full max-w-2xl rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
-        <h3 className="text-lg font-semibold text-text">Cloud API credentials</h3>
-        <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          <span className="rounded-full border border-border px-3 py-1">
-            Token {connection?.hasAccessToken ? "saved" : "missing"}
-          </span>
-          <span className="rounded-full border border-border px-3 py-1">
-            App secret {connection?.hasAppSecret ? "saved" : "missing"}
-          </span>
-          <span className="rounded-full border border-border px-3 py-1">
-            Verify token {connection?.hasVerifyToken ? "saved" : "missing"}
-          </span>
-        </div>
+      {!loading && (
+        <>
+          <section className="mx-auto w-full max-w-2xl rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+            <h3 className="enx-section-title">Webhook URL</h3>
+            <p className="enx-helper mt-1">
+              Paste this callback URL in your Meta app webhook configuration. Use the same verify token
+              you enter below.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <input
+                readOnly
+                value={webhookUrl}
+                className="min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 text-sm text-text outline-none"
+              />
+              <Button type="button" variant="secondary" onClick={() => void handleCopyWebhook()}>
+                <Copy className="mr-2 h-4 w-4" />
+                Copy
+              </Button>
+            </div>
+          </section>
 
-        <div className="mt-4 grid gap-3">
-          <label className="space-y-1 text-sm text-muted-foreground">
-            <span>Phone number ID *</span>
-            <input
-              value={phoneNumberId}
-              onChange={(event) => setPhoneNumberId(event.target.value)}
-              placeholder="Meta phone_number_id"
-              className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text outline-none"
-            />
-          </label>
-          <label className="space-y-1 text-sm text-muted-foreground">
-            <span>Access token {connection?.hasAccessToken ? "(leave blank to keep)" : "*"}</span>
-            <input
-              type="password"
-              autoComplete="new-password"
-              value={accessToken}
-              onChange={(event) => setAccessToken(event.target.value)}
-              placeholder={connection?.hasAccessToken ? "••••••••" : "Permanent access token"}
-              className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text outline-none"
-            />
-          </label>
-          <label className="space-y-1 text-sm text-muted-foreground">
-            <span>App secret {connection?.hasAppSecret ? "(leave blank to keep)" : "*"}</span>
-            <input
-              type="password"
-              autoComplete="new-password"
-              value={appSecret}
-              onChange={(event) => setAppSecret(event.target.value)}
-              placeholder={connection?.hasAppSecret ? "••••••••" : "Meta app secret"}
-              className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text outline-none"
-            />
-          </label>
-          <label className="space-y-1 text-sm text-muted-foreground">
-            <span>Webhook verify token {connection?.hasVerifyToken ? "(leave blank to keep)" : "*"}</span>
-            <input
-              type="password"
-              autoComplete="new-password"
-              value={verifyToken}
-              onChange={(event) => setVerifyToken(event.target.value)}
-              placeholder={connection?.hasVerifyToken ? "••••••••" : "Same value you enter in Meta webhook setup"}
-              className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text outline-none"
-            />
-          </label>
-        </div>
+          <section className="mx-auto w-full max-w-2xl rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+            <h3 className="enx-section-title">Cloud API credentials</h3>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full border border-border px-3 py-1">
+                Token {connection?.hasAccessToken ? "saved" : "missing"}
+              </span>
+              <span className="rounded-full border border-border px-3 py-1">
+                App secret {connection?.hasAppSecret ? "saved" : "missing"}
+              </span>
+              <span className="rounded-full border border-border px-3 py-1">
+                Verify token {connection?.hasVerifyToken ? "saved" : "missing"}
+              </span>
+            </div>
 
-        <div className="mt-5 flex flex-wrap gap-2">
-          <Button type="button" disabled={saving} onClick={() => void handleSave()}>
-            {saving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
-            Save credentials
-          </Button>
-          {isConnected ? (
-            <Button type="button" variant="secondary" disabled={saving} onClick={() => void handleDisconnect()}>
-              <Unplug className="mr-2 h-4 w-4" />
-              Disconnect
-            </Button>
-          ) : null}
-        </div>
-      </section>
+            <div className="mt-4 grid gap-3">
+              <label className="space-y-1 text-sm text-muted-foreground">
+                <span>Phone number ID *</span>
+                <input
+                  value={phoneNumberId}
+                  onChange={(event) => setPhoneNumberId(event.target.value)}
+                  placeholder="Meta phone_number_id"
+                  className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text outline-none"
+                />
+              </label>
+              <label className="space-y-1 text-sm text-muted-foreground">
+                <span>Access token {connection?.hasAccessToken ? "(leave blank to keep)" : "*"}</span>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={accessToken}
+                  onChange={(event) => setAccessToken(event.target.value)}
+                  placeholder={connection?.hasAccessToken ? "••••••••" : "Permanent access token"}
+                  className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text outline-none"
+                />
+              </label>
+              <label className="space-y-1 text-sm text-muted-foreground">
+                <span>App secret {connection?.hasAppSecret ? "(leave blank to keep)" : "*"}</span>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={appSecret}
+                  onChange={(event) => setAppSecret(event.target.value)}
+                  placeholder={connection?.hasAppSecret ? "••••••••" : "Meta app secret"}
+                  className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text outline-none"
+                />
+              </label>
+              <label className="space-y-1 text-sm text-muted-foreground">
+                <span>Webhook verify token {connection?.hasVerifyToken ? "(leave blank to keep)" : "*"}</span>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={verifyToken}
+                  onChange={(event) => setVerifyToken(event.target.value)}
+                  placeholder={connection?.hasVerifyToken ? "••••••••" : "Same value you enter in Meta webhook setup"}
+                  className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text outline-none"
+                />
+              </label>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Button type="button" disabled={saving} onClick={() => void handleSave()}>
+                {saving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Save credentials
+              </Button>
+              {isConnected ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={saving}
+                  onClick={() => void handleDisconnect()}
+                >
+                  <Unplug className="mr-2 h-4 w-4" />
+                  Disconnect
+                </Button>
+              ) : null}
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 }
