@@ -92,9 +92,10 @@ Items acknowledged and carried forward from previous milestone close:
 |----|-------|------|---------|
 | 260826-4tb | LEADS Templates tab CRUD for prefilled messages | 2026-08-26 | `.planning/quick/260826-4tb-leads-templates-tab-crud-for-prefilled-m/260826-4tb-SUMMARY.md` |
 | 260826-56h | Templates tab centered list + slide editor | 2026-08-26 | `.planning/quick/260826-56h-templates-tab-ui-centered-list-as-defaul/260826-56h-SUMMARY.md` |
+| 260826-59z | Auto Replies tab strip credentials and extras | 2026-08-26 | `.planning/quick/260826-59z-remove-whatsapp-cloud-api-credentials-se/260826-59z-SUMMARY.md` |
 
 ## Session Continuity
 
-Last session: 2026-08-26T22:20:00Z
-Stopped at: Completed quick task 260826-56h (Templates UI refinement)
+Last session: 2026-08-26T22:25:00Z
+Stopped at: Completed quick task 260826-59z (Auto Replies cleanup)
 Resume file: None
