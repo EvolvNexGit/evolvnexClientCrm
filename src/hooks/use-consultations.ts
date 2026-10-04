@@ -177,10 +177,43 @@ export function useConsultations(clientId: string) {
           status: payload.status ?? "IN_PROGRESS",
         });
         await refreshQueue();
-        return loadConsultation(consultationId);
+        const detail = await loadConsultation(consultationId);
+        if (detail) {
+          return detail;
+        }
+
+        // Insert succeeded but SELECT may be blocked; still return a usable shell.
+        return {
+          id: consultationId,
+          client_id: clientId,
+          patient_id: payload.patientId,
+          appointment_id: payload.appointmentId ?? null,
+          doctor_id: null,
+          visit_type: payload.visitType ?? "NEW",
+          status: payload.status ?? "IN_PROGRESS",
+          findings: payload.findings ?? null,
+          assessment: payload.assessment ?? null,
+          advice: payload.advice ?? null,
+          medication_notes: payload.medicationNotes ?? null,
+          exercise_notes: payload.exerciseNotes ?? null,
+          treatment_plan: payload.treatmentPlan ?? null,
+          other_notes: payload.otherNotes ?? null,
+          followup_date: payload.followupDate ?? null,
+          followup_duration_days: payload.followupDurationDays ?? null,
+          followup_notes: payload.followupNotes ?? null,
+          created_by: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          patient: null,
+          appointment: null,
+          medications: [],
+          exercises: [],
+          attachments: [],
+        };
       } catch (saveError) {
-        setError(formatSupabaseError(saveError, "Unable to create consultation."));
-        return null;
+        const message = formatSupabaseError(saveError, "Unable to create consultation.");
+        setError(message);
+        throw new Error(message);
       } finally {
         setSaving(false);
       }

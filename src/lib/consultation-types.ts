@@ -1,7 +1,7 @@
 export const CONSULT_STATUSES = ["DRAFT", "IN_PROGRESS", "COMPLETED", "CANCELLED"] as const;
 export type ConsultStatus = (typeof CONSULT_STATUSES)[number];
 
-export const CONSULT_VISIT_TYPES = ["new", "follow_up", "walk_in"] as const;
+export const CONSULT_VISIT_TYPES = ["NEW", "FOLLOW_UP", "WALK_IN"] as const;
 export type ConsultVisitType = (typeof CONSULT_VISIT_TYPES)[number];
 
 export type ConsultDisplayStatus = "Waiting" | "In Progress" | "Completed";
@@ -185,12 +185,15 @@ const VISIT_TYPE_TO_DISPLAY: Record<string, ConsultDisplayType> = {
   new: "New",
   follow_up: "Follow-up",
   walk_in: "Walk-in",
+  NEW: "New",
+  FOLLOW_UP: "Follow-up",
+  WALK_IN: "Walk-in",
 };
 
 const DISPLAY_TO_VISIT_TYPE: Record<ConsultDisplayType, ConsultVisitType> = {
-  New: "new",
-  "Follow-up": "follow_up",
-  "Walk-in": "walk_in",
+  New: "NEW",
+  "Follow-up": "FOLLOW_UP",
+  "Walk-in": "WALK_IN",
 };
 
 export function toDisplayStatus(status: string | null | undefined): ConsultDisplayStatus {

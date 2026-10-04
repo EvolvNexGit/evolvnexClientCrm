@@ -4,14 +4,10 @@ import { TransactionList } from "@/components/dashboard/billing/transaction-list
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { usePagedList } from "@/hooks/use-paged-list";
 import { usePersistentState } from "@/hooks/use-persistent-state";
-import { useTransactions } from "@/hooks/use-transactions";
 import { fetchTransactionsPage } from "@/lib/billing-queries";
 import type { TransactionRecord } from "@/lib/billing-types";
 
 export default function TransactionTab({ clientId }: { clientId: string }) {
-  // Kept for the realtime new-order alert side effect (subscribes to the bills table).
-  useTransactions(clientId);
-
   const [searchQuery, setSearchQuery] = usePersistentState("transaction-list-search", "");
   const [dateFrom, setDateFrom] = usePersistentState("transaction-list-date-from", "");
   const [dateTo, setDateTo] = usePersistentState("transaction-list-date-to", "");

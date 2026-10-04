@@ -22,8 +22,9 @@ export const DEFAULT_TAB_ORDER = [
 ] as const;
 
 /**
- * Vertical-specific analytics tabs. When enabled for a client they appear as a
- * separate sidebar entry labeled "AI-Analytics" alongside the default Summary tab.
+ * Vertical-specific analytics tabs. When enabled for a client they appear as
+ * "AI Insights" under the AI Analytics module. The nav layer resolves these
+ * generically via isSpecialtySummaryTab(); it does not hard-code specialty IDs.
  */
 export const SPECIALTY_SUMMARY_TAB_KEYS = [
   "cafe-summary",
@@ -33,7 +34,7 @@ export const SPECIALTY_SUMMARY_TAB_KEYS = [
 
 export type SpecialtySummaryTabKey = (typeof SPECIALTY_SUMMARY_TAB_KEYS)[number];
 
-export const SPECIALTY_SUMMARY_DISPLAY_NAME = "AI-Analytics";
+export const SPECIALTY_SUMMARY_DISPLAY_NAME = "AI Insights";
 export const SUMMARY_DISPLAY_NAME = "My Profile";
 export const INGREDIENTS_DISPLAY_NAME = "Inventory";
 
@@ -106,8 +107,8 @@ function createDefaultSummaryTab(): TabDefinition {
 }
 
 /**
- * Always keep the default Summary tab (shown as "My Profile" at the bottom),
- * rename Ingredients → Inventory, and surface specialty analytics as "AI-Analytics".
+ * Always keep the default Summary tab (shown as "My Profile" via the user menu),
+ * rename Ingredients → Inventory, and surface specialty analytics as "AI Insights".
  */
 function applySummaryTabVisibility(tabs: TabDefinition[]): TabDefinition[] {
   const withDisplayLabels = tabs.map((tab) => {

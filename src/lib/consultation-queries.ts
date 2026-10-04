@@ -166,7 +166,7 @@ function buildConsultationRow(clientId: string, payload: ConsultationPayload) {
     client_id: clientId,
     patient_id: payload.patientId,
     appointment_id: payload.appointmentId ?? null,
-    visit_type: payload.visitType ?? "new",
+    visit_type: payload.visitType ?? "NEW",
     status: payload.status ?? "DRAFT",
     findings: payload.findings ?? null,
     assessment: payload.assessment ?? null,
@@ -440,23 +440,51 @@ export async function createConsultation(clientId: string, payload: Consultation
   const supabase = getClient();
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
 
-  const { data, error } = await supabase
-    .from("consultations")
-    .insert({
-      ...buildConsultationRow(clientId, payload),
-      doctor_id: user?.id ?? null,
-      created_by: user?.id ?? null,
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    raiseQueryError(error, "Unable to create consultation.");
+  if (authError) {
+    raiseQueryError(authError, "Unable to verify signed-in user.");
   }
 
-  const consultationId = String(data.id);
+  if (!user?.id) {
+    throw new Error("You must be signed in to create a consultation.");
+  }
+
+  // Client-generated id avoids depending on SELECT-after-INSERT (often blocked by RLS).
+  const consultationId = crypto.randomUUID();
+
+  const insertRow = {
+    id: consultationId,
+    ...buildConsultationRow(clientId, payload),
+    doctor_id: user.id,
+    created_by: user.id,
+  };
+
+  const { error } = await supabase.from("consultations").insert(insertRow);
+
+  if (error) {
+    // Retry once with lowercase visit_type if the DB uses a text/lowercase enum.
+    const message = String(error.message ?? "");
+    if (message.includes("visit_type") || message.includes("consultation_visit")) {
+      const { error: retryError } = await supabase.from("consultations").insert({
+        ...insertRow,
+        visit_type: String(insertRow.visit_type ?? "NEW").toLowerCase(),
+      });
+      if (!retryError) {
+        if (payload.medications) {
+          await replaceConsultationMedications(clientId, consultationId, payload.medications);
+        }
+        if (payload.exercises) {
+          await replaceConsultationExercises(clientId, consultationId, payload.exercises);
+        }
+        return consultationId;
+      }
+      raiseQueryError(retryError, "Unable to create consultation.");
+    }
+
+    raiseQueryError(error, "Unable to create consultation.");
+  }
 
   if (payload.medications) {
     await replaceConsultationMedications(clientId, consultationId, payload.medications);
@@ -731,7 +759,7 @@ export async function startConsultationFromAppointment(
   return createConsultation(clientId, {
     patientId,
     appointmentId,
-    visitType: "new",
+    visitType: "NEW",
     status: "IN_PROGRESS",
     findings: appointment.remark ?? appointment.service ?? null,
   });

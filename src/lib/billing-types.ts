@@ -10,6 +10,13 @@ export type CustomerRecord = {
   phone: string | null;
   email: string | null;
   dob: string | null;
+  outreach_status: string | null;
+  contact_tags: string[];
+  contact_source: string | null;
+  last_activity_at: string | null;
+  is_blocked: boolean;
+  notes: string | null;
+  assigned_to: string | null;
   created_at: string;
   totalOrders: number;
   totalSpent: number;
@@ -20,7 +27,27 @@ export type CustomerPayload = {
   phone?: string | null;
   email?: string | null;
   dob?: string | null;
+  outreachStatus?: string | null;
+  contactTags?: string[];
+  contactSource?: string | null;
+  isBlocked?: boolean;
+  notes?: string | null;
+  assignedTo?: string | null;
 };
+
+export type ContactStats = {
+  total: number;
+  active: number;
+  newThisMonth: number;
+  blocked: number;
+};
+
+export type ContactAudienceGroup = {
+  label: string;
+  count: number;
+};
+
+export const CONTACT_SOURCE_OPTIONS = ["Campaign", "Walk-in", "Website", "Referral"] as const;
 
 export type ProductRecord = {
   id: string;

@@ -18,13 +18,13 @@ export function EntityModal({ open, title, onClose, children, contentClassName }
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-end justify-center bg-black/70 sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-3 pb-safe sm:items-center sm:p-4"
       onClick={onClose}
       role="presentation"
     >
       <div
         className={cn(
-          "flex max-h-[min(92dvh,100%)] w-full flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-soft sm:max-h-[min(90dvh,100%)] sm:rounded-2xl",
+          "flex max-h-[min(92dvh,100%)] w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-soft",
           contentClassName ?? "sm:max-w-lg",
         )}
         role="dialog"
@@ -33,13 +33,13 @@ export function EntityModal({ open, title, onClose, children, contentClassName }
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3 sm:px-5 sm:py-4">
-          <h3 id="entity-modal-title" className="pr-2 text-lg font-semibold leading-snug text-text sm:text-xl">
+          <h3 id="entity-modal-title" className="pr-2 text-lg font-semibold leading-snug text-text">
             {title}
           </h3>
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-text"
+            className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-border px-3 text-sm text-muted-foreground hover:bg-muted hover:text-text"
           >
             Close
           </button>

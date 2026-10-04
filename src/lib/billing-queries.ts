@@ -8,6 +8,8 @@ import {
 } from "@/lib/list-pagination";
 import { getSupabaseClient } from "@/lib/supabase";
 import type {
+  ContactAudienceGroup,
+  ContactStats,
   CustomerPayload,
   CustomerRecord,
   ProductPayload,
@@ -32,11 +34,80 @@ function normalizeCustomerValue(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase();
 }
 
+function parseContactTags(value: unknown): string[] {
+  const parts = Array.isArray(value)
+    ? value.map((item) => String(item ?? ""))
+    : String(value ?? "").split(/[,;]/);
+  const seen = new Set<string>();
+  const tags: string[] = [];
+
+  for (const part of parts) {
+    const tag = part.trim();
+    if (!tag) {
+      continue;
+    }
+    const key = tag.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    tags.push(tag);
+  }
+
+  return tags;
+}
+
+function latestTimestamp(values: Array<string | null | undefined>): string | null {
+  let latest: string | null = null;
+  let latestMs = 0;
+
+  for (const value of values) {
+    if (!value) {
+      continue;
+    }
+    const ms = Date.parse(value);
+    if (Number.isNaN(ms) || ms < latestMs) {
+      continue;
+    }
+    latestMs = ms;
+    latest = value;
+  }
+
+  return latest;
+}
+
+const CUSTOMER_SELECT =
+  "id, name, phone, email, dob, outreach_status, contact_tags, contact_source, last_activity_at, is_blocked, notes, assigned_to, created_at, bills(id, final_amount, created_at)";
+
+function mapCustomer(row: any): CustomerRecord {
+  const bills = Array.isArray(row.bills) ? row.bills : [];
+  const totalSpent = bills.reduce((sum: number, bill: any) => sum + asNumber(bill.final_amount), 0);
+  const billDates = bills.map((bill: any) => bill.created_at as string | null);
+
+  return {
+    id: String(row.id),
+    name: String(row.name ?? "Unnamed"),
+    phone: row.phone ?? null,
+    email: row.email ?? null,
+    dob: row.dob ?? null,
+    outreach_status: row.outreach_status ?? null,
+    contact_tags: parseContactTags(row.contact_tags),
+    contact_source: row.contact_source ?? null,
+    last_activity_at: latestTimestamp([row.last_activity_at, row.created_at, ...billDates]),
+    is_blocked: Boolean(row.is_blocked),
+    notes: row.notes ?? null,
+    assigned_to: row.assigned_to ?? null,
+    created_at: row.created_at ?? "",
+    totalOrders: bills.length,
+    totalSpent,
+  };
+}
+
 export async function fetchCustomers(clientId: string): Promise<CustomerRecord[]> {
   const supabase = getClient();
   const { data, error } = await supabase
     .from("customers")
-    .select("id, name, phone, email, dob, created_at, bills(id, final_amount)")
+    .select(CUSTOMER_SELECT)
     .eq("client_id", clientId)
     .eq("is_active", true)
     .order("created_at", { ascending: false });
@@ -45,26 +116,20 @@ export async function fetchCustomers(clientId: string): Promise<CustomerRecord[]
     throw error;
   }
 
-  return (data ?? []).map((row: any) => {
-    const bills = Array.isArray(row.bills) ? row.bills : [];
-    const totalSpent = bills.reduce((sum: number, bill: any) => sum + asNumber(bill.final_amount), 0);
-
-    return {
-      id: String(row.id),
-      name: String(row.name ?? "Unnamed"),
-      phone: row.phone ?? null,
-      email: row.email ?? null,
-      dob: row.dob ?? null,
-      created_at: row.created_at ?? "",
-      totalOrders: bills.length,
-      totalSpent,
-    };
-  });
+  return (data ?? []).map((row: any) => mapCustomer(row));
 }
+
+export type FetchCustomersPageParams = ListPageParams & {
+  tag?: string | null;
+  source?: string | null;
+  segment?: string | null;
+  blocked?: boolean | null;
+  createdFrom?: string | null;
+};
 
 export async function fetchCustomersPage(
   clientId: string,
-  params: ListPageParams = { limit: 12, offset: 0 },
+  params: FetchCustomersPageParams = { limit: 12, offset: 0 },
 ): Promise<ListPageResult<CustomerRecord>> {
   const supabase = getClient();
   const search = sanitizeSearch(params.search);
@@ -72,14 +137,32 @@ export async function fetchCustomersPage(
 
   let query = supabase
     .from("customers")
-    .select("id, name, phone, email, dob, created_at, bills(id, final_amount)", { count: "exact" })
+    .select(`${CUSTOMER_SELECT}`, { count: "exact" })
     .eq("client_id", clientId)
     .eq("is_active", true)
     .order("created_at", { ascending: false })
     .range(from, to);
 
+  if (params.tag) {
+    query = query.contains("contact_tags", [params.tag]);
+  }
+  if (params.source) {
+    query = query.eq("contact_source", params.source);
+  }
+  if (params.segment) {
+    query = query.eq("outreach_status", params.segment);
+  }
+  if (params.blocked === true) {
+    query = query.eq("is_blocked", true);
+  } else if (params.blocked === false) {
+    query = query.eq("is_blocked", false);
+  }
+  if (params.createdFrom) {
+    query = query.gte("created_at", params.createdFrom);
+  }
+
   if (search) {
-    const filter = buildIlikeOrFilter(["name", "phone", "email"], search);
+    const filter = buildIlikeOrFilter(["name", "phone", "email", "outreach_status", "contact_source"], search);
     if (filter) {
       query = query.or(filter);
     }
@@ -90,21 +173,7 @@ export async function fetchCustomersPage(
     throw error;
   }
 
-  const items = (data ?? []).map((row: any) => {
-    const bills = Array.isArray(row.bills) ? row.bills : [];
-    const totalSpent = bills.reduce((sum: number, bill: any) => sum + asNumber(bill.final_amount), 0);
-
-    return {
-      id: String(row.id),
-      name: String(row.name ?? "Unnamed"),
-      phone: row.phone ?? null,
-      email: row.email ?? null,
-      dob: row.dob ?? null,
-      created_at: row.created_at ?? "",
-      totalOrders: bills.length,
-      totalSpent,
-    } satisfies CustomerRecord;
-  });
+  const items = (data ?? []).map((row: any) => mapCustomer(row));
 
   const totalCount = count ?? null;
   return {
@@ -151,21 +220,24 @@ export async function createCustomer(clientId: string, payload: CustomerPayload)
       phone: payload.phone ?? null,
       email: payload.email ?? null,
       dob: payload.dob ?? null,
+      outreach_status: payload.outreachStatus?.trim() || null,
+      contact_tags: parseContactTags(payload.contactTags),
+      contact_source: payload.contactSource?.trim() || null,
+      is_blocked: Boolean(payload.isBlocked),
+      notes: payload.notes?.trim() || null,
+      assigned_to: payload.assignedTo?.trim() || null,
+      last_activity_at: new Date().toISOString(),
     })
-    .select("id, name, phone, email, dob, created_at")
+    .select(
+      "id, name, phone, email, dob, outreach_status, contact_tags, contact_source, last_activity_at, is_blocked, notes, assigned_to, created_at",
+    )
     .single();
 
   if (error) {
     throw error;
   }
 
-  const customer = data as CustomerRecord;
-
-  return {
-    ...customer,
-    totalOrders: 0,
-    totalSpent: 0,
-  };
+  return mapCustomer({ ...data, bills: [] });
 }
 
 export async function updateCustomer(
@@ -181,6 +253,15 @@ export async function updateCustomer(
       ...(payload.phone !== undefined ? { phone: payload.phone } : {}),
       ...(payload.email !== undefined ? { email: payload.email } : {}),
       ...(payload.dob !== undefined ? { dob: payload.dob } : {}),
+      ...(payload.outreachStatus !== undefined
+        ? { outreach_status: payload.outreachStatus?.trim() || null }
+        : {}),
+      ...(payload.contactTags !== undefined ? { contact_tags: parseContactTags(payload.contactTags) } : {}),
+      ...(payload.contactSource !== undefined ? { contact_source: payload.contactSource?.trim() || null } : {}),
+      ...(payload.isBlocked !== undefined ? { is_blocked: payload.isBlocked } : {}),
+      ...(payload.notes !== undefined ? { notes: payload.notes?.trim() || null } : {}),
+      ...(payload.assignedTo !== undefined ? { assigned_to: payload.assignedTo?.trim() || null } : {}),
+      last_activity_at: new Date().toISOString(),
     })
     .eq("id", customerId)
     .eq("client_id", clientId);
@@ -204,6 +285,162 @@ export async function deleteCustomer(clientId: string, customerId: string): Prom
   if (error) {
     throw error;
   }
+}
+
+export async function fetchContactStats(clientId: string): Promise<ContactStats> {
+  const supabase = getClient();
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  const monthIso = monthStart.toISOString();
+
+  function countQuery() {
+    return supabase
+      .from("customers")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", clientId)
+      .eq("is_active", true);
+  }
+
+  const [total, active, blocked, newThisMonth] = await Promise.all([
+    countQuery(),
+    countQuery().eq("is_blocked", false),
+    countQuery().eq("is_blocked", true),
+    countQuery().gte("created_at", monthIso),
+  ]);
+
+  for (const result of [total, active, blocked, newThisMonth]) {
+    if (result.error) {
+      throw result.error;
+    }
+  }
+
+  return {
+    total: total.count ?? 0,
+    active: active.count ?? 0,
+    blocked: blocked.count ?? 0,
+    newThisMonth: newThisMonth.count ?? 0,
+  };
+}
+
+function countLabels(values: Array<string | null | undefined>): ContactAudienceGroup[] {
+  const counts = new Map<string, number>();
+  for (const value of values) {
+    const label = (value ?? "").trim();
+    if (!label) {
+      continue;
+    }
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label));
+}
+
+export async function fetchContactAudience(clientId: string): Promise<{
+  tags: ContactAudienceGroup[];
+  lists: ContactAudienceGroup[];
+  segments: ContactAudienceGroup[];
+}> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("customers")
+    .select("contact_tags, contact_source, outreach_status")
+    .eq("client_id", clientId)
+    .eq("is_active", true)
+    .range(0, 1999);
+
+  if (error) {
+    throw error;
+  }
+
+  const tags: string[] = [];
+  const sources: Array<string | null> = [];
+  const segments: Array<string | null> = [];
+
+  for (const row of data ?? []) {
+    tags.push(...parseContactTags(row.contact_tags));
+    sources.push(row.contact_source ?? null);
+    segments.push(row.outreach_status ?? null);
+  }
+
+  return {
+    tags: countLabels(tags),
+    lists: countLabels(sources),
+    segments: countLabels(segments),
+  };
+}
+
+export async function findActiveCustomerByPhone(
+  clientId: string,
+  phone: string,
+): Promise<{ id: string } | null> {
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) {
+    return null;
+  }
+
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("customers")
+    .select("id, phone")
+    .eq("client_id", clientId)
+    .eq("is_active", true);
+
+  if (error) {
+    throw error;
+  }
+
+  const match = (data ?? []).find((row) => String(row.phone ?? "").replace(/\D/g, "") === digits);
+  return match?.id ? { id: String(match.id) } : null;
+}
+
+export type ContactCsvRow = {
+  name: string;
+  phone: string;
+  email?: string;
+  tags?: string[];
+  source?: string;
+  stage?: string;
+  notes?: string;
+};
+
+export async function importContactRows(
+  clientId: string,
+  rows: ContactCsvRow[],
+): Promise<{ created: number; updated: number }> {
+  let created = 0;
+  let updated = 0;
+
+  for (const row of rows) {
+    const name = row.name.trim();
+    const phone = row.phone.trim();
+    if (!name || !phone) {
+      continue;
+    }
+
+    const payload: CustomerPayload = {
+      name,
+      phone,
+      email: row.email?.trim() || null,
+      contactTags: parseContactTags(row.tags),
+      contactSource: row.source?.trim() || null,
+      outreachStatus: row.stage?.trim() || null,
+      notes: row.notes?.trim() || null,
+    };
+
+    const existing = await findActiveCustomerByPhone(clientId, phone);
+    if (existing) {
+      await updateCustomer(clientId, existing.id, payload);
+      updated += 1;
+      continue;
+    }
+
+    await createCustomer(clientId, payload);
+    created += 1;
+  }
+
+  return { created, updated };
 }
 
 export async function fetchProducts(clientId: string, options?: { includeInactive?: boolean }): Promise<ProductRecord[]> {
