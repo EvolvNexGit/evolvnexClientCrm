@@ -238,6 +238,7 @@ function normalizeTab(row: any): TabDefinition | null {
     route: null,
     permissions: toPermissions(row?.permissions),
     displayName,
+    customLabel: String(row?.display_name ?? "").trim() || null,
     displayOrder: Number.isFinite(displayOrder) ? displayOrder : 0,
     visible: Boolean(row?.is_enabled ?? true) && Boolean(relatedTab.is_active ?? true),
   };

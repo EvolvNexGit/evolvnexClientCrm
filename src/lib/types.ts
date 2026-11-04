@@ -7,6 +7,8 @@ export type TabDefinition = {
   route: string | null;
   permissions: string[];
   displayName: string;
+  /** Label explicitly set in client_tab_access.display_name (null when the DB has none). */
+  customLabel?: string | null;
   displayOrder: number;
   visible: boolean;
 };
