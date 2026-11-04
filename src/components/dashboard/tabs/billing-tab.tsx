@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { StockAlertToast, type StockAlert } from "@/components/dashboard/billing/stock-alert-toast";
 import { useProducts } from "@/hooks/use-products";
 import { useCustomers } from "@/hooks/use-customers";
 import { usePromotions } from "@/hooks/use-promotions";
@@ -224,9 +225,9 @@ export default function BillingTab({ clientId }: { clientId: string }) {
   });
   const [cart, setCart] = useState<CartItem[]>(storedSession?.cart ?? []);
   const [cartActionError, setCartActionError] = useState<string | null>(null);
-  const [inventoryWarnings, setInventoryWarnings] = useState<string[]>([]);
-  const [isLowStock, setIsLowStock] = useState(false);
-  const [isOutOfStock, setIsOutOfStock] = useState(false);
+  const [stockAlert, setStockAlert] = useState<StockAlert | null>(null);
+  const previousWarningsRef = useRef<Set<string>>(new Set());
+  const stockAlertIdRef = useRef(0);
   const [isCreatingBill, setIsCreatingBill] = useState(false);
   const [createBillMessage, setCreateBillMessage] = useState<string | null>(null);
   const [selectedPromoId, setSelectedPromoId] = useState(storedSession?.selectedPromoId ?? "");
@@ -516,6 +517,20 @@ export default function BillingTab({ clientId }: { clientId: string }) {
   useEffect(() => {
     let active = true;
 
+    // Only toast warnings that are new for this cart change, so +/- clicks don't re-fire the same alert.
+    function notifyStockWarnings(warnings: string[], isDanger: boolean) {
+      const known = previousWarningsRef.current;
+      const fresh = warnings.filter((warning) => !known.has(warning));
+      previousWarningsRef.current = new Set(warnings);
+
+      if (fresh.length === 0) {
+        return;
+      }
+
+      stockAlertIdRef.current += 1;
+      setStockAlert({ id: stockAlertIdRef.current, tone: isDanger ? "danger" : "warning", messages: fresh });
+    }
+
     async function runValidation() {
       try {
         const result = await orderService.validateInventory(cart);
@@ -524,19 +539,16 @@ export default function BillingTab({ clientId }: { clientId: string }) {
           return;
         }
 
-        setIsLowStock(result.isLowStock);
-        setIsOutOfStock(result.isOutOfStock);
-        setInventoryWarnings(result.warnings);
+        notifyStockWarnings(result.warnings, result.isOutOfStock);
       } catch (error) {
         if (!active) {
           return;
         }
 
-        setInventoryWarnings([
-          error instanceof Error ? error.message : "Unable to validate inventory for current cart.",
-        ]);
-        setIsLowStock(false);
-        setIsOutOfStock(false);
+        notifyStockWarnings(
+          [error instanceof Error ? error.message : "Unable to validate inventory for current cart."],
+          false,
+        );
       }
     }
 
@@ -546,6 +558,8 @@ export default function BillingTab({ clientId }: { clientId: string }) {
       active = false;
     };
   }, [cart]);
+
+  const dismissStockAlert = useCallback(() => setStockAlert(null), []);
 
   // Save billing session to localStorage whenever state changes
   useEffect(() => {
@@ -703,6 +717,8 @@ export default function BillingTab({ clientId }: { clientId: string }) {
 
   return (
     <section className="space-y-4 rounded-2xl border border-border bg-card p-4 pb-28 sm:p-5 xl:pb-5">
+      <StockAlertToast alert={stockAlert} onDismiss={dismissStockAlert} />
+
       {loadError && (
         <div className="rounded-lg border border-primary/50 bg-primary/10 p-3 text-sm text-primary">{loadError}</div>
       )}
@@ -1186,25 +1202,6 @@ export default function BillingTab({ clientId }: { clientId: string }) {
               <span className="text-lg font-semibold">{formatCurrency(totals.finalTotal)}</span>
             </div>
           </div>
-
-          {inventoryWarnings.length > 0 && (
-            <div className="space-y-2">
-              {inventoryWarnings.map((warning, index) => (
-                <div
-                  key={`${warning}-${index}`}
-                  className={
-                    isOutOfStock
-                      ? "rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 text-sm text-rose-400"
-                      : isLowStock
-                        ? "rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-sm text-amber-300"
-                        : "rounded-lg border border-border bg-card p-2 text-sm text-muted-foreground"
-                  }
-                >
-                  {warning}
-                </div>
-              ))}
-            </div>
-          )}
 
           <Button type="button" onClick={() => void handleCreateBill()} className="hidden w-full xl:inline-flex">
             {isCreatingBill ? "Creating Bill..." : "Create Bill"}

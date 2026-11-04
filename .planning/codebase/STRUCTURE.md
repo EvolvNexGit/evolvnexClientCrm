@@ -70,7 +70,7 @@ evolvnexClientCrm/
 **`src/components/dashboard/billing/`:**
 - Purpose: Reusable list/modal chrome used by POS and CRM lists (not billing-only despite the folder name).
 - Contains: `data-state.tsx`, `entity-modal.tsx`, `customer-table.tsx`, `product-table.tsx`, `order-list.tsx`, `transaction-list.tsx`, `order-wait-badge.tsx`
-- Key files: `src/components/dashboard/billing/data-state.tsx`, `src/components/dashboard/billing/entity-modal.tsx`
+- Key files: `src/components/dashboard/billing/data-state.tsx`, `src/components/dashboard/billing/entity-modal.tsx`, `src/components/dashboard/billing/stock-alert-toast.tsx` (auto-dismiss POS stock toast)
 
 **`src/components/ui/`:**
 - Purpose: Cross-app primitives.
@@ -89,7 +89,7 @@ evolvnexClientCrm/
 
 **`src/lib/`:**
 - Purpose: Types, queries, navigation, Supabase clients, analytics, providers.
-- Contains: domain `*-queries.ts` / `*-types.ts`, `tabs.ts`, `module-navigation.ts`, `dashboard-tab-routes.ts`, `supabase.ts`, `supabase-admin.ts`, `orderService.ts`, `list-pagination.ts`, `client-cache.ts`, `utils.ts`, `time-utils.ts`
+- Contains: domain `*-queries.ts` / `*-types.ts`, `tabs.ts`, `module-navigation.ts`, `dashboard-tab-routes.ts`, `supabase.ts`, `supabase-admin.ts`, `orderService.ts`, `inventory-units.ts` (unit families + conversion; single source for ingredient/recipe/POS units), `list-pagination.ts`, `client-cache.ts`, `utils.ts`, `time-utils.ts`
 - Key files: `src/lib/tabs.ts`, `src/lib/module-navigation.ts`, `src/lib/billing-queries.ts`, `src/lib/supabase.ts`
 
 **`src/lib/providers/`:**

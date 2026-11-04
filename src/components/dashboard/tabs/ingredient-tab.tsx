@@ -10,10 +10,9 @@ import { usePersistentState } from "@/hooks/use-persistent-state";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIngredients } from "@/hooks/use-ingredients";
 import { usePagedList } from "@/hooks/use-paged-list";
-import { fetchIngredientsPage } from "@/lib/inventory-queries";
+import { countRecipesForIngredient, fetchIngredientsPage } from "@/lib/inventory-queries";
+import { convertQuantityRounded, getCompatibleUnits, INVENTORY_UNITS } from "@/lib/inventory-units";
 import type { IngredientPayload, IngredientRecord, InventoryUnit } from "@/lib/inventory-types";
-
-const units: InventoryUnit[] = ["g", "kg", "ml", "l", "unit"];
 
 type IngredientFormState = {
   name: string;
@@ -201,6 +200,34 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
   >("ingredient-tab-pending-stock-action", null);
   const [actionError, setActionError] = usePersistentState<string | null>("ingredient-tab-action-error", null);
   const [form, setForm] = usePersistentState<IngredientFormState>("ingredient-tab-form", initialForm);
+
+  const [linkedRecipeCount, setLinkedRecipeCount] = useState(0);
+  const editingIngredientId = editingIngredient?.id ?? null;
+
+  // Recipes pin an ingredient to its unit family, so know how many use it while editing.
+  useEffect(() => {
+    if (!editingIngredientId) {
+      setLinkedRecipeCount(0);
+      return;
+    }
+
+    let active = true;
+    countRecipesForIngredient(clientId, editingIngredientId)
+      .then((count) => {
+        if (active) {
+          setLinkedRecipeCount(count);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setLinkedRecipeCount(0);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [clientId, editingIngredientId]);
 
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
 
@@ -646,7 +673,15 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
       </EntityModal>
 
       <EntityModal open={Boolean(editingIngredient)} title="Edit Ingredient" onClose={() => setEditingIngredient(null)}>
-        <IngredientForm form={form} onChange={setForm} onSubmit={submitEdit} saving={saving} submitLabel="Save Changes" />
+        <IngredientForm
+          form={form}
+          onChange={setForm}
+          onSubmit={submitEdit}
+          saving={saving}
+          submitLabel="Save Changes"
+          originalUnit={editingIngredient?.quantity_unit}
+          linkedRecipeCount={linkedRecipeCount}
+        />
       </EntityModal>
 
       <EntityModal open={Boolean(pendingDeleteIngredient)} title="Confirm ingredient deletion" onClose={() => setPendingDeleteIngredient(null)}>
@@ -688,13 +723,38 @@ function IngredientForm({
   onSubmit,
   saving,
   submitLabel,
+  originalUnit,
+  linkedRecipeCount = 0,
 }: {
   form: IngredientFormState;
   onChange: (next: IngredientFormState) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
   saving: boolean;
   submitLabel: string;
+  /** Set when editing an existing ingredient; enables conversion and recipe-link restrictions. */
+  originalUnit?: InventoryUnit;
+  linkedRecipeCount?: number;
 }) {
+  const unitLocked = Boolean(originalUnit) && linkedRecipeCount > 0;
+  const unitOptions = originalUnit && unitLocked ? getCompatibleUnits(originalUnit) : INVENTORY_UNITS;
+
+  function handleUnitChange(nextUnit: InventoryUnit) {
+    if (!originalUnit || nextUnit === form.quantity_unit) {
+      onChange({ ...form, quantity_unit: nextUnit });
+      return;
+    }
+
+    // Same unit family: convert the figures so the stock keeps meaning the same physical amount.
+    const quantity = convertQuantityRounded(Number(form.quantity), form.quantity_unit, nextUnit);
+    const threshold = convertQuantityRounded(Number(form.threshold || 0), form.quantity_unit, nextUnit);
+    onChange({
+      ...form,
+      quantity_unit: nextUnit,
+      quantity: quantity !== null && Number.isFinite(quantity) ? String(quantity) : form.quantity,
+      threshold: threshold !== null && Number.isFinite(threshold) ? String(threshold) : form.threshold,
+    });
+  }
+
   return (
     <form className="space-y-3" onSubmit={(event) => void onSubmit(event)}>
       <label className="block text-base text-muted-foreground">
@@ -738,15 +798,21 @@ function IngredientForm({
         <span className="mb-1 block">Quantity unit</span>
         <select
           value={form.quantity_unit}
-          onChange={(event) => onChange({ ...form, quantity_unit: event.target.value as InventoryUnit })}
+          onChange={(event) => handleUnitChange(event.target.value as InventoryUnit)}
           className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
         >
-          {units.map((unit) => (
+          {unitOptions.map((unit) => (
             <option key={unit} value={unit}>
               {unit}
             </option>
           ))}
         </select>
+        {originalUnit && unitLocked && (
+          <span className="mt-1 block text-xs">
+            Used in {linkedRecipeCount} recipe{linkedRecipeCount === 1 ? "" : "s"}; unit limited to {unitOptions.join(" / ")}.
+            Quantity and threshold convert automatically.
+          </span>
+        )}
       </label>
 
       <label className="block text-base text-muted-foreground">
