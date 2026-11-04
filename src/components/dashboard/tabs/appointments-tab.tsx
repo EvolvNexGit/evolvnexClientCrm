@@ -292,6 +292,13 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   );
   const [sortOrder, setSortOrder] = usePersistentState<"asc" | "desc">("appointments-tab-sort-order", "asc");
   const [showFilters, setShowFilters] = useState(false);
+  // Only today's group starts open; the rest stay collapsed until toggled.
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<GroupKey, boolean>>({
+    today: false,
+    tomorrow: true,
+    upcoming: true,
+    past: true,
+  });
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [editingAppointment, setEditingAppointment] = useState<AppointmentRow | null>(null);
   const [addError, setAddError] = usePersistentState<string | null>("appointments-tab-add-error", null);
@@ -826,21 +833,27 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           }
 
           const groupLabel = groupKey.charAt(0).toUpperCase() + groupKey.slice(1);
+          const isGroupCollapsed = collapsedGroups[groupKey];
 
           return (
             <section key={groupKey} className="space-y-3 rounded-2xl border border-border bg-background p-4">
-              <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                aria-expanded={!isGroupCollapsed}
+                onClick={() => setCollapsedGroups((current) => ({ ...current, [groupKey]: !current[groupKey] }))}
+                className="flex w-full items-center justify-between gap-3 text-left"
+              >
                 <div className="flex items-center gap-2 text-text">
                   <CalendarDays className="h-4 w-4 text-primary" />
                   <span className="font-semibold">{groupLabel}</span>
                   <span className="text-sm text-muted-foreground">• {groupItems.length} appointments</span>
                 </div>
-                <button type="button" className="text-sm text-muted-foreground hover:text-text">
-                  View all
-                </button>
-              </div>
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 text-muted-foreground transition ${isGroupCollapsed ? "-rotate-90" : "rotate-0"}`}
+                />
+              </button>
 
-              <div className="space-y-3">
+              <div className={isGroupCollapsed ? "hidden" : "space-y-3"}>
                 {groupItems.map((appointment) => {
                   const isExpanded = expandedIds.includes(appointment.id);
                   const statusTone =

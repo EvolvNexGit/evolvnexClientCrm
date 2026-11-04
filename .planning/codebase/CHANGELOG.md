@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, files, contracts. Structural changes are also patched into STRUCTURE.md / ARCHITECTURE.md.
 
+## 2026-11-04 — Appointments: collapsible date groups
+
+`appointments-tab.tsx`: Today / Tomorrow / Upcoming / Past group headers are now toggle buttons (chevron, `aria-expanded`). Local `collapsedGroups` state (not persisted): Today open, other groups collapsed on every load. Removed the non-functional "View all" button. Summary cards and filters unchanged.
+
 ## 2026-11-04 — Sidebar labels driven by client_tab_access.display_name
 
 **Problem:** Sidebar/drawer labels for existing tabs came from the static `MODULES` config ("Customers"), ignoring per-client names set in the DB (e.g. "Patients").
