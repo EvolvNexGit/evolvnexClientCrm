@@ -70,14 +70,14 @@ export function LoginForm() {
   return (
     <main className="min-h-dvh bg-black lg:grid lg:grid-cols-2">
       <section className="flex min-w-0 flex-col gap-8 bg-black px-6 pb-10 pt-8 text-white lg:justify-between lg:px-12 lg:py-10 xl:px-16">
-        <BrandLogo className="h-8 w-auto" width={178} height={20} priority />
+        <BrandLogo className="h-auto w-44 sm:w-52" width={1192} height={137} priority />
 
         <div>
-          <h1 className="max-w-xl text-3xl font-bold leading-tight sm:text-4xl xl:text-5xl">
+          <h1 className="max-w-xl text-2xl font-bold leading-tight sm:text-3xl xl:text-4xl">
             A CRM that adapts to <span className="text-primary">your business,</span> dedicated to{" "}
             <span className="text-primary">growth.</span>
           </h1>
-          <p className="mt-5 max-w-lg text-base leading-6 text-slate-300">
+          <p className="mt-4 max-w-lg text-sm leading-6 text-slate-300">
             EvolvNex CRM is a secure, flexible foundation that moulds to the way you work—so you can
             build stronger relationships and grow your business.
           </p>
@@ -92,7 +92,7 @@ export function LoginForm() {
                   <Icon className="h-5 w-5" />
                 </span>
                 <div>
-                  <div className="text-2xl font-semibold">{value}</div>
+                  <div className="text-xl font-semibold">{value}</div>
                   <div className="text-sm text-slate-300">{label}</div>
                 </div>
               </div>
