@@ -211,6 +211,7 @@ export async function fetchConsultationQueue(
       .select("id, name, phone, email, service, date, start_time, status, remark")
       .eq("client_id", clientId)
       .eq("date", date)
+      .is("deleted_at", null)
       .neq("status", "cancelled")
       .order("start_time", { ascending: true }),
   ]);
@@ -744,6 +745,7 @@ export async function startConsultationFromAppointment(
     .select("id, name, phone, email, remark, service")
     .eq("client_id", clientId)
     .eq("id", appointmentId)
+    .is("deleted_at", null)
     .single();
 
   if (appointmentError) {

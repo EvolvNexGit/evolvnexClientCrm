@@ -3,6 +3,7 @@ import type { ProductRecord } from "@/lib/billing-types";
 import { BILL_ORDER_SOURCE_POS } from "@/lib/billing-types";
 import { rememberLocalPosOrderId } from "@/lib/order-alert-policy";
 import type { InventoryUnit } from "@/lib/inventory-types";
+import { convertQuantity, describeUnitMismatch } from "@/lib/inventory-units";
 
 export type CartItem = {
   productId: string;
@@ -190,62 +191,61 @@ export const orderService = {
       });
     });
 
-    const requiredByIngredient = new Map<string, { required: number; unit: InventoryUnit }>();
+    // Required quantity per ingredient, always expressed in the ingredient's stock unit.
+    const requiredByIngredient = new Map<string, number>();
+    const warnings: string[] = [];
+    let isLowStock = false;
+    let isOutOfStock = false;
 
     cart.forEach((cartItem) => {
       recipeRows
         .filter((row: any) => String(row.product_id) === cartItem.productId)
         .forEach((row: any) => {
           const ingredientId = String(row.ingredient_id);
-          const recipeQty = asNumber(row.quantity);
-          const recipeUnit = row.quantity_unit as InventoryUnit;
+          const stock = ingredientMap.get(ingredientId);
 
-          const previous = requiredByIngredient.get(ingredientId);
-          if (!previous) {
-            requiredByIngredient.set(ingredientId, {
-              required: recipeQty * cartItem.quantity,
-              unit: recipeUnit,
-            });
+          if (!stock) {
+            const message = "Ingredient stock data missing for one recipe item.";
+            if (!warnings.includes(message)) {
+              warnings.push(message);
+            }
+            isOutOfStock = true;
             return;
           }
 
-          requiredByIngredient.set(ingredientId, {
-            required: previous.required + recipeQty * cartItem.quantity,
-            unit: previous.unit,
-          });
+          const recipeUnit = row.quantity_unit as InventoryUnit;
+          const needed = convertQuantity(asNumber(row.quantity) * cartItem.quantity, recipeUnit, stock.unit);
+
+          if (needed === null) {
+            // Incompatible units (e.g. g vs ml): we can't compare, so flag the recipe instead of guessing.
+            const message = describeUnitMismatch(stock.name, recipeUnit, stock.unit);
+            if (!warnings.includes(message)) {
+              warnings.push(message);
+            }
+            return;
+          }
+
+          requiredByIngredient.set(ingredientId, (requiredByIngredient.get(ingredientId) ?? 0) + needed);
         });
     });
 
-    const warnings: string[] = [];
-    let isLowStock = false;
-    let isOutOfStock = false;
-
-    requiredByIngredient.forEach((requiredInfo, ingredientId) => {
+    requiredByIngredient.forEach((required, ingredientId) => {
       const stock = ingredientMap.get(ingredientId);
-
       if (!stock) {
-        warnings.push("Ingredient stock data missing for one recipe item.");
-        isOutOfStock = true;
         return;
       }
 
-      if (stock.unit !== requiredInfo.unit) {
-        warnings.push(
-          `Unit mismatch for ${stock.name} (${stock.unit} stock vs ${requiredInfo.unit} recipe). Validation may be inaccurate.`,
-        );
-      }
-
-      const remaining = stock.quantity - requiredInfo.required;
+      const remaining = stock.quantity - required;
 
       if (remaining < 0) {
         isOutOfStock = true;
-        warnings.push(`Insufficient stock: ${stock.name} short by ${Math.abs(remaining).toFixed(2)} ${stock.unit}.`);
+        warnings.push(`Out of stock: ${stock.name} (short by ${Math.abs(remaining).toFixed(2)} ${stock.unit})`);
         return;
       }
 
       if (remaining < stock.threshold) {
         isLowStock = true;
-        warnings.push(`Low stock warning: ${stock.name} will drop to ${remaining.toFixed(2)} ${stock.unit}.`);
+        warnings.push(`Low stock: ${stock.name} (${remaining.toFixed(2)} ${stock.unit} left)`);
       }
     });
 
