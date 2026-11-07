@@ -28,6 +28,8 @@ import {
   formatAppointmentTimeRange,
   formatUtcToIst,
 } from "@/lib/time-utils";
+import { fetchCustomersPage } from "@/lib/billing-queries";
+import type { CustomerRecord } from "@/lib/billing-types";
 import { getSupabaseClient } from "@/lib/supabase";
 
 type AppointmentFormState = {
@@ -84,6 +86,139 @@ function getInitials(name: string | null) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("") || "?";
+}
+
+/** Customer name input with server-side suggestions; selecting fills name/phone/email, free text still allowed. */
+function CustomerPickerField({
+  clientId,
+  value,
+  onTyping,
+  onSelect,
+}: {
+  clientId: string;
+  value: string;
+  onTyping: (value: string) => void;
+  onSelect: (customer: CustomerRecord) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<CustomerRecord[]>([]);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const debouncedValue = useDebouncedValue(value, 250);
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
+
+  useEffect(() => {
+    if (!open || !clientId) {
+      return;
+    }
+    // Ignore stale responses when the query changes mid-flight.
+    let cancelled = false;
+    setLoading(true);
+    fetchCustomersPage(clientId, { limit: 8, offset: 0, search: debouncedValue })
+      .then((result) => {
+        if (!cancelled) {
+          setSuggestions(result.items);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSuggestions([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId, debouncedValue, open]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [suggestions]);
+
+  function pick(customer: CustomerRecord) {
+    onSelect(customer);
+    setOpen(false);
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2">
+        <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <input
+          value={value}
+          onChange={(event) => {
+            onTyping(event.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setOpen(false);
+            } else if (event.key === "ArrowDown" && suggestions.length > 0) {
+              event.preventDefault();
+              setOpen(true);
+              setActiveIndex((current) => (current + 1) % suggestions.length);
+            } else if (event.key === "ArrowUp" && suggestions.length > 0) {
+              event.preventDefault();
+              setActiveIndex((current) => (current - 1 + suggestions.length) % suggestions.length);
+            } else if (event.key === "Enter" && open && suggestions[activeIndex]) {
+              event.preventDefault();
+              pick(suggestions[activeIndex]);
+            }
+          }}
+          placeholder="Search or type new customer name"
+          autoComplete="off"
+          className="w-full bg-transparent text-sm text-text outline-none placeholder:text-muted-foreground"
+        />
+        {loading ? (
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+        ) : (
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+        )}
+      </div>
+      {open && (
+        <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-border bg-card shadow-soft">
+          {suggestions.length === 0 ? (
+            <p className="px-3 py-2 text-sm text-muted-foreground">
+              {loading ? "Searching..." : "No matching customers. Keep typing to add a new one."}
+            </p>
+          ) : (
+            <ul role="listbox">
+              {suggestions.map((customer, index) => (
+                <li key={customer.id} role="option" aria-selected={index === activeIndex}>
+                  <button
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => pick(customer)}
+                    className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-text hover:bg-muted ${
+                      index === activeIndex ? "bg-muted" : ""
+                    }`}
+                  >
+                    <span className="truncate">{customer.name}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{customer.phone ?? ""}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function SearchableCreatableField({
@@ -997,18 +1132,22 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       >
         <form onSubmit={handleSaveAppointment} className="space-y-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="space-y-1 text-sm text-muted-foreground sm:col-span-2">
+            <div className="space-y-1 text-sm text-muted-foreground sm:col-span-2">
               <span>Customer *</span>
-              <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2">
-                <Search className="h-4 w-4 text-muted-foreground" />
-                <input
-                  value={form.name}
-                  onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-                  placeholder="Search or type new customer name"
-                  className="flex-1 bg-transparent text-sm text-text outline-none placeholder:text-muted-foreground"
-                />
-              </div>
-            </label>
+              <CustomerPickerField
+                clientId={clientId}
+                value={form.name}
+                onTyping={(name) => setForm((current) => ({ ...current, name }))}
+                onSelect={(customer) =>
+                  setForm((current) => ({
+                    ...current,
+                    name: customer.name,
+                    phone: (customer.phone ?? "").replace(/\D/g, "").slice(-10),
+                    email: customer.email ?? current.email,
+                  }))
+                }
+              />
+            </div>
 
             <label className="space-y-1 text-sm text-muted-foreground">
               <span>Phone *</span>
