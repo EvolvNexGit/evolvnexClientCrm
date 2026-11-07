@@ -7,9 +7,11 @@ import {
   type ListPageParams,
   type ListPageResult,
 } from "@/lib/list-pagination";
+import { areUnitsCompatible, describeUnitMismatch } from "@/lib/inventory-units";
 import type {
   IngredientPayload,
   IngredientRecord,
+  InventoryUnit,
   RecipePayload,
   RecipeRecord,
 } from "@/lib/inventory-types";
@@ -147,6 +149,11 @@ export async function updateIngredient(
   payload: Partial<IngredientPayload>,
 ): Promise<void> {
   const supabase = getClient();
+
+  if (payload.quantity_unit !== undefined) {
+    await assertIngredientUnitChangeAllowed(clientId, ingredientId, payload.quantity_unit);
+  }
+
   const { error } = await supabase
     .from("ingredients")
     .update({
@@ -331,8 +338,78 @@ export async function fetchRecipesPage(
   };
 }
 
+async function fetchIngredientUnit(clientId: string, ingredientId: string): Promise<{ name: string; unit: InventoryUnit }> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("ingredients")
+    .select("name, quantity_unit")
+    .eq("id", ingredientId)
+    .eq("client_id", clientId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    throw new Error("Ingredient not found.");
+  }
+
+  return { name: String(data.name ?? "Ingredient"), unit: data.quantity_unit as InventoryUnit };
+}
+
+export async function countRecipesForIngredient(clientId: string, ingredientId: string): Promise<number> {
+  const supabase = getClient();
+  const { count, error } = await supabase
+    .from("recipes")
+    .select("id", { count: "exact", head: true })
+    .eq("client_id", clientId)
+    .eq("ingredient_id", ingredientId);
+
+  if (error) {
+    throw error;
+  }
+
+  return count ?? 0;
+}
+
+/** Recipes store quantities in their own unit, so a recipe unit must be convertible to the stock unit. */
+async function assertRecipeUnitMatchesIngredient(
+  clientId: string,
+  ingredientId: string,
+  recipeUnit: InventoryUnit,
+): Promise<void> {
+  const stock = await fetchIngredientUnit(clientId, ingredientId);
+
+  if (!areUnitsCompatible(recipeUnit, stock.unit)) {
+    throw new Error(describeUnitMismatch(stock.name, recipeUnit, stock.unit));
+  }
+}
+
+/** Changing an ingredient's unit to another family would break every recipe that uses it. */
+async function assertIngredientUnitChangeAllowed(
+  clientId: string,
+  ingredientId: string,
+  nextUnit: InventoryUnit,
+): Promise<void> {
+  const current = await fetchIngredientUnit(clientId, ingredientId);
+
+  if (current.unit === nextUnit || areUnitsCompatible(current.unit, nextUnit)) {
+    return;
+  }
+
+  const recipeCount = await countRecipesForIngredient(clientId, ingredientId);
+  if (recipeCount > 0) {
+    throw new Error(
+      `${current.name} is used in ${recipeCount} recipe${recipeCount === 1 ? "" : "s"}. Its unit can only change within the same type (${current.unit} can't become ${nextUnit}).`,
+    );
+  }
+}
+
 export async function createRecipe(clientId: string, payload: RecipePayload): Promise<void> {
   const supabase = getClient();
+  await assertRecipeUnitMatchesIngredient(clientId, payload.ingredient_id, payload.quantity_unit);
+
   const { error } = await supabase.from("recipes").insert({
     client_id: clientId,
     product_id: payload.product_id,
@@ -352,6 +429,34 @@ export async function updateRecipe(
   payload: Partial<RecipePayload>,
 ): Promise<void> {
   const supabase = getClient();
+
+  if (payload.ingredient_id !== undefined || payload.quantity_unit !== undefined) {
+    let ingredientId = payload.ingredient_id;
+    let recipeUnit = payload.quantity_unit;
+
+    if (ingredientId === undefined || recipeUnit === undefined) {
+      const { data: existing, error: existingError } = await supabase
+        .from("recipes")
+        .select("ingredient_id, quantity_unit")
+        .eq("id", recipeId)
+        .eq("client_id", clientId)
+        .maybeSingle();
+
+      if (existingError) {
+        throw existingError;
+      }
+
+      if (!existing) {
+        throw new Error("Recipe not found.");
+      }
+
+      ingredientId = ingredientId ?? String(existing.ingredient_id);
+      recipeUnit = recipeUnit ?? (existing.quantity_unit as InventoryUnit);
+    }
+
+    await assertRecipeUnitMatchesIngredient(clientId, ingredientId, recipeUnit);
+  }
+
   const { error } = await supabase
     .from("recipes")
     .update({

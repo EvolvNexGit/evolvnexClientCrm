@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
   CalendarClock,
@@ -36,13 +36,15 @@ import {
   toDbVisitType,
   toDisplayStatus,
   toDisplayVisitType,
+  type ConsultationDetail,
   type ConsultationExerciseInput,
   type ConsultationMedicationInput,
   type ConsultationQueueRow,
   type ConsultDisplayStatus,
   type ConsultDisplayType,
 } from "@/lib/consultation-types";
-import { formatUtcToIstTimeLabel } from "@/lib/time-utils";
+import { fetchConsultationById } from "@/lib/consultation-queries";
+import { formatUtcToIst, formatUtcToIstTimeLabel } from "@/lib/time-utils";
 
 function digitsOnly(value: string) {
   return value.replace(/\D/g, "");
@@ -290,6 +292,130 @@ function EditorCard({
   );
 }
 
+function SummarySection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-border bg-background p-4">
+      <h5 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</h5>
+      <div className="mt-2 text-sm text-text">{children}</div>
+    </section>
+  );
+}
+
+/** Read-only recap of a past visit so the doctor sees symptoms, assessment and advice in one click. */
+function HistorySummary({
+  detail,
+  loading,
+  error,
+  onBack,
+}: {
+  detail: ConsultationDetail | null;
+  loading: boolean;
+  error: string | null;
+  onBack: () => void;
+}) {
+  const text = (value: string | null | undefined) => (value?.trim() ? value.trim() : null);
+  const sections: Array<{ title: string; value: string | null }> = detail
+    ? [
+        { title: "Symptoms / Findings", value: text(detail.findings) },
+        { title: "Assessment", value: text(detail.assessment) },
+        { title: "Advice", value: text(detail.advice) },
+        { title: "Medication notes", value: text(detail.medication_notes) },
+        { title: "Exercise notes", value: text(detail.exercise_notes) },
+        { title: "Treatment plan", value: text(detail.treatment_plan) },
+        { title: "Other notes", value: text(detail.other_notes) },
+      ]
+    : [];
+  const hasContent =
+    sections.some((section) => section.value) ||
+    Boolean(detail && (detail.medications.length > 0 || detail.exercises.length > 0 || detail.followup_date));
+
+  return (
+    <div className="space-y-3">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground hover:text-text"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Back to history
+      </button>
+
+      {loading ? (
+        <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading visit summary...
+        </div>
+      ) : error ? (
+        <p className="text-sm text-rose-600">{error}</p>
+      ) : !detail ? (
+        <p className="text-sm text-muted-foreground">Visit not found.</p>
+      ) : (
+        <>
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              {formatUtcToIst(detail.created_at).slice(0, 10)} · {toDisplayVisitType(detail.visit_type)} visit
+            </p>
+            <p className="mt-1 text-xs font-medium text-muted-foreground">{toDisplayStatus(detail.status)}</p>
+          </div>
+
+          {!hasContent && <p className="text-sm text-muted-foreground">No notes were recorded for this visit.</p>}
+
+          {sections.map(
+            (section) =>
+              section.value && (
+                <SummarySection key={section.title} title={section.title}>
+                  <p className="whitespace-pre-wrap">{section.value}</p>
+                </SummarySection>
+              ),
+          )}
+
+          {detail.medications.length > 0 && (
+            <SummarySection title="Medications">
+              <ul className="space-y-2">
+                {detail.medications.map((medication) => (
+                  <li key={medication.id}>
+                    <p className="font-medium">{medication.medicine_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {[medication.dosage, medication.frequency, medication.duration].filter(Boolean).join(" · ") || "—"}
+                    </p>
+                    {medication.instructions && (
+                      <p className="text-xs text-muted-foreground">{medication.instructions}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </SummarySection>
+          )}
+
+          {detail.exercises.length > 0 && (
+            <SummarySection title="Exercises">
+              <ul className="space-y-2">
+                {detail.exercises.map((exercise) => (
+                  <li key={exercise.id}>
+                    <p className="font-medium">{exercise.exercise_name}</p>
+                    {exercise.instructions && (
+                      <p className="text-xs text-muted-foreground">{exercise.instructions}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </SummarySection>
+          )}
+
+          {(detail.followup_date || text(detail.followup_notes)) && (
+            <SummarySection title="Follow-up">
+              {detail.followup_date && <p>{detail.followup_date}</p>}
+              {text(detail.followup_notes) && (
+                <p className="whitespace-pre-wrap text-muted-foreground">{text(detail.followup_notes)}</p>
+              )}
+            </SummarySection>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function ConsultationTab({ clientId }: { clientId: string }) {
   const {
     queueRows,
@@ -310,6 +436,10 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
     removeAttachment,
   } = useConsultations(clientId);
 
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
+  const [historyDetail, setHistoryDetail] = useState<ConsultationDetail | null>(null);
+  const [historyDetailLoading, setHistoryDetailLoading] = useState(false);
+  const [historyDetailError, setHistoryDetailError] = useState<string | null>(null);
   const [mode, setMode] = useState<ConsultMode>("queue");
   const [queueView, setQueueView] = useState<QueueView>("All");
   const [activePlanTab, setActivePlanTab] = useState<PlanTab>("Advice");
@@ -432,6 +562,44 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
     ],
     [stats],
   );
+
+  // Close the summary when the doctor switches to another consultation/patient.
+  useEffect(() => {
+    setSelectedHistoryId(null);
+  }, [activeConsultation?.id]);
+
+  useEffect(() => {
+    if (!selectedHistoryId) {
+      setHistoryDetail(null);
+      setHistoryDetailError(null);
+      return;
+    }
+
+    // Ignore stale responses if the doctor clicks another visit mid-flight.
+    let cancelled = false;
+    setHistoryDetailLoading(true);
+    setHistoryDetailError(null);
+    fetchConsultationById(clientId, selectedHistoryId)
+      .then((detail) => {
+        if (!cancelled) {
+          setHistoryDetail(detail);
+        }
+      })
+      .catch((loadError) => {
+        if (!cancelled) {
+          setHistoryDetail(null);
+          setHistoryDetailError(loadError instanceof Error ? loadError.message : "Unable to load visit summary.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setHistoryDetailLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId, selectedHistoryId]);
 
   const visibleHistory = useMemo(() => {
     if (activeFilter === "All" || activeFilter === "Consults") {
@@ -1441,6 +1609,17 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
               </button>
             </div>
 
+            {selectedHistoryId ? (
+              <div className="py-4">
+                <HistorySummary
+                  detail={historyDetail}
+                  loading={historyDetailLoading}
+                  error={historyDetailError}
+                  onBack={() => setSelectedHistoryId(null)}
+                />
+              </div>
+            ) : (
+            <>
             <div className="border-b border-border py-4">
               <div className="mb-3 flex items-center gap-2 rounded-2xl border border-border bg-background px-3 py-2">
                 <Search className="h-4 w-4 text-muted-foreground" />
@@ -1479,7 +1658,13 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                 <p className="text-sm text-muted-foreground">No consultation history for this patient yet.</p>
               ) : (
                 visibleHistory.map((item) => (
-                  <div key={item.id} className="rounded-2xl border border-border bg-background p-4">
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setSelectedHistoryId(item.id)}
+                    className="block w-full rounded-2xl border border-border bg-background p-4 text-left transition hover:border-[#ff4b5c]/40"
+                    aria-label={`View summary of ${item.title} on ${item.date}`}
+                  >
                     <div className="flex items-start gap-3">
                       <div className={`flex h-10 w-10 items-center justify-center rounded-full ${item.ringTone} text-white`}>
                         <Stethoscope className="h-4 w-4" />
@@ -1496,10 +1681,12 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                       </div>
                       <ChevronRight className="mt-1 h-4 w-4 text-muted-foreground" />
                     </div>
-                  </div>
+                  </button>
                 ))
               )}
             </div>
+            </>
+            )}
           </aside>
         </div>
       )}

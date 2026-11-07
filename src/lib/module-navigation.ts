@@ -215,13 +215,14 @@ export function getSidebarItemsForModule(
       if (!tabKey) {
         continue;
       }
-      const permitted = tabs.some((tab) => tab.key === tabKey);
-      if (!permitted) {
+      const permittedTab = tabs.find((tab) => tab.key === tabKey);
+      if (!permittedTab) {
         continue;
       }
       items.push({
         id: config.id,
-        label: config.label,
+        // Per-client label from client_tab_access.display_name wins over the static default.
+        label: permittedTab.customLabel ?? config.label,
         icon: config.icon,
         kind: "existing-tab",
         navKey: tabKey,

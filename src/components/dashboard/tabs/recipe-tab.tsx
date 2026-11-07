@@ -14,9 +14,9 @@ import { useProducts } from "@/hooks/use-products";
 import { useRecipes } from "@/hooks/use-recipes";
 import { fetchRecipesPage } from "@/lib/inventory-queries";
 import type { InventoryUnit, RecipePayload, RecipeRecord } from "@/lib/inventory-types";
+import { areUnitsCompatible, describeUnitMismatch, getCompatibleUnits, INVENTORY_UNITS } from "@/lib/inventory-units";
 import { formatUtcToIst } from "@/lib/time-utils";
 
-const units: InventoryUnit[] = ["g", "kg", "ml", "l", "unit"];
 
 type RecipeFormState = {
   product_id: string;
@@ -236,11 +236,20 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
   function openEdit(recipe: RecipeRecord) {
     setActionError(null);
     setEditingRecipe(recipe);
+
+    // Legacy rows may carry a unit that doesn't match the ingredient's stock unit; force a re-check.
+    const unitMismatch = !areUnitsCompatible(recipe.quantity_unit, recipe.ingredientStockUnit);
+    if (unitMismatch) {
+      setActionError(
+        `${describeUnitMismatch(recipe.ingredientName, recipe.quantity_unit, recipe.ingredientStockUnit)} Re-enter the quantity.`,
+      );
+    }
+
     setForm({
       product_id: recipe.product_id,
       ingredient_id: recipe.ingredient_id,
       quantity: String(recipe.quantity),
-      quantity_unit: recipe.quantity_unit,
+      quantity_unit: unitMismatch ? recipe.ingredientStockUnit : recipe.quantity_unit,
       items: [],
     });
   }
@@ -588,12 +597,25 @@ function RecipeForm({
 }: {
   form: RecipeFormState;
   products: Array<{ id: string; name: string }>;
-  ingredients: Array<{ id: string; name: string }>;
+  ingredients: Array<{ id: string; name: string; quantity_unit: InventoryUnit }>;
   onChange: (next: RecipeFormState) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
   saving: boolean;
   submitLabel: string;
 }) {
+  const selectedIngredient = ingredients.find((ingredient) => ingredient.id === form.ingredient_id);
+  const unitOptions = selectedIngredient ? getCompatibleUnits(selectedIngredient.quantity_unit) : INVENTORY_UNITS;
+
+  function handleIngredientChange(ingredientId: string) {
+    const ingredient = ingredients.find((candidate) => candidate.id === ingredientId);
+    // Default to the stock unit and drop any previously chosen unit that doesn't fit the new ingredient.
+    const nextUnit =
+      ingredient && !areUnitsCompatible(form.quantity_unit, ingredient.quantity_unit)
+        ? ingredient.quantity_unit
+        : form.quantity_unit;
+    onChange({ ...form, ingredient_id: ingredientId, quantity_unit: nextUnit });
+  }
+
   return (
     <form className="space-y-3" onSubmit={(event) => void onSubmit(event)}>
       <label className="hidden block text-base text-muted-foreground">
@@ -619,7 +641,7 @@ function RecipeForm({
           <div className="flex items-center gap-3">
             <select
               value={form.ingredient_id}
-              onChange={(event) => onChange({ ...form, ingredient_id: event.target.value })}
+              onChange={(event) => handleIngredientChange(event.target.value)}
               className="hidden flex-1 rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
             >
               <option value="">Select ingredient to add</option>
@@ -645,7 +667,7 @@ function RecipeForm({
               onChange={(event) => onChange({ ...form, quantity_unit: event.target.value as InventoryUnit })}
               className="w-28 rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
             >
-              {units.map((unit) => (
+              {unitOptions.map((unit) => (
                 <option key={unit} value={unit}>
                   {unit}
                 </option>
@@ -657,6 +679,7 @@ function RecipeForm({
               onClick={() => {
                 if (!form.ingredient_id) return;
                 const ingredient = ingredients.find((i) => i.id === form.ingredient_id);
+                if (ingredient && !areUnitsCompatible(form.quantity_unit, ingredient.quantity_unit)) return;
                 const nextItems = [...(form.items ?? [])];
                 nextItems.push({
                   ingredient_id: form.ingredient_id,
@@ -671,6 +694,11 @@ function RecipeForm({
               Add Ingredient to recipe
             </button>
           </div>
+          {selectedIngredient && (
+            <span className="mt-1 block text-xs">
+              Stocked in {selectedIngredient.quantity_unit}; recipe units limited to {unitOptions.join(" / ")}.
+            </span>
+          )}
         </label>
 
         {/* Items table */}

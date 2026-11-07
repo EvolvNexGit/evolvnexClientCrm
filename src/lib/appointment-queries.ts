@@ -131,6 +131,7 @@ export async function fetchAppointmentFilterOptions(clientId: string) {
     .from("appointments")
     .select("location, service, staff_name, status")
     .eq("client_id", clientId)
+    .is("deleted_at", null)
     .range(0, LIST_PAGE_SHOW_ALL_MAX - 1);
 
   if (error) {
@@ -152,6 +153,20 @@ export async function fetchAppointmentFilterOptions(clientId: string) {
   };
 }
 
+/** Soft delete: stamps deleted_at; every read filters it out. */
+export async function softDeleteAppointment(clientId: string, appointmentId: string): Promise<void> {
+  const supabase = getClient();
+  const { error } = await supabase
+    .from("appointments")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("client_id", clientId)
+    .eq("id", appointmentId);
+
+  if (error) {
+    throw error;
+  }
+}
+
 /**
  * Appointments use many client-side filters (date mode, search across fields).
  * Load a capped set (max 200), filter/sort, then slice for the page.
@@ -167,6 +182,7 @@ export async function fetchAppointmentsPage(
     .from("appointments")
     .select(APPOINTMENT_SELECT)
     .eq("client_id", clientId)
+    .is("deleted_at", null)
     .order("date", { ascending: true, nullsFirst: false })
     .order("start_time", { ascending: true, nullsFirst: false })
     .range(0, LIST_PAGE_SHOW_ALL_MAX - 1);

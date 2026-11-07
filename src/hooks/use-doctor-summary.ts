@@ -79,6 +79,7 @@ export function useDoctorSummary(
           .from("appointments")
           .select(APPOINTMENT_COLUMNS)
           .eq("client_id", clientId)
+          .is("deleted_at", null)
           .order("date", { ascending: true }),
         fetchTransactionsSince(clientId, sinceIso),
         fetchIngredients(clientId),
