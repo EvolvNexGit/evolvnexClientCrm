@@ -53,6 +53,7 @@ export function useCafeSummary(clientId: string, preset: CafeSummaryRangePreset,
         .select("id", { count: "exact", head: true })
         .eq("client_id", clientId)
         .eq("date", today)
+        .is("deleted_at", null)
         .in("status", ["tentative", "booked"]);
 
       if (appointmentsError) {

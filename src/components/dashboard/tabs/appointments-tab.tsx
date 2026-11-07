@@ -11,6 +11,7 @@ import {
   MapPin,
   Plus,
   Search,
+  Trash2,
   X,
 } from "lucide-react";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
@@ -21,6 +22,7 @@ import { usePersistentState } from "@/hooks/use-persistent-state";
 import {
   fetchAppointmentFilterOptions,
   fetchAppointmentsPage,
+  softDeleteAppointment,
   type AppointmentRow,
 } from "@/lib/appointment-queries";
 import {
@@ -440,6 +442,9 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   const [isSaving, setIsSaving] = useState(false);
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
   const [pendingStatusChange, setPendingStatusChange] = useState<PendingStatusChange | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [statusChangeError, setStatusChangeError] = usePersistentState<string | null>("appointments-tab-status-change-error", null);
   const [form, setForm] = usePersistentState<AppointmentFormState>("appointments-tab-form", initialForm);
   const [filterOptions, setFilterOptions] = useState<{
@@ -652,6 +657,24 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     const { appointmentId, nextStatus } = pendingStatusChange;
     await handleStatusChange(appointmentId, nextStatus);
     setPendingStatusChange(null);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      setDeleteError(null);
+      await softDeleteAppointment(clientId, pendingDelete.id);
+      await pagedAppointments.refresh();
+      setPendingDelete(null);
+    } catch (removeError) {
+      setDeleteError(removeError instanceof Error ? removeError.message : "Unable to delete appointment.");
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   function openDatePicker() {
@@ -1077,6 +1100,18 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                           </button>
                           <button
                             type="button"
+                            onClick={() => {
+                              setDeleteError(null);
+                              setPendingDelete({ id: appointment.id, name: appointment.name ?? "Unnamed appointment" });
+                            }}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition hover:border-rose-500/30 hover:text-rose-600"
+                            title="Delete"
+                            aria-label="Delete appointment"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => toggleExpanded(appointment.id)}
                             className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition hover:text-text"
                             aria-label={isExpanded ? "Collapse details" : "Expand details"}
@@ -1334,6 +1369,32 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
               className="min-h-11 w-full rounded-xl border border-border bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {pendingStatusChange && updatingIds.has(pendingStatusChange.appointmentId) ? "Updating..." : "Confirm"}
+            </button>
+          </div>
+        </div>
+      </EntityModal>
+
+      <EntityModal open={Boolean(pendingDelete)} title="Delete appointment" onClose={() => setPendingDelete(null)}>
+        <div className="space-y-4">
+          <p className="text-base text-muted-foreground">
+            Delete appointment for <span className="font-semibold text-text">{pendingDelete?.name}</span>? It will be removed from the list.
+          </p>
+          {deleteError && <p className="text-sm text-rose-600">{deleteError}</p>}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setPendingDelete(null)}
+              className="min-h-11 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground hover:bg-muted sm:w-auto"
+            >
+              Keep
+            </button>
+            <button
+              type="button"
+              onClick={() => void confirmDelete()}
+              disabled={isDeleting}
+              className="min-h-11 w-full rounded-xl border border-rose-600 bg-rose-600 px-3 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
             </button>
           </div>
         </div>
