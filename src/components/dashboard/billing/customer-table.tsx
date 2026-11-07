@@ -283,7 +283,7 @@ export function CustomerTable({
                       <td className="px-3 py-3 text-muted-foreground">{customer.email ?? "-"}</td>
                       <td className="px-3 py-3 text-muted-foreground">{customer.outreach_status || "-"}</td>
                       <td className="px-3 py-3 text-muted-foreground">{formatDateOnly(customer.dob)}</td>
-                      <td className="px-3 py-3 text-muted-foreground">{formatUtcToIst(customer.created_at)}</td>
+                      <td className="px-3 py-3 text-muted-foreground">{formatUtcToIst(customer.created_at).slice(0, 10)}</td>
                       <td className="px-3 py-3 text-muted-foreground">{customer.totalOrders}</td>
                       <td className="px-3 py-3 text-muted-foreground">{formatCurrency(customer.totalSpent)}</td>
                       <td className="px-3 py-3">
