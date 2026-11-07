@@ -90,6 +90,19 @@ function getInitials(name: string | null) {
     .join("") || "?";
 }
 
+const TIME_STEP_MINUTES = 10;
+const TIME_STEP_SECONDS = TIME_STEP_MINUTES * 60;
+
+/** Rounds an "HH:MM" value down to the slot grid so typed times stay on 10-minute marks. */
+function snapTimeToStep(value: string): string {
+  const match = value.match(/^(\d{2}):(\d{2})/);
+  if (!match) {
+    return value;
+  }
+  const minutes = Math.floor(Number(match[2]) / TIME_STEP_MINUTES) * TIME_STEP_MINUTES;
+  return `${match[1]}:${String(minutes).padStart(2, "0")}`;
+}
+
 /** Customer name input with server-side suggestions; selecting fills name/phone/email, free text still allowed. */
 function CustomerPickerField({
   clientId,
@@ -1165,7 +1178,8 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           resetForm();
         }}
       >
-        <form onSubmit={handleSaveAppointment} className="space-y-4">
+        {/* noValidate: older appointments may have off-step times; handleSaveAppointment validates required fields. */}
+        <form onSubmit={handleSaveAppointment} noValidate className="space-y-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1 text-sm text-muted-foreground sm:col-span-2">
               <span>Customer *</span>
@@ -1266,8 +1280,11 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                 <span>Start time *</span>
                 <input
                   value={form.start_time}
-                  onChange={(event) => setForm((current) => ({ ...current, start_time: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, start_time: snapTimeToStep(event.target.value) }))
+                  }
                   type="time"
+                  step={TIME_STEP_SECONDS}
                   className="w-full min-h-11 rounded-xl border border-border bg-background px-3 py-2 text-base text-text sm:text-sm"
                 />
               </label>
@@ -1276,8 +1293,11 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                 <span>End time</span>
                 <input
                   value={form.end_time}
-                  onChange={(event) => setForm((current) => ({ ...current, end_time: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, end_time: snapTimeToStep(event.target.value) }))
+                  }
                   type="time"
+                  step={TIME_STEP_SECONDS}
                   className="w-full min-h-11 rounded-xl border border-border bg-background px-3 py-2 text-base text-text sm:text-sm"
                 />
               </label>
