@@ -36,7 +36,7 @@ Requirements for the doctor/clinic milestone. Existing CRM, WhatsApp and POS cod
 
 ### Security
 
-- [ ] **SEC-01**: The live RLS hardening (products, counters, clients, appointments, bill_items, tasks, function grants) exists as a migration in `supabase/migrations/`
+- [x] **SEC-01**: The live RLS hardening (products, counters, clients, appointments, bill_items, tasks, function grants) exists as a migration in `supabase/migrations/`
 
 ## v2 Requirements
 
@@ -95,7 +95,7 @@ Deferred. Tracked, not in this roadmap.
 | APPT-03 | Phase 1 | Complete |
 | PAT-01 | Phase 1 | Pending |
 | PAT-02 | Phase 1 | Pending |
-| SEC-01 | Phase 1 | Pending |
+| SEC-01 | Phase 1 | Complete |
 | CONS-01 | Phase 2 | Pending |
 | CONS-02 | Phase 2 | Pending |
 | CONS-03 | Phase 2 | Pending |

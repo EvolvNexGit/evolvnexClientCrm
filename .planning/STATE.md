@@ -4,16 +4,16 @@ milestone: v1.0
 current_phase: 01
 current_phase_name: Doctor appointments and patients
 status: executing
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-11-10T01:44:56.735Z"
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-11-10T01:47:11.599Z"
 last_activity: 2026-11-10
 last_activity_desc: Phase 01 execution started
-state_head: 2c5c90722594e520c8e9c66bdd2110a0e4e75670
+state_head: a59534f9ea794146c1862f30b75471490a6643fc
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 7
-  completed_plans: 1
+  completed_plans: 2
 milestone_name: milestone
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-11-10)
 ## Current Position
 
 Phase: 01 (Doctor appointments and patients) — EXECUTING
-Plan: 2 of 7
+Plan: 3 of 7
 Status: Ready to execute
 Last activity: 2026-11-10 — Phase 01 execution started
 
@@ -60,6 +60,7 @@ Progress: ░░░░░░░░░░ 0%
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 01 P01 | 10min | 2 tasks | 2 files |
+| Phase 01 P02 | 6min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,7 @@ Recent decisions affecting current work:
 - Appointment-to-patient matching stays by phone (no `patient_id`)
 - Live Supabase project `ltbqxyvdtrrlohdfrprf`; RLS hardening applied 2026-11-08 (products, counters, clients, appointments, bill_items, tasks, function grants)
 - [Phase 01]: 01-01: appointment writes live in appointment-queries.ts; update/status throw 'Appointment not found.' on zero rows; client_id written after payload spread
+- [Phase 01]: 01-02: RLS migration records live hand-applied state; no begin/commit wrapper, statements individually idempotent; crm_can_access_client reused not redefined
 
 ### Pending Todos
 
@@ -113,6 +115,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-11-10T01:44:56.691Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-11-10T01:47:11.562Z
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
