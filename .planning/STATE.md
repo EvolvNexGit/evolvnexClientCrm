@@ -1,36 +1,37 @@
 ---
-gsd_state_version: 1.0
+gsd_state_version: "1.0"
 milestone: v1.0
-milestone_name: milestone
-current_phase: 1
-current_phase_name: Conversation model
-status: planning
-stopped_at: Phase 1 context gathered
-last_updated: "2026-08-26T22:40:00.000Z"
-last_activity: 2026-08-26
-last_activity_desc: Completed quick task 260826-5p8 — merged develop into feature/consultation-tab
+current_phase: 01
+current_phase_name: Doctor appointments and patients
+status: executing
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-11-10T01:44:56.735Z"
+last_activity: 2026-11-10
+last_activity_desc: Phase 01 execution started
+state_head: 2c5c90722594e520c8e9c66bdd2110a0e4e75670
 progress:
-  total_phases: 1
+  total_phases: 3
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 7
+  completed_plans: 1
+milestone_name: milestone
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-08-20)
+See: .planning/PROJECT.md (updated 2026-11-10)
 
-**Core value:** A tenant's people and conversations live in one isolated system — CRM plus inbox — without mixing tenants, leaking secrets, or baking WhatsApp into Communication.
-**Current focus:** Phase 1: Conversation model
+**Core value:** A tenant's people and records live in one isolated system — each client sees only the tabs and workflows it needs — without mixing tenants or leaking secrets.
+**Current focus:** Phase 01 — Doctor appointments and patients
 
 ## Current Position
 
-Phase: 1 of 6 (Conversation model)
-Plan: none (ready to plan)
-Status: Ready to plan
-Last activity: 2026-08-23 — Onboarding complete; Phase 1 context captured
+Phase: 01 (Doctor appointments and patients) — EXECUTING
+Plan: 2 of 7
+Status: Ready to execute
+Last activity: 2026-11-10 — Phase 01 execution started
 
 Progress: ░░░░░░░░░░ 0%
 
@@ -54,37 +55,51 @@ Progress: ░░░░░░░░░░ 0%
 - Trend: —
 
 *Updated after each plan completion*
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 01 P01 | 10min | 2 tasks | 2 files |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- 2026-11-10: WhatsApp inbox phases 1-6 and `01-conversation-model` context removed (recoverable from git history); existing WhatsApp code in `src/` untouched
+- 2026-11-10: Added Phase 1 (Doctor appointments and patients), Phase 2 (Consultation and print), Phase 3 (Doctor billing)
 
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- v1 = keep CRM tabs + Conversations/inbox (WhatsApp first provider)
-- Campaigns/automation/POS/LEADS/HRM/AirMenu deferred
-- Generic conversation model; Constitution non-negotiable
-- Researchers stalled; research docs authored by orchestrator 2026-08-20
-- Vertical MVP phases (`**Mode:** mvp`)
+- Current slice = doctor/clinic workflow on existing tabs; clinic features enabled per client via `client_tab_access`
+- Doctor billing = new tab key 015 on existing `bills` tables; own `SECURITY INVOKER` function; cafe RPC untouched
+- Print = body-only on pre-printed letterhead, margins in mm per client
+- Appointment-to-patient matching stays by phone (no `patient_id`)
+- Live Supabase project `ltbqxyvdtrrlohdfrprf`; RLS hardening applied 2026-11-08 (products, counters, clients, appointments, bill_items, tasks, function grants)
+- [Phase 01]: 01-01: appointment writes live in appointment-queries.ts; update/status throw 'Appointment not found.' on zero rows; client_id written after payload spread
 
 ### Pending Todos
 
-None yet.
+- Sync live RLS hardening into `supabase/migrations/20261108_phase0_tighten_rls.sql` (Phase 1, SEC-01)
+- Decide on `people_insert_authenticated` (any signed-in user can insert `people`)
+- Enable leaked-password protection in Supabase Auth settings (dashboard toggle)
 
 ### Blockers/Concerns
 
 - Numbered architecture specs live outside this repo — stop if a change needs them
-- Core CRM schema/RLS still not fully versioned; inbox tables must still ship with RLS
-- Known webhook HMAC/status bugs must be fixed in Phase 2, not papered over
+- Repo migrations and live DB tracker have drifted (repo files for WhatsApp/customer/soft-delete are not in the live tracker); new migrations must record what is actually live
+- `create_order_with_inventory` ignores `p_order_source` / `p_order_type` and does not validate customer/product ownership; separate hardening ticket, not in this roadmap
+- `tasks` and `client_code_counters` now rely on new RLS; verify Summary tab and client creation after any related change
 
 ## Deferred Items
 
-Items acknowledged and carried forward from previous milestone close:
+Items acknowledged and carried forward:
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| *(none)* | | | |
+| Communication | WhatsApp inbox, webhook hardening, reminders | Paused | 2026-11-10 |
 
 ## Quick Tasks Completed
 
@@ -98,6 +113,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-26T22:40:00Z
-Stopped at: Completed quick task 260826-5p8 (merge develop)
+Last session: 2026-11-10T01:44:56.691Z
+Stopped at: Completed 01-01-PLAN.md
 Resume file: None
