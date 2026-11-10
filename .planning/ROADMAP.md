@@ -94,15 +94,15 @@ Plans:
   4. The bill is created by a `SECURITY INVOKER` function that verifies customer, products and consultation belong to the caller's client; a foreign id is rejected
   5. A receipt prints through the Phase 2 print mechanism; an unpaid list shows outstanding bills
 
-**Plans:** 7 plans
+**Plans:** 2/7 plans executed
 **UI hint**: yes
 
 Plans:
 **Wave 1**
-- [ ] 03-01-PLAN.md — Live re-confirmation of LF-1..LF-9, migrations A (enum Clinic, alone), B (payment CHECK, indexes, create_clinic_bill) and C (015 tab access, authored only); A then B applied by the user with rolled-back isolation probes (BILL-01, BILL-02, BILL-03) [wave 1]
+- [x] 03-01-PLAN.md — Live re-confirmation of LF-1..LF-9, migrations A (enum Clinic, alone), B (payment CHECK, indexes, create_clinic_bill) and C (015 tab access, authored only); A then B applied by the user with rolled-back isolation probes (BILL-01, BILL-02, BILL-03) [wave 1]
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 03-02-PLAN.md — Clinic billing types and queries, doctor-billing tab with Unpaid | All list and Mark paid, and the four-file registration of tab key 015 (BILL-01, BILL-02, BILL-04) [wave 2]
+- [x] 03-02-PLAN.md — Clinic billing types and queries, doctor-billing tab with Unpaid | All list and Mark paid, and the four-file registration of tab key 015 (BILL-01, BILL-02, BILL-04) [wave 2]
 
 **Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 03-03-PLAN.md — Cafe isolation: NULL-safe Clinic predicate and guards E1-E4 (active orders, transactions-since, realtime alert, push) plus doctor summary opt-in with paid-only revenue (BILL-05) [wave 3]
@@ -128,4 +128,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Doctor appointments and patients | 7/7 | In Progress | - |
 | 2. Consultation and print | 6/6 | In Progress | - |
-| 3. Doctor billing | 0/7 | Not started | - |
+| 3. Doctor billing | 2/7 | In Progress | - |
