@@ -7,6 +7,7 @@ import {
   toDisplayStatus,
   toDisplayVisitType,
   type ConsultationAttachmentInput,
+  type ConsultationAttachmentRecord,
   type ConsultationDetail,
   type ConsultationExerciseInput,
   type ConsultationHistoryItem,
@@ -281,6 +282,20 @@ export async function fetchConsultationQueueStats(
   return buildConsultationQueueStats(rows);
 }
 
+function mapAttachmentRow(item: Record<string, unknown>): ConsultationAttachmentRecord {
+  return {
+    id: String(item.id),
+    client_id: String(item.client_id),
+    consultation_id: String(item.consultation_id),
+    file_name: String(item.file_name ?? ""),
+    file_url: String(item.file_url ?? ""),
+    mime_type: item.mime_type == null ? null : String(item.mime_type),
+    file_size: item.file_size == null ? null : Number(item.file_size),
+    uploaded_by: item.uploaded_by ? String(item.uploaded_by) : null,
+    uploaded_at: String(item.uploaded_at ?? ""),
+  };
+}
+
 export async function fetchConsultationById(
   clientId: string,
   consultationId: string,
@@ -361,18 +376,49 @@ export async function fetchConsultationById(
       instructions: item.instructions ?? null,
       created_at: String(item.created_at ?? ""),
     })),
-    attachments: (attachmentsResult.data ?? []).map((item) => ({
-      id: String(item.id),
-      client_id: String(item.client_id),
-      consultation_id: String(item.consultation_id),
-      file_name: String(item.file_name ?? ""),
-      file_url: String(item.file_url ?? ""),
-      mime_type: item.mime_type ?? null,
-      file_size: item.file_size == null ? null : Number(item.file_size),
-      uploaded_by: item.uploaded_by ? String(item.uploaded_by) : null,
-      uploaded_at: String(item.uploaded_at ?? ""),
-    })),
+    attachments: (attachmentsResult.data ?? []).map((item) => mapAttachmentRow(item)),
   };
+}
+
+/** Caps how many of a patient's consultations are searched for attachments. */
+const PATIENT_ATTACHMENT_CONSULTATION_LIMIT = 200;
+
+export async function fetchPatientAttachments(
+  clientId: string,
+  patientId: string,
+): Promise<ConsultationAttachmentRecord[]> {
+  const supabase = getClient();
+
+  const { data: consultationRows, error: consultationError } = await supabase
+    .from("consultations")
+    .select("id")
+    .eq("client_id", clientId)
+    .eq("patient_id", patientId)
+    .neq("status", "CANCELLED")
+    .order("created_at", { ascending: false })
+    .limit(PATIENT_ATTACHMENT_CONSULTATION_LIMIT);
+
+  if (consultationError) {
+    raiseQueryError(consultationError, "Unable to load patient files.");
+  }
+
+  const consultationIds = (consultationRows ?? []).map((row) => String(row.id));
+  if (consultationIds.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("consultation_attachments")
+    .select("*")
+    .eq("client_id", clientId)
+    .in("consultation_id", consultationIds)
+    .order("uploaded_at", { ascending: false });
+
+  if (error) {
+    raiseQueryError(error, "Unable to load patient files.");
+  }
+
+  return (data ?? []).map((item) => mapAttachmentRow(item));
 }
 
 export async function fetchPatientConsultationHistory(

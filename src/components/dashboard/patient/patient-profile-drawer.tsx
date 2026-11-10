@@ -1,9 +1,49 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { PatientFilesPanel } from "@/components/dashboard/patient/patient-files-panel";
 import { PatientOverviewPanel } from "@/components/dashboard/patient/patient-overview-panel";
+import { PatientVisitsPanel } from "@/components/dashboard/patient/patient-visits-panel";
 import type { CustomerRecord } from "@/lib/billing-types";
 import { formatPatientAge, getPatientCode, getPatientInitials } from "@/lib/consultation-types";
+import { cn } from "@/lib/utils";
+
+const PROFILE_TABS = ["Overview", "Visits", "Files"] as const;
+type ProfileTab = (typeof PROFILE_TABS)[number];
+
+/** Mounted with key=patient.id by the drawer, so the active tab and panel state reset per patient. */
+function PatientProfileBody({ clientId, patient }: { clientId: string; patient: CustomerRecord }) {
+  const [activeTab, setActiveTab] = useState<ProfileTab>("Overview");
+
+  return (
+    <>
+      <div role="tablist" aria-label="Patient profile sections" className="flex shrink-0 gap-1 border-b border-border px-4 sm:px-5">
+        {PROFILE_TABS.map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab}
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              "min-h-11 border-b-2 px-3 text-sm font-medium",
+              activeTab === tab
+                ? "border-primary text-text"
+                : "border-transparent text-muted-foreground hover:text-text",
+            )}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5 sm:py-5">
+        {activeTab === "Overview" && <PatientOverviewPanel patient={patient} />}
+        {activeTab === "Visits" && <PatientVisitsPanel clientId={clientId} patientId={patient.id} />}
+        {activeTab === "Files" && <PatientFilesPanel clientId={clientId} patientId={patient.id} />}
+      </div>
+    </>
+  );
+}
 
 type PatientProfileDrawerProps = {
   open: boolean;
@@ -12,7 +52,7 @@ type PatientProfileDrawerProps = {
   onClose: () => void;
 };
 
-export function PatientProfileDrawer({ open, patient, onClose }: PatientProfileDrawerProps) {
+export function PatientProfileDrawer({ open, clientId, patient, onClose }: PatientProfileDrawerProps) {
   const isOpen = open && patient !== null;
 
   useEffect(() => {
@@ -69,11 +109,7 @@ export function PatientProfileDrawer({ open, patient, onClose }: PatientProfileD
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5 sm:py-5">
-          <div key={patient.id}>
-            <PatientOverviewPanel patient={patient} />
-          </div>
-        </div>
+        <PatientProfileBody key={patient.id} clientId={clientId} patient={patient} />
       </div>
     </div>
   );
