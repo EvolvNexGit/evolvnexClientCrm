@@ -1,16 +1,19 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import type { AppointmentRow } from "@/lib/appointment-queries";
 import {
   CALENDAR_SLOT_HEIGHT_PX,
   DEFAULT_APPOINTMENT_MINUTES,
   TIME_STEP_MINUTES,
+  addDays,
   buildSlotStarts,
   buildStaffColumns,
   getAppointmentInterval,
   getVisibleRange,
+  getWeekDates,
   layoutColumnAppointments,
   minutesToClock,
   splitScheduled,
@@ -26,6 +29,7 @@ export type CalendarSlot = {
 };
 
 type AppointmentsCalendarProps = {
+  mode: "day" | "week";
   date: string;
   appointments: AppointmentRow[];
   staffOptions: string[];
@@ -39,14 +43,17 @@ type AppointmentsCalendarProps = {
 type GridColumn = {
   key: string;
   label: string;
+  ariaLabel: string;
   date: string;
   staffName: string | null;
   rows: AppointmentRow[];
 };
 
+const ALL_STAFF_KEY = "__all__";
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const GUTTER_WIDTH = "3.5rem";
 const DAY_COLUMN_MIN_WIDTH = "9rem";
+const WEEK_COLUMN_MIN_WIDTH = "7rem";
 
 /** Single source of status pill classes for the calendar cards and the list view. */
 export function getAppointmentStatusTone(status: AppointmentRow["status"]) {
@@ -59,21 +66,17 @@ export function getAppointmentStatusTone(status: AppointmentRow["status"]) {
         : "bg-amber-500/15 text-amber-600";
 }
 
-function formatDateHeading(date: string) {
+function parseIsoDate(date: string) {
   if (!ISO_DATE_PATTERN.test(date)) {
-    return date;
+    return null;
   }
   const parsed = new Date(`${date}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
-  return parsed.toLocaleDateString("en-GB", {
-    timeZone: "UTC",
-    weekday: "long",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatDate(date: string, options: Intl.DateTimeFormatOptions) {
+  const parsed = parseIsoDate(date);
+  return parsed ? parsed.toLocaleDateString("en-GB", { timeZone: "UTC", ...options }) : date;
 }
 
 function getTodayIst() {
@@ -88,7 +91,12 @@ function rowStaffKey(appointment: AppointmentRow) {
   return (appointment.staff_name ?? "").trim();
 }
 
+function matchesStaff(appointment: AppointmentRow, staffName: string | null) {
+  return staffName === null ? rowStaffKey(appointment) === "" : rowStaffKey(appointment) === staffName;
+}
+
 export function AppointmentsCalendar({
+  mode,
   date,
   appointments,
   staffOptions,
@@ -98,9 +106,32 @@ export function AppointmentsCalendar({
   onSlotClick,
   onCardClick,
 }: AppointmentsCalendarProps) {
-  const visibleRows = useMemo(() => appointments.filter((appointment) => appointment.date === date), [appointments, date]);
+  const [selectedStaffKey, setSelectedStaffKey] = useState(ALL_STAFF_KEY);
+  const isWeek = mode === "week";
 
-  const { scheduled, unscheduled } = useMemo(() => splitScheduled(visibleRows), [visibleRows]);
+  const visibleDates = useMemo(() => (isWeek ? getWeekDates(date) : [date]), [isWeek, date]);
+
+  // Rows outside the visible dates are ignored defensively (also hides the previous window while a new one loads).
+  const windowRows = useMemo(
+    () => appointments.filter((appointment) => appointment.date !== null && visibleDates.includes(appointment.date)),
+    [appointments, visibleDates],
+  );
+
+  const staffColumns = useMemo(() => buildStaffColumns(staffOptions, windowRows), [staffOptions, windowRows]);
+
+  const effectiveStaffKey =
+    isWeek && staffColumns.some((column) => column.key === selectedStaffKey) ? selectedStaffKey : ALL_STAFF_KEY;
+  const selectedStaff = isWeek ? (staffColumns.find((column) => column.key === effectiveStaffKey) ?? null) : null;
+
+  const { scheduled: allScheduled, unscheduled } = useMemo(() => splitScheduled(windowRows), [windowRows]);
+
+  const scheduled = useMemo(
+    () =>
+      isWeek && selectedStaff
+        ? allScheduled.filter((appointment) => matchesStaff(appointment, selectedStaff.staffName))
+        : allScheduled,
+    [allScheduled, isWeek, selectedStaff],
+  );
 
   const range = useMemo(
     () =>
@@ -115,24 +146,44 @@ export function AppointmentsCalendar({
 
   const slotStarts = useMemo(() => buildSlotStarts(range), [range]);
   const gridHeight = slotStarts.length * CALENDAR_SLOT_HEIGHT_PX;
+  const todayIst = getTodayIst();
 
-  const columns = useMemo<GridColumn[]>(
-    () =>
-      buildStaffColumns(staffOptions, visibleRows).map((column) => ({
-        key: column.key,
-        label: column.label,
-        date,
-        staffName: column.staffName,
-        rows: scheduled.filter((appointment) =>
-          column.staffName === null ? rowStaffKey(appointment) === "" : rowStaffKey(appointment) === column.staffName,
-        ),
-      })),
-    [staffOptions, visibleRows, scheduled, date],
-  );
+  const columns = useMemo<GridColumn[]>(() => {
+    if (isWeek) {
+      return visibleDates.map((columnDate) => ({
+        key: columnDate,
+        label: formatDate(columnDate, { weekday: "short", day: "numeric" }),
+        ariaLabel: formatDate(columnDate, { weekday: "short", day: "numeric", month: "short" }),
+        date: columnDate,
+        staffName: selectedStaff?.staffName ?? null,
+        rows: scheduled.filter((appointment) => appointment.date === columnDate),
+      }));
+    }
 
-  const gridTemplateColumns = `${GUTTER_WIDTH} repeat(${columns.length}, minmax(${DAY_COLUMN_MIN_WIDTH}, 1fr))`;
-  const gridMinWidth = `calc(${GUTTER_WIDTH} + ${columns.length} * ${DAY_COLUMN_MIN_WIDTH})`;
+    return staffColumns.map((column) => ({
+      key: column.key,
+      label: column.label,
+      ariaLabel: column.label,
+      date,
+      staffName: column.staffName,
+      rows: scheduled.filter((appointment) => matchesStaff(appointment, column.staffName)),
+    }));
+  }, [isWeek, visibleDates, selectedStaff, scheduled, staffColumns, date]);
+
+  const columnMinWidth = isWeek ? WEEK_COLUMN_MIN_WIDTH : DAY_COLUMN_MIN_WIDTH;
+  const gridTemplateColumns = `${GUTTER_WIDTH} repeat(${columns.length}, minmax(${columnMinWidth}, 1fr))`;
+  const gridMinWidth = `calc(${GUTTER_WIDTH} + ${columns.length} * ${columnMinWidth})`;
   const hourMarks = slotStarts.filter((minutes) => minutes % 60 === 0);
+  const stepDays = isWeek ? 7 : 1;
+  const showStaffOnCards = isWeek && effectiveStaffKey === ALL_STAFF_KEY;
+
+  const heading = isWeek
+    ? `${formatDate(visibleDates[0], { day: "numeric", month: "short" })} - ${formatDate(visibleDates[visibleDates.length - 1], {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })}`
+    : formatDate(date, { weekday: "long", day: "numeric", month: "short", year: "numeric" });
 
   function handleDateInput(value: string) {
     if (ISO_DATE_PATTERN.test(value)) {
@@ -152,13 +203,29 @@ export function AppointmentsCalendar({
   return (
     <div className="min-w-0 max-w-full space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="mr-auto text-base font-semibold text-text">{formatDateHeading(date)}</h3>
+        <h3 className="mr-auto text-base font-semibold text-text">{heading}</h3>
         <button
           type="button"
-          onClick={() => onDateChange(getTodayIst())}
+          onClick={() => onDateChange(addDays(date, -stepDays))}
+          aria-label={isWeek ? "Previous week" : "Previous day"}
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border bg-background text-text hover:bg-muted"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onDateChange(todayIst)}
           className="min-h-11 rounded-xl border border-border bg-background px-4 text-sm font-medium text-text hover:bg-muted"
         >
           Today
+        </button>
+        <button
+          type="button"
+          onClick={() => onDateChange(addDays(date, stepDays))}
+          aria-label={isWeek ? "Next week" : "Next day"}
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border bg-background text-text hover:bg-muted"
+        >
+          <ChevronRight className="h-4 w-4" />
         </button>
         <input
           type="date"
@@ -168,6 +235,40 @@ export function AppointmentsCalendar({
           className="min-h-11 rounded-xl border border-border bg-background px-3 text-base text-text sm:text-sm"
         />
       </div>
+
+      {isWeek && (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by staff">
+          <button
+            type="button"
+            aria-pressed={effectiveStaffKey === ALL_STAFF_KEY}
+            onClick={() => setSelectedStaffKey(ALL_STAFF_KEY)}
+            className={cn(
+              "min-h-11 rounded-full border px-4 text-sm font-medium",
+              effectiveStaffKey === ALL_STAFF_KEY
+                ? "border-primary/40 bg-primary/10 text-text"
+                : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-text",
+            )}
+          >
+            All staff
+          </button>
+          {staffColumns.map((column) => (
+            <button
+              key={column.key}
+              type="button"
+              aria-pressed={effectiveStaffKey === column.key}
+              onClick={() => setSelectedStaffKey(column.key)}
+              className={cn(
+                "min-h-11 rounded-full border px-4 text-sm font-medium",
+                effectiveStaffKey === column.key
+                  ? "border-primary/40 bg-primary/10 text-text"
+                  : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-text",
+              )}
+            >
+              {column.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <DataState loading={loading && appointments.length === 0} error={error} empty={false} emptyLabel="" />
 
@@ -186,6 +287,9 @@ export function AppointmentsCalendar({
               >
                 <span className="font-semibold">{appointmentLabel(appointment)}</span>
                 {appointment.service ? <span className="text-muted-foreground"> - {appointment.service}</span> : null}
+                {isWeek && appointment.date ? (
+                  <span className="text-muted-foreground"> ({formatDate(appointment.date, { weekday: "short", day: "numeric" })})</span>
+                ) : null}
               </button>
             ))}
           </div>
@@ -198,8 +302,11 @@ export function AppointmentsCalendar({
           {columns.map((column) => (
             <div
               key={`head-${column.key}`}
-              className="sticky top-0 z-20 truncate border-b border-r border-border bg-card px-2 py-2 text-center text-sm font-semibold text-text"
-              title={column.label}
+              className={cn(
+                "sticky top-0 z-20 truncate border-b border-r border-border bg-card px-2 py-2 text-center text-sm font-semibold",
+                isWeek && column.date === todayIst ? "text-primary" : "text-text",
+              )}
+              title={column.ariaLabel}
             >
               {column.label}
             </div>
@@ -234,7 +341,7 @@ export function AppointmentsCalendar({
                       key={minutes}
                       type="button"
                       onClick={() => handleSlotClick(column, minutes)}
-                      aria-label={`Book ${column.label} at ${minutesToClock(minutes)}`}
+                      aria-label={`Book ${column.ariaLabel} at ${minutesToClock(minutes)}`}
                       className={cn(
                         "block w-full border-t hover:bg-primary/10 focus-visible:bg-primary/10",
                         minutes % 60 === 0 ? "border-border" : "border-border/30",
@@ -250,6 +357,7 @@ export function AppointmentsCalendar({
                     ((interval.end - interval.start) / TIME_STEP_MINUTES) * CALENDAR_SLOT_HEIGHT_PX,
                     CALENDAR_SLOT_HEIGHT_PX,
                   );
+                  const staffLabel = rowStaffKey(item) || "Unassigned";
 
                   return (
                     <button
@@ -271,6 +379,7 @@ export function AppointmentsCalendar({
                         </div>
                         <div className="truncate">{appointmentLabel(item)}</div>
                         {item.service ? <div className="truncate opacity-80">{item.service}</div> : null}
+                        {showStaffOnCards ? <div className="truncate opacity-80">{staffLabel}</div> : null}
                       </div>
                     </button>
                   );

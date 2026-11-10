@@ -35,7 +35,7 @@ import {
   type AppointmentRow,
   type AppointmentStatus,
 } from "@/lib/appointment-queries";
-import { TIME_STEP_SECONDS, snapTimeToStep } from "@/lib/appointment-schedule";
+import { TIME_STEP_SECONDS, getWeekDates, snapTimeToStep } from "@/lib/appointment-schedule";
 import {
   formatAppointmentDuration,
   formatAppointmentTimeRange,
@@ -440,7 +440,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   );
   const [sortOrder, setSortOrder] = usePersistentState<"asc" | "desc">("appointments-tab-sort-order", "asc");
   const [showFilters, setShowFilters] = useState(false);
-  const [viewMode, setViewMode] = usePersistentState<"list" | "day">("appointments-tab-view-mode", "list");
+  const [viewMode, setViewMode] = usePersistentState<"list" | "day" | "week">("appointments-tab-view-mode", "list");
   const [calendarDate, setCalendarDate] = useState(() => formatUtcToIst(new Date().toISOString()).slice(0, 10));
   // Only today's group starts open; the rest stay collapsed until toggled.
   const [collapsedGroups, setCollapsedGroups] = useState<Record<GroupKey, boolean>>({
@@ -489,10 +489,14 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       }),
   });
 
+  const weekDates = useMemo(() => getWeekDates(calendarDate), [calendarDate]);
+  const rangeFromDate = viewMode === "week" ? weekDates[0] : calendarDate;
+  const rangeToDate = viewMode === "week" ? weekDates[weekDates.length - 1] : calendarDate;
+
   const rangeAppointments = useAppointmentsRange({
     clientId,
-    fromDate: calendarDate,
-    toDate: calendarDate,
+    fromDate: rangeFromDate,
+    toDate: rangeToDate,
     enabled: viewMode !== "list" && Boolean(clientId),
   });
 
@@ -797,6 +801,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
             [
               { key: "list", label: "List" },
               { key: "day", label: "Day" },
+              { key: "week", label: "Week" },
             ] as const
           ).map((option) => (
             <button
@@ -1192,6 +1197,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
       {viewMode !== "list" && (
         <AppointmentsCalendar
+          mode={viewMode === "week" ? "week" : "day"}
           date={calendarDate}
           appointments={rangeAppointments.appointments}
           staffOptions={staffOptions}

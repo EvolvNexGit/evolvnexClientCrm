@@ -245,3 +245,35 @@ export function layoutColumnAppointments<T extends ScheduleAppointment>(items: T
   closeCluster(result.length);
   return result;
 }
+
+const ISO_DATE_PARTS = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function toUtcDate(date: string): Date | null {
+  const match = date.match(ISO_DATE_PARTS);
+  if (!match) {
+    return null;
+  }
+  const parsed = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/** YYYY-MM-DD in and out; UTC date arithmetic so the machine time zone never shifts the result. */
+export function addDays(date: string, days: number): string {
+  const parsed = toUtcDate(date);
+  if (!parsed) {
+    return date;
+  }
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+  return parsed.toISOString().slice(0, 10);
+}
+
+/** The seven dates Monday to Sunday of the week containing the date (Sunday ends its week). */
+export function getWeekDates(date: string): string[] {
+  const parsed = toUtcDate(date);
+  if (!parsed) {
+    return [date];
+  }
+  const daysSinceMonday = (parsed.getUTCDay() + 6) % 7;
+  const monday = addDays(date, -daysSinceMonday);
+  return Array.from({ length: 7 }, (_, index) => addDays(monday, index));
+}
