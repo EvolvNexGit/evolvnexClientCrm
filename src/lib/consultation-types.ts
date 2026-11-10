@@ -70,6 +70,7 @@ export type ConsultationPatientSummary = {
   name: string;
   phone: string | null;
   dob: string | null;
+  allergies: string | null;
 };
 
 export type ConsultationAppointmentSummary = {

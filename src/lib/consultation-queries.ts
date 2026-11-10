@@ -40,7 +40,7 @@ const CONSULTATION_SELECT = `
   created_by,
   created_at,
   updated_at,
-  customers:patient_id (id, name, phone, dob),
+  customers:patient_id (id, name, phone, dob, allergies),
   appointments:appointment_id (id, date, start_time, remark, service)
 `;
 
@@ -76,11 +76,14 @@ function mapPatient(raw: unknown) {
   }
 
   const patient = row as Record<string, unknown>;
+  // Blank allergies means "not recorded", never "none".
+  const allergies = typeof patient.allergies === "string" ? patient.allergies.trim() : "";
   return {
     id: String(patient.id ?? ""),
     name: String(patient.name ?? "Unknown patient"),
     phone: (patient.phone as string | null) ?? null,
     dob: (patient.dob as string | null) ?? null,
+    allergies: allergies || null,
   };
 }
 

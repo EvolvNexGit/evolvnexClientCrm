@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { PatientStrip } from "@/components/dashboard/patient/patient-strip";
 import { Button } from "@/components/ui/button";
 import { useConsultations } from "@/hooks/use-consultations";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -1136,6 +1137,14 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
           </div>
         </div>
       </section>
+
+      {activeConsultation && !detailLoading && (
+        <PatientStrip
+          name={patientName}
+          age={patientAge}
+          allergies={activeConsultation.patient ? activeConsultation.patient.allergies : undefined}
+        />
+      )}
 
       {error && (
         <div className="rounded-xl border border-primary/50 bg-primary/10 p-5 text-base text-primary">{error}</div>
