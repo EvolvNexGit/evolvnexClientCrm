@@ -15,7 +15,7 @@ Requirements for the doctor/clinic milestone. Existing CRM, WhatsApp and POS cod
 
 ### Patients
 
-- [ ] **PAT-01**: A patient (customer row) stores gender, blood group, allergies and chronic conditions as nullable fields
+- [x] **PAT-01**: A patient (customer row) stores gender, blood group, allergies and chronic conditions as nullable fields
 - [ ] **PAT-02**: Staff can open a patient profile with Overview, Visits and Files; allergies are prominent
 
 ### Consultation and print
@@ -93,7 +93,7 @@ Deferred. Tracked, not in this roadmap.
 | APPT-01 | Phase 1 | Pending |
 | APPT-02 | Phase 1 | Pending |
 | APPT-03 | Phase 1 | Complete |
-| PAT-01 | Phase 1 | Pending |
+| PAT-01 | Phase 1 | Complete |
 | PAT-02 | Phase 1 | Pending |
 | SEC-01 | Phase 1 | Complete |
 | CONS-01 | Phase 2 | Pending |
