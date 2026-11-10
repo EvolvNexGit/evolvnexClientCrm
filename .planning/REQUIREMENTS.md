@@ -20,11 +20,11 @@ Requirements for the doctor/clinic milestone. Existing CRM, WhatsApp and POS cod
 
 ### Consultation and print
 
-- [ ] **CONS-01**: A consultation stores vitals (BP, pulse, temperature, weight, SpO2)
-- [ ] **CONS-02**: A pinned patient strip (name, age, allergies) stays visible on the consult form
-- [ ] **CONS-03**: Attachments upload to a private, client-scoped Storage bucket and open through signed URLs
-- [ ] **PRNT-01**: A client saves letterhead margins (header, footer, left, right in mm) once
-- [ ] **PRNT-02**: A completed consult prints body-only (medications, advice, follow-up) using those margins
+- [x] **CONS-01**: A consultation stores vitals (BP, pulse, temperature, weight, SpO2)
+- [x] **CONS-02**: A pinned patient strip (name, age, allergies) stays visible on the consult form
+- [x] **CONS-03**: Attachments upload to a private, client-scoped Storage bucket and open through signed URLs
+- [x] **PRNT-01**: A client saves letterhead margins (header, footer, left, right in mm) once
+- [x] **PRNT-02**: A completed consult prints body-only (medications, advice, follow-up) using those margins
 
 ### Doctor billing
 
@@ -96,11 +96,11 @@ Deferred. Tracked, not in this roadmap.
 | PAT-01 | Phase 1 | Complete |
 | PAT-02 | Phase 1 | Complete |
 | SEC-01 | Phase 1 | Complete |
-| CONS-01 | Phase 2 | Pending |
-| CONS-02 | Phase 2 | Pending |
-| CONS-03 | Phase 2 | Pending |
-| PRNT-01 | Phase 2 | Pending |
-| PRNT-02 | Phase 2 | Pending |
+| CONS-01 | Phase 2 | Complete |
+| CONS-02 | Phase 2 | Complete |
+| CONS-03 | Phase 2 | Complete |
+| PRNT-01 | Phase 2 | Complete |
+| PRNT-02 | Phase 2 | Complete |
 | BILL-01 | Phase 3 | Pending |
 | BILL-02 | Phase 3 | Pending |
 | BILL-03 | Phase 3 | Pending |

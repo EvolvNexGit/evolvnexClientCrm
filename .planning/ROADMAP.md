@@ -60,27 +60,27 @@ Plans:
   4. A clinic saves header height, footer height, left and right margins (mm) once; print uses them via CSS `@page`
   5. Printing a completed consult outputs medications, advice and follow-up in the body area only
 
-**Plans:** 6 plans
+**Plans:** 6/6 plans executed
 **UI hint**: yes
 
 Plans:
 **Wave 1**
-- [ ] 02-01-PLAN.md — Live read-only probes, three idempotent migrations (vitals, print_settings, private bucket + storage policies) and the approved apply to live with isolation probes (CONS-01, CONS-03, PRNT-01) [wave 1]
+- [x] 02-01-PLAN.md — Live read-only probes, three idempotent migrations (vitals, print_settings, private bucket + storage policies) and the approved apply to live with isolation probes (CONS-01, CONS-03, PRNT-01) [wave 1]
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 02-02-PLAN.md — Pinned patient strip (name, age, allergies) and vitals data layer plus Vitals card (CONS-01, CONS-02) [wave 2]
+- [x] 02-02-PLAN.md — Pinned patient strip (name, age, allergies) and vitals data layer plus Vitals card (CONS-01, CONS-02) [wave 2]
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 02-03-PLAN.md — Private file upload, signed-URL Open shared by editor and Patient Files, guarded legacy URLs, object-first delete (CONS-03) [wave 3]
+- [x] 02-03-PLAN.md — Private file upload, signed-URL Open shared by editor and Patient Files, guarded legacy URLs, object-first delete (CONS-03) [wave 3]
 
 **Wave 4** *(blocked on Wave 3 completion)*
-- [ ] 02-04-PLAN.md — Print settings (mm margins per client) and the shared PrintSheet + usePrintJob + print CSS with a Test print (PRNT-01) [wave 4]
+- [x] 02-04-PLAN.md — Print settings (mm margins per client) and the shared PrintSheet + usePrintJob + print CSS with a Test print (PRNT-01) [wave 4]
 
 **Wave 5** *(blocked on Wave 4 completion)*
-- [ ] 02-05-PLAN.md — Body-only prescription print, queue View / Print, history Print, read-only Completed consult (PRNT-02) [wave 5]
+- [x] 02-05-PLAN.md — Body-only prescription print, queue View / Print, history Print, read-only Completed consult (PRNT-02) [wave 5]
 
 **Wave 6** *(blocked on Wave 5 completion)*
-- [ ] 02-06-PLAN.md — Docs, phase gates and consolidated end-of-phase UAT (CONS-01..03, PRNT-01..02) [wave 6]
+- [x] 02-06-PLAN.md — Docs, phase gates and consolidated end-of-phase UAT (CONS-01..03, PRNT-01..02) [wave 6]
 
 ### Phase 3: Doctor billing
 
@@ -108,5 +108,5 @@ Phases execute in numeric order: 1 → 2 → 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Doctor appointments and patients | 7/7 | In Progress | - |
-| 2. Consultation and print | 0/6 | Planned | - |
+| 2. Consultation and print | 6/6 | In Progress | - |
 | 3. Doctor billing | 0/0 | Not started | - |
