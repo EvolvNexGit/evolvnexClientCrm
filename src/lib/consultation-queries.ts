@@ -767,28 +767,20 @@ export async function deleteConsultationAttachment(
   }
 }
 
-/** Removes the bucket object first, then the row. Legacy rows (no storage_path) delete only the row. */
+/**
+ * Removes the row first, then the bucket object (best effort). A failed object removal leaves an
+ * orphan object instead of an undeletable row. Legacy rows (no storage_path) delete only the row.
+ */
 export async function deleteConsultationFile(
   clientId: string,
   attachment: ConsultationAttachmentRecord,
 ): Promise<void> {
-  if (attachment.storage_path) {
-    const supabase = getClient();
-    const { data, error } = await supabase.storage
-      .from(CONSULTATION_FILES_BUCKET)
-      .remove([attachment.storage_path]);
-
-    if (error) {
-      raiseQueryError(error, "Unable to remove file.");
-    }
-
-    // An empty result means RLS hid the object: nothing was removed, so keep the row.
-    if (!data || data.length !== 1) {
-      throw new Error("The file could not be removed from storage, so nothing was deleted.");
-    }
-  }
-
   await deleteConsultationAttachment(clientId, attachment.id);
+
+  if (attachment.storage_path) {
+    // Result intentionally ignored: the row is already gone and the user cannot retry a missing row.
+    await getClient().storage.from(CONSULTATION_FILES_BUCKET).remove([attachment.storage_path]);
+  }
 }
 
 const CONSULTATION_ALREADY_COMPLETED_MESSAGE = "Consultation is already completed.";
