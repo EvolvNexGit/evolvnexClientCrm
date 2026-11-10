@@ -15,6 +15,7 @@ import {
   MoreHorizontal,
   Paperclip,
   Plus,
+  Printer,
   Save,
   Search,
   Settings,
@@ -26,12 +27,15 @@ import {
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 import { AttachmentOpenButton } from "@/components/dashboard/consultation/attachment-open-button";
+import { PrescriptionPrint } from "@/components/dashboard/consultation/prescription-print";
 import { VitalsCard } from "@/components/dashboard/consultation/vitals-card";
 import { PatientStrip } from "@/components/dashboard/patient/patient-strip";
 import { PrintSettingsModal } from "@/components/dashboard/print/print-settings-modal";
+import { PrintSheet } from "@/components/dashboard/print/print-sheet";
 import { Button } from "@/components/ui/button";
 import { useConsultations } from "@/hooks/use-consultations";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { usePrintJob } from "@/hooks/use-print-job";
 import { usePrintSettings } from "@/hooks/use-print-settings";
 import { fetchCustomersPage, createCustomer } from "@/lib/billing-queries";
 import type { CustomerRecord } from "@/lib/billing-types";
@@ -452,6 +456,9 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
 
   const printSettings = usePrintSettings(clientId);
   const [printSettingsOpen, setPrintSettingsOpen] = useState(false);
+  const { printPayload, requestPrint } = usePrintJob<ConsultationDetail>();
+  const [printingId, setPrintingId] = useState<string | null>(null);
+  const [printError, setPrintError] = useState<string | null>(null);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
   const [historyDetail, setHistoryDetail] = useState<ConsultationDetail | null>(null);
   const [historyDetailLoading, setHistoryDetailLoading] = useState(false);
@@ -666,6 +673,36 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
     appointmentDate && appointmentTime
       ? `${appointmentDate} · ${formatUtcToIstTimeLabel(appointmentTime)}`
       : appointmentDate ?? "—";
+
+  /** Fetches the chosen visit and prints it; only Completed consultations are accepted. */
+  async function handlePrintVisit(consultationId: string) {
+    if (!printSettings.ready || printingId) {
+      return;
+    }
+
+    setPrintError(null);
+    setPrintingId(consultationId);
+    try {
+      const detail = await fetchConsultationById(clientId, consultationId);
+      if (!detail) {
+        setPrintError("Visit not found.");
+      } else if (toDisplayStatus(detail.status) !== "Completed") {
+        setPrintError("Only completed consultations can be printed.");
+      } else {
+        requestPrint(detail);
+      }
+    } catch (loadError) {
+      setPrintError(loadError instanceof Error ? loadError.message : "Unable to load the visit for printing.");
+    } finally {
+      setPrintingId(null);
+    }
+  }
+
+  const printSheet = printPayload ? (
+    <PrintSheet margins={printSettings.margins}>
+      <PrescriptionPrint detail={printPayload} />
+    </PrintSheet>
+  ) : null;
 
   async function handleStartConsult(row: ConsultationQueueRow) {
     setSelectedRow(row);
@@ -1755,38 +1792,61 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                 <p className="text-sm text-muted-foreground">No consultation history for this patient yet.</p>
               ) : (
                 visibleHistory.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setSelectedHistoryId(item.id)}
-                    className="block w-full rounded-2xl border border-border bg-background p-4 text-left transition hover:border-[#ff4b5c]/40"
-                    aria-label={`View summary of ${item.title} on ${item.date}`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-full ${item.ringTone} text-white`}>
-                        <Stethoscope className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{item.date}</p>
-                            <h4 className="mt-1 text-sm font-semibold text-text">{item.title}</h4>
-                            <p className={`mt-1 text-xs font-medium ${item.statusTone}`}>{item.status}</p>
-                          </div>
-                          <p className="shrink-0 text-xs text-muted-foreground">{item.time}</p>
+                  <div key={item.id} className="flex items-stretch gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedHistoryId(item.id)}
+                      className="min-w-0 flex-1 rounded-2xl border border-border bg-background p-4 text-left transition hover:border-[#ff4b5c]/40"
+                      aria-label={`View summary of ${item.title} on ${item.date}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-full ${item.ringTone} text-white`}>
+                          <Stethoscope className="h-4 w-4" />
                         </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{item.date}</p>
+                              <h4 className="mt-1 text-sm font-semibold text-text">{item.title}</h4>
+                              <p className={`mt-1 text-xs font-medium ${item.statusTone}`}>{item.status}</p>
+                            </div>
+                            <p className="shrink-0 text-xs text-muted-foreground">{item.time}</p>
+                          </div>
+                        </div>
+                        <ChevronRight className="mt-1 h-4 w-4 text-muted-foreground" />
                       </div>
-                      <ChevronRight className="mt-1 h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </button>
+                    </button>
+                    {item.status === "Completed" ? (
+                      <Button
+                        variant="secondary"
+                        className="shrink-0 px-3"
+                        disabled={!printSettings.ready || printingId !== null}
+                        title={printSettings.ready ? "Print prescription" : "Print settings are not loaded"}
+                        aria-label={`Print prescription for ${item.title} on ${item.date}`}
+                        onClick={() => void handlePrintVisit(item.id)}
+                      >
+                        {printingId === item.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Printer className="h-4 w-4" />
+                        )}
+                      </Button>
+                    ) : null}
+                  </div>
                 ))
               )}
             </div>
+            {printError ? (
+              <p role="alert" className="pb-2 text-sm text-primary">
+                {printError}
+              </p>
+            ) : null}
             </>
             )}
           </aside>
         </div>
       )}
+      {printSheet}
     </div>
   );
 }
