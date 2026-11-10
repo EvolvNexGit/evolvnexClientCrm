@@ -1113,13 +1113,25 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                         </div>
                         <StatusPill status={row.status} />
                       </div>
-                      <Button
-                        className="mt-3 w-full bg-[#6d28d9] text-white hover:bg-[#5b21b6]"
-                        disabled={saving}
-                        onClick={() => void handleStartConsult(row)}
-                      >
-                        {row.status === "Completed" ? "View / Print" : row.status === "In Progress" ? "Continue" : "Start Consult"}
-                      </Button>
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          className="flex-1 bg-[#6d28d9] text-white hover:bg-[#5b21b6]"
+                          disabled={saving}
+                          onClick={() => void handleStartConsult(row)}
+                        >
+                          {row.status === "Completed" ? "View / Print" : row.status === "In Progress" ? "Continue" : "Start Consult"}
+                        </Button>
+                        {canBill && row.status === "Completed" && row.source === "consultation" ? (
+                          <Button
+                            variant="secondary"
+                            className="flex-1 gap-2"
+                            onClick={() => setBillTarget({ consultationId: row.id, patientId: row.patientId, patientName: row.name })}
+                          >
+                            <Receipt className="h-4 w-4" />
+                            Create bill
+                          </Button>
+                        ) : null}
+                      </div>
                     </article>
                   ))
                 )}
@@ -1176,13 +1188,25 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                           <StatusPill status={row.status} />
                         </td>
                         <td className="px-4 py-4">
-                          <Button
-                            className="bg-[#6d28d9] text-white hover:bg-[#5b21b6]"
-                            disabled={saving}
-                            onClick={() => void handleStartConsult(row)}
-                          >
-                            {row.status === "Completed" ? "View / Print" : row.status === "In Progress" ? "Continue" : "Start Consult"}
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              className="bg-[#6d28d9] text-white hover:bg-[#5b21b6]"
+                              disabled={saving}
+                              onClick={() => void handleStartConsult(row)}
+                            >
+                              {row.status === "Completed" ? "View / Print" : row.status === "In Progress" ? "Continue" : "Start Consult"}
+                            </Button>
+                            {canBill && row.status === "Completed" && row.source === "consultation" ? (
+                              <Button
+                                variant="secondary"
+                                className="gap-2"
+                                onClick={() => setBillTarget({ consultationId: row.id, patientId: row.patientId, patientName: row.name })}
+                              >
+                                <Receipt className="h-4 w-4" />
+                                Create bill
+                              </Button>
+                            ) : null}
+                          </div>
                         </td>
                         <td className="px-4 py-4 text-right text-muted-foreground">
                           <MoreHorizontal className="inline h-4 w-4" />
@@ -1206,6 +1230,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
 
         {newConsultModal}
         {printSettingsModal}
+        {clinicBillModal}
       </div>
     );
   }
