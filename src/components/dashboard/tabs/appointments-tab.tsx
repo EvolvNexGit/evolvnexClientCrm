@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import {
   AppointmentsCalendar,
+  getAppointmentStatusTone,
   type CalendarSlot,
 } from "@/components/dashboard/appointments-calendar";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
@@ -526,6 +527,14 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       end_time: slot.endTime,
       staff_name: slot.staffName ?? "",
     });
+    setModalMode("add");
+  }
+
+  /** Empty calendar state: same add modal with only the visible date prefilled. */
+  function openAddModalForCalendarDate() {
+    setEditingAppointment(null);
+    setAddError(null);
+    setForm({ ...initialForm, date: calendarDate });
     setModalMode("add");
   }
 
@@ -1065,14 +1074,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                 <div className={isGroupCollapsed ? "hidden" : "space-y-3"}>
                   {groupItems.map((appointment) => {
                     const isExpanded = expandedIds.includes(appointment.id);
-                    const statusTone =
-                      appointment.status === "booked"
-                        ? "bg-blue-500/15 text-blue-600"
-                        : appointment.status === "completed"
-                          ? "bg-emerald-500/15 text-emerald-600"
-                          : appointment.status === "cancelled"
-                            ? "bg-rose-500/15 text-rose-600"
-                            : "bg-amber-500/15 text-amber-600";
+                    const statusTone = getAppointmentStatusTone(appointment.status);
 
                     return (
                       <article
@@ -1206,6 +1208,8 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           onDateChange={setCalendarDate}
           onSlotClick={openAddModalFromSlot}
           onCardClick={(appointment) => openEditModal(appointment, "edit")}
+          onAddClick={openAddModalForCalendarDate}
+          onRetry={() => void rangeAppointments.refresh()}
         />
       )}
 

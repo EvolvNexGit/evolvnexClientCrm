@@ -38,6 +38,8 @@ type AppointmentsCalendarProps = {
   onDateChange: (date: string) => void;
   onSlotClick: (slot: CalendarSlot) => void;
   onCardClick: (appointment: AppointmentRow) => void;
+  onAddClick: () => void;
+  onRetry: () => void;
 };
 
 type GridColumn = {
@@ -105,6 +107,8 @@ export function AppointmentsCalendar({
   onDateChange,
   onSlotClick,
   onCardClick,
+  onAddClick,
+  onRetry,
 }: AppointmentsCalendarProps) {
   const [selectedStaffKey, setSelectedStaffKey] = useState(ALL_STAFF_KEY);
   const isWeek = mode === "week";
@@ -270,7 +274,32 @@ export function AppointmentsCalendar({
         </div>
       )}
 
-      <DataState loading={loading && appointments.length === 0} error={error} empty={false} emptyLabel="" />
+      <DataState
+        loading={loading && windowRows.length === 0}
+        error={error}
+        empty={!loading && !error && windowRows.length === 0}
+        emptyLabel={isWeek ? "No appointments this week" : "No appointments today"}
+      />
+
+      {error && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="min-h-11 rounded-xl border border-border bg-background px-4 text-sm font-medium text-text hover:bg-muted"
+        >
+          Retry
+        </button>
+      )}
+
+      {!loading && !error && windowRows.length === 0 && (
+        <button
+          type="button"
+          onClick={onAddClick}
+          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-white hover:bg-primary/90"
+        >
+          Add appointment
+        </button>
+      )}
 
       {unscheduled.length > 0 && (
         <div className="rounded-xl border border-border bg-background p-3">
@@ -358,6 +387,7 @@ export function AppointmentsCalendar({
                     CALENDAR_SLOT_HEIGHT_PX,
                   );
                   const staffLabel = rowStaffKey(item) || "Unassigned";
+                  const isCancelled = item.status === "cancelled";
 
                   return (
                     <button
@@ -365,7 +395,10 @@ export function AppointmentsCalendar({
                       type="button"
                       onClick={() => onCardClick(item)}
                       aria-label={`Edit appointment for ${appointmentLabel(item)} at ${minutesToClock(interval.start)}`}
-                      className="absolute overflow-hidden rounded-lg border border-border bg-card text-left shadow-soft"
+                      className={cn(
+                        "absolute overflow-hidden rounded-lg border border-border bg-card text-left shadow-soft",
+                        isCancelled && "opacity-60",
+                      )}
                       style={{
                         top,
                         height: height - 2,
@@ -377,7 +410,7 @@ export function AppointmentsCalendar({
                         <div className="truncate font-semibold">
                           {minutesToClock(interval.start)}-{minutesToClock(interval.end)}
                         </div>
-                        <div className="truncate">{appointmentLabel(item)}</div>
+                        <div className={cn("truncate", isCancelled && "line-through")}>{appointmentLabel(item)}</div>
                         {item.service ? <div className="truncate opacity-80">{item.service}</div> : null}
                         {showStaffOnCards ? <div className="truncate opacity-80">{staffLabel}</div> : null}
                       </div>
