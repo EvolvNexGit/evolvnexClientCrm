@@ -36,7 +36,14 @@ import {
   type AppointmentRow,
   type AppointmentStatus,
 } from "@/lib/appointment-queries";
-import { TIME_STEP_SECONDS, getWeekDates, snapTimeToStep } from "@/lib/appointment-schedule";
+import {
+  TIME_STEP_SECONDS,
+  findAppointmentConflicts,
+  getAppointmentInterval,
+  getWeekDates,
+  minutesToClock,
+  snapTimeToStep,
+} from "@/lib/appointment-schedule";
 import {
   formatAppointmentDuration,
   formatAppointmentTimeRange,
@@ -500,6 +507,40 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     toDate: rangeToDate,
     enabled: viewMode !== "list" && Boolean(clientId),
   });
+
+  // Advisory double-booking check (D-04): loads the modal date's own appointments so the List view and date edits are covered.
+  const modalDayAppointments = useAppointmentsRange({
+    clientId,
+    fromDate: form.date,
+    toDate: form.date,
+    enabled: modalMode !== null && Boolean(clientId),
+  });
+  const slotConflicts = useMemo(
+    () =>
+      modalMode === null
+        ? []
+        : findAppointmentConflicts(
+            {
+              id: editingAppointment?.id ?? null,
+              date: toNullable(form.date),
+              start_time: toNullable(form.start_time),
+              end_time: toNullable(form.end_time),
+              staff_name: toNullable(form.staff_name),
+              status: form.status,
+            },
+            modalDayAppointments.appointments,
+          ),
+    [
+      modalMode,
+      editingAppointment,
+      form.date,
+      form.start_time,
+      form.end_time,
+      form.staff_name,
+      form.status,
+      modalDayAppointments.appointments,
+    ],
+  );
 
   const loading = pagedAppointments.loading;
   const error = pagedAppointments.error;
@@ -1399,6 +1440,23 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
               />
             </label>
           </div>
+
+          {slotConflicts.length > 0 && (
+            <div role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-600">
+              <p className="font-semibold">Possible double booking</p>
+              {slotConflicts.slice(0, 3).map((conflict) => {
+                const interval = getAppointmentInterval(conflict);
+                return (
+                  <p key={conflict.id}>
+                    Staff already has {conflict.name?.trim() || "another appointment"}
+                    {interval ? ` from ${minutesToClock(interval.start)} to ${minutesToClock(interval.end)}` : ""} on {conflict.date}
+                  </p>
+                );
+              })}
+              {slotConflicts.length > 3 && <p>+{slotConflicts.length - 3} more</p>}
+              <p>You can still save.</p>
+            </div>
+          )}
 
           {addError && <p className="text-sm text-rose-400">{addError}</p>}
 

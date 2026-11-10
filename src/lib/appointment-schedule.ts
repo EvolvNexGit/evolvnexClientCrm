@@ -246,6 +246,62 @@ export function layoutColumnAppointments<T extends ScheduleAppointment>(items: T
   return result;
 }
 
+export type ConflictCandidate = {
+  id: string | null;
+  date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  staff_name: string | null;
+  status: string | null;
+};
+
+function isCancelled(status: string | null): boolean {
+  return (status ?? "").trim().toLowerCase() === "cancelled";
+}
+
+/**
+ * Existing appointments that overlap the candidate for the same staff and date (advisory only).
+ * Half-open intervals: back-to-back bookings do not clash. Cancelled bookings and the candidate's own id are ignored.
+ * Sorted by start, end, id; inputs are never mutated.
+ */
+export function findAppointmentConflicts<T extends ScheduleAppointment>(
+  candidate: ConflictCandidate,
+  existing: T[],
+): T[] {
+  const staff = (candidate.staff_name ?? "").trim();
+  if (!staff || !candidate.date || isCancelled(candidate.status)) {
+    return [];
+  }
+  const interval = getAppointmentInterval(candidate);
+  if (!interval) {
+    return [];
+  }
+
+  const matches: { item: T; interval: AppointmentInterval }[] = [];
+  for (const item of existing) {
+    if (
+      (item.staff_name ?? "").trim() !== staff ||
+      item.date !== candidate.date ||
+      isCancelled(item.status) ||
+      (candidate.id !== null && item.id === candidate.id)
+    ) {
+      continue;
+    }
+    const itemInterval = getAppointmentInterval(item);
+    if (itemInterval && interval.start < itemInterval.end && itemInterval.start < interval.end) {
+      matches.push({ item, interval: itemInterval });
+    }
+  }
+
+  matches.sort(
+    (left, right) =>
+      left.interval.start - right.interval.start ||
+      left.interval.end - right.interval.end ||
+      left.item.id.localeCompare(right.item.id),
+  );
+  return matches.map((entry) => entry.item);
+}
+
 const ISO_DATE_PARTS = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 function toUtcDate(date: string): Date | null {
