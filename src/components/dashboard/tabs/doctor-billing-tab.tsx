@@ -1,7 +1,8 @@
 "use client";
 
-import { Printer } from "lucide-react";
-import { useId, useState } from "react";
+import { Loader2, Printer } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useId, useState } from "react";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { ClinicReceiptPrint } from "@/components/dashboard/print/clinic-receipt-print";
 import { PrintSheet } from "@/components/dashboard/print/print-sheet";
@@ -131,7 +132,23 @@ export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
     showAll,
     markPaid,
   } = useClinicBills(clientId, filter);
-  const { printPayload, margins, ready, printingId, printBill } = useClinicReceiptPrint(clientId);
+  const {
+    printPayload,
+    margins,
+    ready,
+    hasSavedSettings,
+    settingsError,
+    retrySettings,
+    printingId,
+    printError,
+    printBill,
+    clearPrintJob,
+  } = useClinicReceiptPrint(clientId);
+
+  // A leftover job must not let a manual Ctrl+P print a previous receipt after the list changes.
+  useEffect(() => {
+    clearPrintJob();
+  }, [filter, clearPrintJob]);
 
   const handleFilterChange = (next: ClinicBillFilter) => {
     setMarkingId(null);
@@ -174,7 +191,7 @@ export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
       aria-label={`Print receipt ${bill.order_id ?? bill.id}`}
       onClick={() => void printBill(bill.id)}
     >
-      <Printer className="h-4 w-4" />
+      {printingId === bill.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
     </Button>
   );
 
@@ -184,6 +201,27 @@ export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
         <h2 className="text-xl font-semibold text-text">Billing</h2>
         <p className="mt-1 text-sm text-muted-foreground">Bills for completed consultations</p>
       </section>
+
+      {settingsError ? (
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/50 bg-primary/10 p-3 text-sm text-primary"
+          role="alert"
+        >
+          <span>{settingsError}</span>
+          <Button variant="secondary" className="min-h-11 xl:min-h-0" onClick={() => void retrySettings()}>
+            Retry
+          </Button>
+        </div>
+      ) : null}
+      {ready && !hasSavedSettings ? (
+        <p className="rounded-xl border border-border bg-card p-3 text-sm text-muted-foreground">
+          Print settings are not saved yet, so receipts print with 0 mm margins. Set them in{" "}
+          <Link href="/dashboard/consultation" className="font-medium text-primary underline">
+            Consultations
+          </Link>
+          .
+        </p>
+      ) : null}
 
       <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
         <div className="flex min-w-0 items-center gap-4 overflow-x-auto border-b border-border px-4 pt-4 text-sm font-medium">
@@ -285,6 +323,11 @@ export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
             onShowAll={() => void showAll()}
             itemLabel="bills"
           />
+          {printError ? (
+            <p role="alert" className="text-sm text-primary">
+              {printError}
+            </p>
+          ) : null}
         </div>
       </section>
 
