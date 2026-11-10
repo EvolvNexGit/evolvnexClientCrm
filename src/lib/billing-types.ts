@@ -3,6 +3,7 @@ export type BillingSubTab = "customer" | "product" | "transaction";
 export const BILL_ORDER_TYPES = ["Dine-In", "Take-Away", "Delivery"] as const;
 export type BillOrderType = (typeof BILL_ORDER_TYPES)[number];
 export const BILL_ORDER_SOURCE_POS = "POS" as const;
+export const BILL_ORDER_SOURCE_CLINIC = "Clinic" as const;
 
 export type CustomerRecord = {
   id: string;
