@@ -94,7 +94,7 @@ Plans:
   4. The bill is created by a `SECURITY INVOKER` function that verifies customer, products and consultation belong to the caller's client; a foreign id is rejected
   5. A receipt prints through the Phase 2 print mechanism; an unpaid list shows outstanding bills
 
-**Plans:** 3/7 plans executed
+**Plans:** 4/7 plans executed
 **UI hint**: yes
 
 Plans:
@@ -108,7 +108,7 @@ Plans:
 - [x] 03-03-PLAN.md — Cafe isolation: NULL-safe Clinic predicate and guards E1-E4 (active orders, transactions-since, realtime alert, push) plus doctor summary opt-in with paid-only revenue (BILL-05) [wave 3]
 
 **Wave 4** *(blocked on Wave 3 completion)*
-- [ ] 03-04-PLAN.md — Receipt: ClinicReceiptPrint through the Phase 2 PrintSheet, shared print hook, Print and settings states in the billing tab (BILL-04) [wave 4]
+- [x] 03-04-PLAN.md — Receipt: ClinicReceiptPrint through the Phase 2 PrintSheet, shared print hook, Print and settings states in the billing tab (BILL-04) [wave 4]
 
 **Wave 5** *(blocked on Wave 4 completion)*
 - [ ] 03-05-PLAN.md — Create-bill modal (fee prefill, discount, payment) and Create bill from Completed queue rows and the read-only consult (BILL-02, BILL-03) [wave 5]
@@ -128,4 +128,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Doctor appointments and patients | 7/7 | In Progress | - |
 | 2. Consultation and print | 6/6 | In Progress | - |
-| 3. Doctor billing | 3/7 | In Progress | - |
+| 3. Doctor billing | 4/7 | In Progress | - |
