@@ -1,3 +1,5 @@
+import type { ConsultationVitals } from "@/lib/consultation-vitals";
+
 export const CONSULT_STATUSES = ["DRAFT", "IN_PROGRESS", "COMPLETED", "CANCELLED"] as const;
 export type ConsultStatus = (typeof CONSULT_STATUSES)[number];
 
@@ -27,6 +29,7 @@ export type ConsultationRecord = {
   followup_date: string | null;
   followup_duration_days: number | null;
   followup_notes: string | null;
+  vitals: ConsultationVitals | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -150,6 +153,7 @@ export type ConsultationPayload = {
   followupDate?: string | null;
   followupDurationDays?: number | null;
   followupNotes?: string | null;
+  vitals?: ConsultationVitals | null;
   medications?: ConsultationMedicationInput[];
   exercises?: ConsultationExerciseInput[];
 };

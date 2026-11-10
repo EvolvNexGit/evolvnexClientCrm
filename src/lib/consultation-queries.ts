@@ -1,5 +1,6 @@
 import { formatSupabaseError, getSupabaseClient } from "@/lib/supabase";
 import { formatUtcToIst, formatUtcToIstTimeLabel } from "@/lib/time-utils";
+import { parseVitals } from "@/lib/consultation-vitals";
 import {
   formatPatientAge,
   getPatientCode,
@@ -37,6 +38,7 @@ const CONSULTATION_SELECT = `
   followup_date,
   followup_duration_days,
   followup_notes,
+  vitals,
   created_by,
   created_at,
   updated_at,
@@ -123,6 +125,7 @@ function mapConsultationRecord(row: Record<string, unknown>): ConsultationRecord
     followup_duration_days:
       row.followup_duration_days == null ? null : Number(row.followup_duration_days),
     followup_notes: (row.followup_notes as string | null) ?? null,
+    vitals: parseVitals(row.vitals),
     created_by: row.created_by ? String(row.created_by) : null,
     created_at: String(row.created_at ?? ""),
     updated_at: String(row.updated_at ?? ""),
@@ -182,6 +185,7 @@ function buildConsultationRow(clientId: string, payload: ConsultationPayload) {
     followup_date: payload.followupDate ?? null,
     followup_duration_days: payload.followupDurationDays ?? null,
     followup_notes: payload.followupNotes ?? null,
+    vitals: payload.vitals ?? null,
     updated_at: new Date().toISOString(),
   };
 }
@@ -705,6 +709,8 @@ export async function updateConsultation(
     updateRow.followup_duration_days = payload.followupDurationDays;
   }
   if (payload.followupNotes !== undefined) updateRow.followup_notes = payload.followupNotes;
+  // Only written when provided, so status-only updates never wipe stored vitals.
+  if (payload.vitals !== undefined) updateRow.vitals = payload.vitals;
 
   const { error } = await supabase
     .from("consultations")

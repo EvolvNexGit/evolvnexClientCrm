@@ -201,6 +201,7 @@ export function useConsultations(clientId: string) {
           followup_date: payload.followupDate ?? null,
           followup_duration_days: payload.followupDurationDays ?? null,
           followup_notes: payload.followupNotes ?? null,
+          vitals: payload.vitals ?? null,
           created_by: null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
