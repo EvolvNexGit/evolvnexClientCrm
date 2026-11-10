@@ -23,9 +23,12 @@ import {
   createAppointment,
   fetchAppointmentFilterOptions,
   fetchAppointmentsPage,
+  setAppointmentStatus,
   softDeleteAppointment,
+  updateAppointment,
   type AppointmentPayload,
   type AppointmentRow,
+  type AppointmentStatus,
 } from "@/lib/appointment-queries";
 import {
   formatAppointmentDuration,
@@ -34,7 +37,7 @@ import {
 } from "@/lib/time-utils";
 import { fetchCustomersPage } from "@/lib/billing-queries";
 import type { CustomerRecord } from "@/lib/billing-types";
-import { formatSupabaseError, getSupabaseClient } from "@/lib/supabase";
+import { formatSupabaseError } from "@/lib/supabase";
 
 type AppointmentFormState = {
   name: string;
@@ -575,12 +578,6 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       return;
     }
 
-    const client = getSupabaseClient();
-    if (!client) {
-      setAddError("Missing Supabase environment variables.");
-      return;
-    }
-
     const payload: AppointmentPayload = {
       name: toNullable(form.name),
       phone: phoneDigits,
@@ -601,10 +598,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       if (!editingAppointment) {
         await createAppointment(clientId, payload);
       } else {
-        const { error: updateError } = await client.from("appointments").update(payload).eq("id", editingAppointment.id);
-        if (updateError) {
-          throw updateError;
-        }
+        await updateAppointment(clientId, editingAppointment.id, payload);
       }
 
       await pagedAppointments.refresh();
@@ -631,27 +625,18 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     }
   }
 
-  async function handleStatusChange(appointmentId: string, nextStatus: AppointmentRow["status"]) {
+  async function handleStatusChange(appointmentId: string, nextStatus: AppointmentStatus) {
     if (updatingIds.has(appointmentId)) {
-      return;
-    }
-
-    const client = getSupabaseClient();
-    if (!client) {
       return;
     }
 
     try {
       setUpdatingIds((current) => new Set(current).add(appointmentId));
-      const { error: updateError } = await client.from("appointments").update({ status: nextStatus }).eq("id", appointmentId);
-
-      if (updateError) {
-        throw updateError;
-      }
+      await setAppointmentStatus(clientId, appointmentId, nextStatus);
 
       await pagedAppointments.refresh();
     } catch (changeError) {
-      setStatusChangeError(changeError instanceof Error ? changeError.message : "Failed to update appointment status.");
+      setStatusChangeError(formatSupabaseError(changeError, "Failed to update appointment status."));
     } finally {
       setUpdatingIds((current) => {
         const next = new Set(current);
