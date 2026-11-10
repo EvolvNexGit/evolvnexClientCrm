@@ -302,6 +302,34 @@ export function findAppointmentConflicts<T extends ScheduleAppointment>(
   return matches.map((entry) => entry.item);
 }
 
+/** Ids of non-cancelled appointments that overlap another one for the same staff on the same date. */
+export function getConflictingIds<T extends ScheduleAppointment>(appointments: T[]): Set<string> {
+  const groups = new Map<string, T[]>();
+  for (const appointment of appointments) {
+    const staff = (appointment.staff_name ?? "").trim();
+    if (!staff || !appointment.date || isCancelled(appointment.status) || !getAppointmentInterval(appointment)) {
+      continue;
+    }
+    const key = `${appointment.date}\u0000${staff}`;
+    const group = groups.get(key);
+    if (group) {
+      group.push(appointment);
+    } else {
+      groups.set(key, [appointment]);
+    }
+  }
+
+  const ids = new Set<string>();
+  for (const group of groups.values()) {
+    for (const appointment of group) {
+      if (findAppointmentConflicts(appointment, group).length > 0) {
+        ids.add(appointment.id);
+      }
+    }
+  }
+  return ids;
+}
+
 const ISO_DATE_PARTS = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 function toUtcDate(date: string): Date | null {

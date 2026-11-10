@@ -12,6 +12,7 @@ import {
   buildSlotStarts,
   buildStaffColumns,
   getAppointmentInterval,
+  getConflictingIds,
   getVisibleRange,
   getWeekDates,
   layoutColumnAppointments,
@@ -122,6 +123,7 @@ export function AppointmentsCalendar({
   );
 
   const staffColumns = useMemo(() => buildStaffColumns(staffOptions, windowRows), [staffOptions, windowRows]);
+  const conflictingIds = useMemo(() => getConflictingIds(windowRows), [windowRows]);
 
   const effectiveStaffKey =
     isWeek && staffColumns.some((column) => column.key === selectedStaffKey) ? selectedStaffKey : ALL_STAFF_KEY;
@@ -274,6 +276,10 @@ export function AppointmentsCalendar({
         </div>
       )}
 
+      {conflictingIds.size > 0 && (
+        <p className="text-xs text-amber-600">Amber outline: overlapping bookings for the same staff</p>
+      )}
+
       <DataState
         loading={loading && windowRows.length === 0}
         error={error}
@@ -388,16 +394,20 @@ export function AppointmentsCalendar({
                   );
                   const staffLabel = rowStaffKey(item) || "Unassigned";
                   const isCancelled = item.status === "cancelled";
+                  const hasOverlap = conflictingIds.has(item.id);
 
                   return (
                     <button
                       key={item.id}
                       type="button"
                       onClick={() => onCardClick(item)}
-                      aria-label={`Edit appointment for ${appointmentLabel(item)} at ${minutesToClock(interval.start)}`}
+                      aria-label={`Edit appointment for ${appointmentLabel(item)} at ${minutesToClock(interval.start)}${
+                        hasOverlap ? `, overlaps another booking for staff ${staffLabel}` : ""
+                      }`}
                       className={cn(
                         "absolute overflow-hidden rounded-lg border border-border bg-card text-left shadow-soft",
                         isCancelled && "opacity-60",
+                        hasOverlap && "ring-2 ring-amber-500",
                       )}
                       style={{
                         top,
@@ -413,6 +423,7 @@ export function AppointmentsCalendar({
                         <div className={cn("truncate", isCancelled && "line-through")}>{appointmentLabel(item)}</div>
                         {item.service ? <div className="truncate opacity-80">{item.service}</div> : null}
                         {showStaffOnCards ? <div className="truncate opacity-80">{staffLabel}</div> : null}
+                        {hasOverlap ? <div className="truncate text-[10px] font-semibold uppercase">Overlap</div> : null}
                       </div>
                     </button>
                   );
