@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import {
   ArrowLeft,
   CalendarClock,
@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { AttachmentOpenButton } from "@/components/dashboard/consultation/attachment-open-button";
 import { VitalsCard } from "@/components/dashboard/consultation/vitals-card";
 import { PatientStrip } from "@/components/dashboard/patient/patient-strip";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ import {
   type ConsultDisplayStatus,
   type ConsultDisplayType,
 } from "@/lib/consultation-types";
+import { CONSULTATION_FILE_ACCEPT, validateConsultationFile } from "@/lib/consultation-files";
 import { fetchConsultationById } from "@/lib/consultation-queries";
 import {
   EMPTY_VITALS_FORM,
@@ -440,7 +442,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
     cancelConsultation,
     clearActiveConsultation,
     addConsultation,
-    attachFile,
+    uploadFile,
     removeAttachment,
   } = useConsultations(clientId);
 
@@ -466,8 +468,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
   const [selectedPatient, setSelectedPatient] = useState<CustomerRecord | null>(null);
   const [patientsLoading, setPatientsLoading] = useState(false);
   const [newConsultError, setNewConsultError] = useState<string | null>(null);
-  const [attachmentName, setAttachmentName] = useState("");
-  const [attachmentUrl, setAttachmentUrl] = useState("");
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
   const debouncedPatientSearch = useDebouncedValue(patientSearch, 250);
 
@@ -497,7 +498,8 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
         })),
       );
     }
-  }, [activeConsultation]);
+    // Keyed on id and updated_at so a file action (attachments-only patch) never resets unsaved fields.
+  }, [activeConsultation?.id, activeConsultation?.updated_at]);
 
   useEffect(() => {
     if (!isNewConsultOpen) {
@@ -808,17 +810,31 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
     setNewVisitType("New");
   }
 
-  async function handleAddAttachment() {
-    if (!activeConsultation || !attachmentName.trim() || !attachmentUrl.trim()) {
-      return;
-    }
+  async function handleFileSelected(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.target;
+    const file = input.files?.[0];
+    setAttachmentError(null);
 
-    await attachFile(activeConsultation.id, {
-      fileName: attachmentName.trim(),
-      fileUrl: attachmentUrl.trim(),
-    });
-    setAttachmentName("");
-    setAttachmentUrl("");
+    try {
+      if (!file || !activeConsultation) {
+        return;
+      }
+
+      const invalidMessage = validateConsultationFile(file);
+      if (invalidMessage) {
+        setAttachmentError(invalidMessage);
+        return;
+      }
+
+      try {
+        await uploadFile(activeConsultation.id, file);
+      } catch {
+        // The hook already surfaces the failure in the page error banner.
+      }
+    } finally {
+      // Reset so the same file can be chosen again.
+      input.value = "";
+    }
   }
 
   const newConsultModal = (
@@ -1495,27 +1511,28 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                   <SectionLabel number="4" title="Attachments" icon={Paperclip} />
                 </div>
                 <div className="grid gap-4">
-                  <div className="grid gap-3 rounded-2xl border border-border bg-muted/30 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto]">
-                    <input
-                      value={attachmentName}
-                      onChange={(event) => setAttachmentName(event.target.value)}
-                      placeholder="File name"
-                      className="min-h-11 w-full min-w-0 rounded-xl border border-border bg-background px-3 py-2 text-sm text-text outline-none placeholder:text-muted-foreground"
-                    />
-                    <input
-                      value={attachmentUrl}
-                      onChange={(event) => setAttachmentUrl(event.target.value)}
-                      placeholder="File URL"
-                      className="min-h-11 w-full min-w-0 rounded-xl border border-border bg-background px-3 py-2 text-sm text-text outline-none placeholder:text-muted-foreground"
-                    />
-                    <Button
-                      variant="secondary"
-                      className="min-h-11"
-                      disabled={saving || !attachmentName.trim() || !attachmentUrl.trim()}
-                      onClick={() => void handleAddAttachment()}
+                  <div className="grid gap-2 rounded-2xl border border-border bg-muted/30 p-4">
+                    <label
+                      className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-text hover:bg-muted${
+                        saving || !activeConsultation ? " pointer-events-none opacity-60" : ""
+                      }`}
                     >
-                      Add
-                    </Button>
+                      <Paperclip className="h-4 w-4" />
+                      Upload file
+                      <input
+                        type="file"
+                        accept={CONSULTATION_FILE_ACCEPT}
+                        className="sr-only"
+                        disabled={saving || !activeConsultation}
+                        onChange={(event) => void handleFileSelected(event)}
+                      />
+                    </label>
+                    <p className="text-xs text-muted-foreground">PDF, JPG, PNG or WebP, up to 10 MB.</p>
+                    {attachmentError ? (
+                      <p role="alert" className="text-xs text-primary">
+                        {attachmentError}
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="rounded-2xl border border-border bg-muted/30 p-5">
@@ -1526,14 +1543,8 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                       <ul className="mt-3 space-y-2">
                         {activeConsultation.attachments.map((attachment) => (
                           <li key={attachment.id} className="flex items-center justify-between gap-3">
-                            <a
-                              href={attachment.file_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="truncate text-sm text-primary hover:underline"
-                            >
-                              {attachment.file_name}
-                            </a>
+                            <span className="min-w-0 truncate text-sm text-text">{attachment.file_name}</span>
+                            <AttachmentOpenButton attachment={attachment} />
                             <Button
                               variant="secondary"
                               className="h-8 w-8 shrink-0 p-0"

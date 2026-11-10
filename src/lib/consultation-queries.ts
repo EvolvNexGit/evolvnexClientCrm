@@ -2,6 +2,12 @@ import { formatSupabaseError, getSupabaseClient } from "@/lib/supabase";
 import { formatUtcToIst, formatUtcToIstTimeLabel } from "@/lib/time-utils";
 import { parseVitals } from "@/lib/consultation-vitals";
 import {
+  buildStoragePath,
+  CONSULTATION_FILES_BUCKET,
+  SIGNED_URL_TTL_SECONDS,
+  validateConsultationFile,
+} from "@/lib/consultation-files";
+import {
   formatPatientAge,
   getPatientCode,
   getPatientInitials,
@@ -296,6 +302,7 @@ function mapAttachmentRow(item: Record<string, unknown>): ConsultationAttachment
     consultation_id: String(item.consultation_id),
     file_name: String(item.file_name ?? ""),
     file_url: String(item.file_url ?? ""),
+    storage_path: item.storage_path ? String(item.storage_path) : null,
     mime_type: item.mime_type == null ? null : String(item.mime_type),
     file_size: item.file_size == null ? null : Number(item.file_size),
     uploaded_by: item.uploaded_by ? String(item.uploaded_by) : null,
@@ -664,6 +671,84 @@ export async function addConsultationAttachment(
   if (error) {
     raiseQueryError(error, "Unable to add consultation attachment.");
   }
+}
+
+export async function fetchConsultationAttachments(
+  clientId: string,
+  consultationId: string,
+): Promise<ConsultationAttachmentRecord[]> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("consultation_attachments")
+    .select("*")
+    .eq("client_id", clientId)
+    .eq("consultation_id", consultationId)
+    .order("uploaded_at", { ascending: false });
+
+  if (error) {
+    raiseQueryError(error, "Unable to load consultation attachments.");
+  }
+
+  return (data ?? []).map((item) => mapAttachmentRow(item));
+}
+
+/** Uploads to the private bucket under the signed-in user's JWT, then records the row. */
+export async function uploadConsultationFile(
+  clientId: string,
+  consultationId: string,
+  file: File,
+): Promise<void> {
+  const invalidMessage = validateConsultationFile(file);
+  if (invalidMessage) {
+    throw new Error(invalidMessage);
+  }
+
+  const supabase = getClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const storagePath = buildStoragePath(clientId, consultationId, crypto.randomUUID(), file.name);
+  const bucket = supabase.storage.from(CONSULTATION_FILES_BUCKET);
+
+  const { error: uploadError } = await bucket.upload(storagePath, file, {
+    contentType: file.type,
+    upsert: false,
+  });
+  if (uploadError) {
+    raiseQueryError(uploadError, "Unable to upload file.");
+  }
+
+  const { error: insertError } = await supabase.from("consultation_attachments").insert({
+    client_id: clientId,
+    consultation_id: consultationId,
+    file_name: file.name.trim().slice(0, 255) || "file",
+    file_url: null,
+    storage_path: storagePath,
+    mime_type: file.type,
+    file_size: file.size,
+    uploaded_by: user?.id ?? null,
+  });
+
+  if (insertError) {
+    // Best effort: do not leave an orphaned object behind a failed row insert.
+    await bucket.remove([storagePath]);
+    raiseQueryError(insertError, "Unable to save file record.");
+  }
+}
+
+/** Creates a short-lived signed URL at click time. Never store or log the result. */
+export async function getConsultationFileUrl(storagePath: string): Promise<string> {
+  const supabase = getClient();
+  const { data, error } = await supabase.storage
+    .from(CONSULTATION_FILES_BUCKET)
+    .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+
+  if (error || !data?.signedUrl) {
+    raiseQueryError(error, "Unable to open file.");
+  }
+
+  return data.signedUrl;
 }
 
 export async function deleteConsultationAttachment(

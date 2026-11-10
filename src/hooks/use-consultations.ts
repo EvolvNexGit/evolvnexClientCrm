@@ -7,12 +7,14 @@ import {
   buildConsultationQueueStats,
   createConsultation,
   deleteConsultationAttachment,
+  fetchConsultationAttachments,
   fetchConsultationById,
   fetchConsultationQueue,
   fetchPatientConsultationHistory,
   setConsultationStatus,
   startConsultationFromAppointment,
   updateConsultation,
+  uploadConsultationFile,
 } from "@/lib/consultation-queries";
 import type {
   ConsultationAttachmentInput,
@@ -239,6 +241,34 @@ export function useConsultations(clientId: string) {
     [clientId, loadConsultation],
   );
 
+  /** Replaces only `attachments` so unsaved editor fields and the loading state are untouched. */
+  const patchActiveAttachments = useCallback(
+    async (consultationId: string) => {
+      const attachments = await fetchConsultationAttachments(clientId, consultationId);
+      setActiveConsultation((previous) =>
+        previous && previous.id === consultationId ? { ...previous, attachments } : previous,
+      );
+    },
+    [clientId],
+  );
+
+  const uploadFile = useCallback(
+    async (consultationId: string, file: File) => {
+      setSaving(true);
+      try {
+        setError(null);
+        await uploadConsultationFile(clientId, consultationId, file);
+        await patchActiveAttachments(consultationId);
+      } catch (saveError) {
+        setError(formatSupabaseError(saveError, "Unable to upload file."));
+        throw saveError;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [clientId, patchActiveAttachments],
+  );
+
   const removeAttachment = useCallback(
     async (consultationId: string, attachmentId: string) => {
       setSaving(true);
@@ -278,6 +308,7 @@ export function useConsultations(clientId: string) {
     cancelConsultation,
     addConsultation,
     attachFile,
+    uploadFile,
     removeAttachment,
     clearActiveConsultation,
   };

@@ -61,7 +61,9 @@ export type ConsultationAttachmentRecord = {
   client_id: string;
   consultation_id: string;
   file_name: string;
+  /** Empty for bucket files; legacy rows hold a plain URL. */
   file_url: string;
+  storage_path: string | null;
   mime_type: string | null;
   file_size: number | null;
   uploaded_by: string | null;
