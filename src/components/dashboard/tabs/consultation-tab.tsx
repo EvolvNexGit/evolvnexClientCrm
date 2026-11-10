@@ -39,6 +39,7 @@ import {
   toDbVisitType,
   toDisplayStatus,
   toDisplayVisitType,
+  type ConsultationAttachmentRecord,
   type ConsultationDetail,
   type ConsultationExerciseInput,
   type ConsultationMedicationInput,
@@ -810,6 +811,22 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
     setNewVisitType("New");
   }
 
+  async function handleRemoveAttachment(attachment: ConsultationAttachmentRecord) {
+    if (!activeConsultation) {
+      return;
+    }
+
+    if (!window.confirm("Remove this file? This cannot be undone.")) {
+      return;
+    }
+
+    try {
+      await removeAttachment(activeConsultation.id, attachment);
+    } catch {
+      // The hook already surfaces the failure in the page error banner.
+    }
+  }
+
   async function handleFileSelected(event: ChangeEvent<HTMLInputElement>) {
     const input = event.target;
     const file = input.files?.[0];
@@ -1549,7 +1566,8 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                               variant="secondary"
                               className="h-8 w-8 shrink-0 p-0"
                               disabled={saving}
-                              onClick={() => void removeAttachment(activeConsultation.id, attachment.id)}
+                              aria-label={`Remove ${attachment.file_name || "file"}`}
+                              onClick={() => void handleRemoveAttachment(attachment)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>

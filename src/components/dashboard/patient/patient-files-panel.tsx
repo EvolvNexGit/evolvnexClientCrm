@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { DataState } from "@/components/dashboard/billing/data-state";
+import { AttachmentOpenButton } from "@/components/dashboard/consultation/attachment-open-button";
+import { isSafeHttpUrl } from "@/lib/consultation-files";
 import { fetchPatientAttachments } from "@/lib/consultation-queries";
 import type { ConsultationAttachmentRecord } from "@/lib/consultation-types";
 import { formatUtcToIst } from "@/lib/time-utils";
@@ -10,9 +12,6 @@ type PatientFilesPanelProps = {
   clientId: string;
   patientId: string;
 };
-
-/** Only http(s) URLs become links; any other scheme (javascript:, data:) is shown as text. */
-const SAFE_URL_PATTERN = /^https?:\/\//i;
 
 export function PatientFilesPanel({ clientId, patientId }: PatientFilesPanelProps) {
   const [files, setFiles] = useState<ConsultationAttachmentRecord[]>([]);
@@ -66,20 +65,12 @@ export function PatientFilesPanel({ clientId, patientId }: PatientFilesPanelProp
             <div className="min-w-0">
               <p className="break-words text-sm font-semibold text-text">{file.file_name || "Unnamed file"}</p>
               <p className="mt-1 text-xs text-muted-foreground">{formatUtcToIst(file.uploaded_at)}</p>
-              {!SAFE_URL_PATTERN.test(file.file_url) && file.file_url && (
+              {/* Legacy URLs that are not safe links stay visible as text; bucket rows have an empty file_url. */}
+              {!file.storage_path && file.file_url && !isSafeHttpUrl(file.file_url) && (
                 <p className="mt-1 break-all text-xs text-muted-foreground">{file.file_url}</p>
               )}
             </div>
-            {SAFE_URL_PATTERN.test(file.file_url) && (
-              <a
-                href={file.file_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl border border-border px-3 text-sm text-primary hover:bg-muted"
-              >
-                Open
-              </a>
-            )}
+            <AttachmentOpenButton attachment={file} />
           </div>
         ))}
     </div>

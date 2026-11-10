@@ -6,7 +6,7 @@ import {
   addConsultationAttachment,
   buildConsultationQueueStats,
   createConsultation,
-  deleteConsultationAttachment,
+  deleteConsultationFile,
   fetchConsultationAttachments,
   fetchConsultationById,
   fetchConsultationQueue,
@@ -18,6 +18,7 @@ import {
 } from "@/lib/consultation-queries";
 import type {
   ConsultationAttachmentInput,
+  ConsultationAttachmentRecord,
   ConsultationDetail,
   ConsultationHistoryItem,
   ConsultationPayload,
@@ -270,12 +271,12 @@ export function useConsultations(clientId: string) {
   );
 
   const removeAttachment = useCallback(
-    async (consultationId: string, attachmentId: string) => {
+    async (consultationId: string, attachment: ConsultationAttachmentRecord) => {
       setSaving(true);
       try {
         setError(null);
-        await deleteConsultationAttachment(clientId, attachmentId);
-        await loadConsultation(consultationId);
+        await deleteConsultationFile(clientId, attachment);
+        await patchActiveAttachments(consultationId);
       } catch (saveError) {
         setError(formatSupabaseError(saveError, "Unable to remove attachment."));
         throw saveError;
@@ -283,7 +284,7 @@ export function useConsultations(clientId: string) {
         setSaving(false);
       }
     },
-    [clientId, loadConsultation],
+    [clientId, patchActiveAttachments],
   );
 
   const clearActiveConsultation = useCallback(() => {
