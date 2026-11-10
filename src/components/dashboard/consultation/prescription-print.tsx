@@ -31,7 +31,9 @@ const HEADING_CLASS = "text-[10pt] font-semibold uppercase tracking-wide";
  */
 export function PrescriptionPrint({ detail }: PrescriptionPrintProps) {
   const patientName = nonBlank(detail.patient?.name) ?? "Patient";
-  const age = detail.patient?.dob ? formatPatientAge(detail.patient.dob) : null;
+  // formatPatientAge returns a dash for an unparseable DOB; omit the age rather than print a lone dash.
+  const formattedAge = detail.patient?.dob ? formatPatientAge(detail.patient.dob) : null;
+  const age = formattedAge === "—" ? null : formattedAge;
   const visitDate = formatDateOnly(formatUtcToIst(detail.created_at).slice(0, 10));
   const medicationNotes = nonBlank(detail.medication_notes);
   const advice = nonBlank(detail.advice);
