@@ -64,8 +64,18 @@ evolvnexClientCrm/
 
 **`src/components/dashboard/tabs/`:**
 - Purpose: Feature screens. Default export, `"use client"`, props `{ clientId: string }` (CRM sub-tabs also take `activeSubTab` on `billing-crm-tab.tsx`).
-- Contains: `summary-tab.tsx`, `cafe-summary-tab.tsx`, `doctor-summary-tab.tsx`, `appointments-tab.tsx`, `consultation-tab.tsx`, `subscription-tab.tsx`, `billing-tab.tsx`, `orders-tab.tsx`, `promos-tab.tsx`, `ingredient-tab.tsx`, `recipe-tab.tsx`, `customer-tab.tsx`, `product-tab.tsx`, `transaction-tab.tsx`, `billing-crm-tab.tsx`, `contacts-tab.tsx`, `whatsapp-auto-reply-tab.tsx`
+- Contains: `summary-tab.tsx`, `cafe-summary-tab.tsx`, `doctor-summary-tab.tsx`, `appointments-tab.tsx` (List | Day | Week), `consultation-tab.tsx`, `subscription-tab.tsx`, `billing-tab.tsx`, `orders-tab.tsx`, `promos-tab.tsx`, `ingredient-tab.tsx`, `recipe-tab.tsx`, `customer-tab.tsx`, `product-tab.tsx`, `transaction-tab.tsx`, `billing-crm-tab.tsx`, `contacts-tab.tsx`, `whatsapp-auto-reply-tab.tsx`
 - Key files: `src/components/dashboard/tabs/billing-tab.tsx` (POS), `src/components/dashboard/tabs/consultation-tab.tsx`
+
+**`src/components/dashboard/` (non-tab widgets):**
+- Purpose: Feature widgets used by one tab.
+- Contains: `appointments-calendar.tsx` (Day/Week grid, advisory overlap highlight, `getAppointmentStatusTone`)
+- Key files: `src/components/dashboard/appointments-calendar.tsx`
+
+**`src/components/dashboard/patient/`:**
+- Purpose: Patient profile slide-over opened from the customer list for clients with the consultation tab.
+- Contains: `patient-profile-drawer.tsx`, `patient-overview-panel.tsx`, `patient-visits-panel.tsx`, `patient-files-panel.tsx`
+- Key files: `src/components/dashboard/patient/patient-profile-drawer.tsx`
 
 **`src/components/dashboard/billing/`:**
 - Purpose: Reusable list/modal chrome used by POS and CRM lists (not billing-only despite the folder name).
@@ -84,12 +94,12 @@ evolvnexClientCrm/
 
 **`src/hooks/`:**
 - Purpose: Client-side data + UI persistence. One hook per domain aggregate, plus shared list utilities.
-- Contains: `use-customers.ts`, `use-products.ts`, `use-orders.ts`, `use-transactions.ts`, `use-promotions.ts`, `use-ingredients.ts`, `use-recipes.ts`, `use-consultations.ts`, `use-cafe-summary.ts`, `use-doctor-summary.ts`, `use-whatsapp-auto-replies.ts`, `use-paged-list.ts`, `use-persistent-state.ts`, `use-debounced-value.ts`
+- Contains: `use-customers.ts`, `use-products.ts`, `use-orders.ts`, `use-transactions.ts`, `use-promotions.ts`, `use-ingredients.ts`, `use-recipes.ts`, `use-consultations.ts`, `use-appointments-range.ts`, `use-cafe-summary.ts`, `use-doctor-summary.ts`, `use-whatsapp-auto-replies.ts`, `use-paged-list.ts`, `use-persistent-state.ts`, `use-debounced-value.ts`
 - Key files: `src/hooks/use-paged-list.ts`, `src/hooks/use-whatsapp-auto-replies.ts`
 
 **`src/lib/`:**
 - Purpose: Types, queries, navigation, Supabase clients, analytics, providers.
-- Contains: domain `*-queries.ts` / `*-types.ts`, `tabs.ts`, `module-navigation.ts`, `dashboard-tab-routes.ts`, `supabase.ts`, `supabase-admin.ts`, `orderService.ts`, `inventory-units.ts` (unit families + conversion; single source for ingredient/recipe/POS units), `list-pagination.ts`, `client-cache.ts`, `utils.ts`, `time-utils.ts`
+- Contains: domain `*-queries.ts` / `*-types.ts`, `tabs.ts`, `module-navigation.ts`, `dashboard-tab-routes.ts`, `supabase.ts`, `supabase-admin.ts`, `orderService.ts`, `inventory-units.ts` (unit families + conversion; single source for ingredient/recipe/POS units), `appointment-schedule.ts` (import-free pure scheduling and conflict helpers), `list-pagination.ts`, `client-cache.ts`, `utils.ts`, `time-utils.ts`
 - Key files: `src/lib/tabs.ts`, `src/lib/module-navigation.ts`, `src/lib/billing-queries.ts`, `src/lib/supabase.ts`
 
 **`src/lib/providers/`:**
@@ -109,7 +119,7 @@ evolvnexClientCrm/
 
 **`supabase/migrations/`:**
 - Purpose: SQL applied to the hosted project (also runnable in SQL editor).
-- Contains: `20260814_whatsapp_auto_replies.sql`, `20260817_customer_status_whatsapp_credentials.sql`, `20260817_customer_contact_fields.sql`
+- Contains: `20260814_whatsapp_auto_replies.sql`, `20260817_customer_status_whatsapp_credentials.sql`, `20260817_customer_contact_fields.sql`, `20260826_communication_message_templates.sql`, `20261107_appointments_soft_delete.sql`, `20261108_phase0_tighten_rls.sql` (live RLS hardening record), `20261110_customers_clinical_fields.sql` (patient clinical columns)
 - Key files: `supabase/migrations/20260814_whatsapp_auto_replies.sql`
 
 **`.planning/`:**

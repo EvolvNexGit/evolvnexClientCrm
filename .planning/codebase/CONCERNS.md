@@ -16,6 +16,7 @@
 - Files: `supabase/migrations/20260814_whatsapp_auto_replies.sql`, `supabase/migrations/20260817_customer_status_whatsapp_credentials.sql`, `supabase/migrations/20260817_customer_contact_fields.sql`, `src/lib/orderService.ts`
 - Impact: New environments cannot recreate the product. RLS assumptions cannot be reviewed. Checkout depends on an undocumented RPC.
 - Fix approach: Export the full public schema (or baseline dump) into `supabase/migrations/` and add the `create_order_with_inventory` function definition next to the app caller.
+- Update 2026-11-10: the RLS hardening (`20261108_phase0_tighten_rls.sql`) and the clinical columns (`20261110_customers_clinical_fields.sql`) are now versioned in git; table definitions themselves still are not.
 
 **Navigation still labels shipped screens as coming soon:**
 - Issue: LEADS “Contacts” and “Auto Replies” are `kind: "coming-soon"` in the module catalog, then special-cased in the dashboard to render real tabs.
@@ -98,6 +99,7 @@
 - Files: `src/lib/billing-queries.ts`, `src/lib/consultation-queries.ts`, `src/lib/appointment-queries.ts`, `src/lib/inventory-queries.ts`, `src/lib/orderService.ts`, `src/lib/server/request-auth.ts`
 - Current mitigation: Communication tables in `supabase/migrations/20260814_whatsapp_auto_replies.sql` enable RLS. Core CRM tables are not defined here.
 - Recommendations: Confirm RLS on every `client_id` table; never trust `clientId` from the client without a matching `clients.crm_user_id = auth.uid()` policy.
+- Update 2026-11-10: the 2026-11-08 hardening is recorded in `supabase/migrations/20261108_phase0_tighten_rls.sql` and was verified read-only against live on 2026-11-10 (policies, RLS flags, function privileges). A human should still read the final file once and run the cross-tenant spot check.
 
 **Authenticated users can read/write WhatsApp ciphertext:**
 - Risk: Policies grant `authenticated` `SELECT`/`ALL` on `communication_whatsapp_credentials`, including `encrypted_payload`. A tenant user can dump ciphertext from the browser console and can upsert raw (possibly plaintext) payloads without `encryptSecret`.
