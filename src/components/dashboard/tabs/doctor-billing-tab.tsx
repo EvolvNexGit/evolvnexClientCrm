@@ -1,10 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { DataState } from "@/components/dashboard/billing/data-state";
+import { Button } from "@/components/ui/button";
 import { ListPaginationControls } from "@/components/ui/list-pagination-controls";
 import { useClinicBills } from "@/hooks/use-clinic-bills";
-import type { ClinicBillFilter, ClinicBillRecord } from "@/lib/clinic-billing-types";
+import {
+  CLINIC_PAYMENT_MODES,
+  isClinicPaymentMode,
+  type ClinicBillFilter,
+  type ClinicBillRecord,
+  type ClinicPaymentMode,
+} from "@/lib/clinic-billing-types";
 import { formatUtcToIst } from "@/lib/time-utils";
 import { cn } from "@/lib/utils";
 
@@ -46,11 +53,111 @@ function StatusPill({ bill }: { bill: ClinicBillRecord }) {
   );
 }
 
+type MarkPaidPanelProps = {
+  saving: boolean;
+  error: string | null;
+  onConfirm: (mode: ClinicPaymentMode) => void;
+  onCancel: () => void;
+};
+
+/** Mounted per open bill, so the chosen mode resets every time a panel opens. */
+function MarkPaidPanel({ saving, error, onConfirm, onCancel }: MarkPaidPanelProps) {
+  const selectId = useId();
+  const [mode, setMode] = useState("");
+
+  return (
+    <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
+      <div className="space-y-1">
+        <label htmlFor={selectId} className="text-sm font-medium text-text">
+          Payment mode
+        </label>
+        <select
+          id={selectId}
+          value={mode}
+          onChange={(event) => setMode(event.target.value)}
+          disabled={saving}
+          className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-base text-text focus:outline-none focus:ring-2 focus:ring-primary/40"
+        >
+          <option value="">Select payment mode</option>
+          {CLINIC_PAYMENT_MODES.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </div>
+      {error && (
+        <p className="text-sm text-primary" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          disabled={saving || !isClinicPaymentMode(mode)}
+          onClick={() => {
+            if (isClinicPaymentMode(mode)) {
+              onConfirm(mode);
+            }
+          }}
+        >
+          {saving ? "Saving..." : "Confirm"}
+        </Button>
+        <Button variant="ghost" disabled={saving} onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
   const [filter, setFilter] = useState<ClinicBillFilter>("unpaid");
-  const { items, loading, loadingMore, error, hasMore, totalCount, showMore, showAll } = useClinicBills(
-    clientId,
-    filter,
+  const [markingId, setMarkingId] = useState<string | null>(null);
+  const {
+    items,
+    loading,
+    loadingMore,
+    error,
+    hasMore,
+    totalCount,
+    saving,
+    actionError,
+    clearActionError,
+    showMore,
+    showAll,
+    markPaid,
+  } = useClinicBills(clientId, filter);
+
+  const handleFilterChange = (next: ClinicBillFilter) => {
+    setMarkingId(null);
+    clearActionError();
+    setFilter(next);
+  };
+
+  const handleOpenPanel = (billId: string) => {
+    clearActionError();
+    setMarkingId(billId);
+  };
+
+  const handleClosePanel = () => {
+    clearActionError();
+    setMarkingId(null);
+  };
+
+  const handleConfirmPaid = async (billId: string, mode: ClinicPaymentMode) => {
+    const marked = await markPaid(billId, mode);
+    if (marked) {
+      setMarkingId(null);
+    }
+  };
+
+  const renderPanel = (bill: ClinicBillRecord) => (
+    <MarkPaidPanel
+      saving={saving}
+      error={actionError}
+      onConfirm={(mode) => void handleConfirmPaid(bill.id, mode)}
+      onCancel={handleClosePanel}
+    />
   );
 
   return (
@@ -66,7 +173,7 @@ export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
             <button
               key={option.key}
               type="button"
-              onClick={() => setFilter(option.key)}
+              onClick={() => handleFilterChange(option.key)}
               className={cn(
                 "min-h-11 shrink-0 pb-3 xl:min-h-0",
                 filter === option.key
@@ -86,7 +193,7 @@ export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
             <>
               <div className="space-y-3 xl:hidden">
                 {items.map((bill) => (
-                  <article key={bill.id} className="rounded-2xl border border-border bg-background p-4">
+                  <article key={bill.id} className="space-y-3 rounded-2xl border border-border bg-background p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate font-semibold text-text">{bill.customerName ?? "Walk-in"}</p>
@@ -95,9 +202,13 @@ export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
                       </div>
                       <StatusPill bill={bill} />
                     </div>
-                    <p className="mt-3 text-lg font-semibold text-text">
-                      {currencyFormatter.format(bill.final_amount)}
-                    </p>
+                    <p className="text-lg font-semibold text-text">{currencyFormatter.format(bill.final_amount)}</p>
+                    {bill.payment_status === "unpaid" && markingId !== bill.id && (
+                      <Button variant="secondary" className="w-full" onClick={() => handleOpenPanel(bill.id)}>
+                        Mark paid
+                      </Button>
+                    )}
+                    {markingId === bill.id && renderPanel(bill)}
                   </article>
                 ))}
               </div>
@@ -111,17 +222,27 @@ export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
                       <th className="px-4 py-3">Date</th>
                       <th className="px-4 py-3">Amount</th>
                       <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {items.map((bill) => (
-                      <tr key={bill.id} className="border-b border-border/60 text-sm text-text">
+                      <tr key={bill.id} className="border-b border-border/60 align-top text-sm text-text">
                         <td className="px-4 py-3">{bill.order_id ?? "-"}</td>
                         <td className="px-4 py-3">{bill.customerName ?? "Walk-in"}</td>
                         <td className="px-4 py-3">{formatUtcToIst(bill.created_at)}</td>
                         <td className="px-4 py-3 font-medium">{currencyFormatter.format(bill.final_amount)}</td>
                         <td className="px-4 py-3">
                           <StatusPill bill={bill} />
+                        </td>
+                        <td className="px-4 py-3">
+                          {markingId === bill.id ? (
+                            renderPanel(bill)
+                          ) : bill.payment_status === "unpaid" ? (
+                            <Button variant="secondary" onClick={() => handleOpenPanel(bill.id)}>
+                              Mark paid
+                            </Button>
+                          ) : null}
                         </td>
                       </tr>
                     ))}

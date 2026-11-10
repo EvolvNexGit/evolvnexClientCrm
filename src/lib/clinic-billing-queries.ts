@@ -5,6 +5,7 @@ import {
   type ClinicBillFilter,
   type ClinicBillItem,
   type ClinicBillRecord,
+  type ClinicPaymentMode,
 } from "@/lib/clinic-billing-types";
 import { buildListRange, type ListPageParams, type ListPageResult } from "@/lib/list-pagination";
 import { formatSupabaseError, getSupabaseClient } from "@/lib/supabase";
@@ -108,4 +109,29 @@ export async function fetchClinicBillsPage(
     hasMore: totalCount != null ? from + items.length < totalCount : items.length === params.limit,
     totalCount,
   };
+}
+
+/** Marks one unpaid clinic bill of this client paid. Zero or many rows updated is an error. */
+export async function markClinicBillPaid(clientId: string, billId: string, mode: ClinicPaymentMode): Promise<void> {
+  if (!isClinicPaymentMode(mode)) {
+    throw new Error("Choose a payment mode.");
+  }
+
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("bills")
+    .update({ payment_status: "paid", payment_mode: mode })
+    .eq("client_id", clientId)
+    .eq("id", billId)
+    .eq("order_source", BILL_ORDER_SOURCE_CLINIC)
+    .eq("payment_status", "unpaid")
+    .select("id");
+
+  if (error) {
+    raiseQueryError(error, "Unable to mark the bill paid.");
+  }
+
+  if (!data || data.length !== 1) {
+    throw new Error("Bill not found or already paid.");
+  }
 }
