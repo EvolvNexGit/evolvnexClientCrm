@@ -14,9 +14,14 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import {
+  AppointmentsCalendar,
+  type CalendarSlot,
+} from "@/components/dashboard/appointments-calendar";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 import { ListPaginationControls } from "@/components/ui/list-pagination-controls";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useAppointmentsRange } from "@/hooks/use-appointments-range";
 import { usePagedList } from "@/hooks/use-paged-list";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import {
@@ -30,6 +35,7 @@ import {
   type AppointmentRow,
   type AppointmentStatus,
 } from "@/lib/appointment-queries";
+import { TIME_STEP_SECONDS, snapTimeToStep } from "@/lib/appointment-schedule";
 import {
   formatAppointmentDuration,
   formatAppointmentTimeRange,
@@ -93,19 +99,6 @@ function getInitials(name: string | null) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("") || "?";
-}
-
-const TIME_STEP_MINUTES = 10;
-const TIME_STEP_SECONDS = TIME_STEP_MINUTES * 60;
-
-/** Rounds an "HH:MM" value down to the slot grid so typed times stay on 10-minute marks. */
-function snapTimeToStep(value: string): string {
-  const match = value.match(/^(\d{2}):(\d{2})/);
-  if (!match) {
-    return value;
-  }
-  const minutes = Math.floor(Number(match[2]) / TIME_STEP_MINUTES) * TIME_STEP_MINUTES;
-  return `${match[1]}:${String(minutes).padStart(2, "0")}`;
 }
 
 /** Customer name input with server-side suggestions; selecting fills name/phone/email, free text still allowed. */
@@ -447,6 +440,8 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   );
   const [sortOrder, setSortOrder] = usePersistentState<"asc" | "desc">("appointments-tab-sort-order", "asc");
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = usePersistentState<"list" | "day">("appointments-tab-view-mode", "list");
+  const [calendarDate, setCalendarDate] = useState(() => formatUtcToIst(new Date().toISOString()).slice(0, 10));
   // Only today's group starts open; the rest stay collapsed until toggled.
   const [collapsedGroups, setCollapsedGroups] = useState<Record<GroupKey, boolean>>({
     today: false,
@@ -494,6 +489,13 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       }),
   });
 
+  const rangeAppointments = useAppointmentsRange({
+    clientId,
+    fromDate: calendarDate,
+    toDate: calendarDate,
+    enabled: viewMode !== "list" && Boolean(clientId),
+  });
+
   const loading = pagedAppointments.loading;
   const error = pagedAppointments.error;
   const displayedAppointments = pagedAppointments.items;
@@ -506,6 +508,20 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   function openAddModal() {
     setEditingAppointment(null);
     resetForm();
+    setModalMode("add");
+  }
+
+  /** Calendar slot click: same add modal and form state, prefilled from the slot (no second form). */
+  function openAddModalFromSlot(slot: CalendarSlot) {
+    setEditingAppointment(null);
+    setAddError(null);
+    setForm({
+      ...initialForm,
+      date: slot.date,
+      start_time: slot.startTime,
+      end_time: slot.endTime,
+      staff_name: slot.staffName ?? "",
+    });
     setModalMode("add");
   }
 
@@ -602,6 +618,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       }
 
       await pagedAppointments.refresh();
+      await rangeAppointments.refresh();
       const options = await fetchAppointmentFilterOptions(clientId);
       const nextServices = Array.from(
         new Set([...options.services, form.service.trim()].filter(Boolean)),
@@ -635,6 +652,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       await setAppointmentStatus(clientId, appointmentId, nextStatus);
 
       await pagedAppointments.refresh();
+      await rangeAppointments.refresh();
     } catch (changeError) {
       setStatusChangeError(formatSupabaseError(changeError, "Failed to update appointment status."));
     } finally {
@@ -748,7 +766,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     return groups;
   }, [displayedAppointments]);
 
-  if (loading && displayedAppointments.length === 0) {
+  if (viewMode === "list" && loading && displayedAppointments.length === 0) {
     return (
       <div className="flex min-h-[240px] items-center justify-center rounded-2xl border border-border bg-card text-base text-muted-foreground">
         <span className="inline-flex items-center gap-2">
@@ -759,7 +777,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     );
   }
 
-  if (error) {
+  if (viewMode === "list" && error) {
     return (
       <div className="rounded-2xl border border-primary/40 bg-card p-6 text-base text-primary">
         Unable to load appointments: {error}
@@ -770,20 +788,48 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   return (
     <section className="space-y-5 rounded-2xl border border-border bg-card p-4 text-text sm:p-5">
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+        <div
+          role="group"
+          aria-label="Appointments view"
+          className="inline-flex w-full overflow-hidden rounded-2xl border border-border bg-background sm:w-auto"
+        >
+          {(
+            [
+              { key: "list", label: "List" },
+              { key: "day", label: "Day" },
+            ] as const
+          ).map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              aria-pressed={viewMode === option.key}
+              onClick={() => setViewMode(option.key)}
+              className={`min-h-11 flex-1 px-4 text-sm font-semibold transition sm:flex-none ${
+                viewMode === option.key
+                  ? "bg-primary/10 text-text"
+                  : "text-muted-foreground hover:bg-muted hover:text-text"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
-          <button
-            type="button"
-            onClick={() => setShowFilters((current) => !current)}
-            aria-expanded={showFilters}
-            className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-semibold transition sm:w-auto ${
-              showFilters
-                ? "border-primary/40 bg-primary/10 text-text"
-                : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-text"
-            }`}
-          >
-            <Filter className="h-4 w-4" />
-            Filters
-          </button>
+          {viewMode === "list" && (
+            <button
+              type="button"
+              onClick={() => setShowFilters((current) => !current)}
+              aria-expanded={showFilters}
+              className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-semibold transition sm:w-auto ${
+                showFilters
+                  ? "border-primary/40 bg-primary/10 text-text"
+                  : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-text"
+              }`}
+            >
+              <Filter className="h-4 w-4" />
+              Filters
+            </button>
+          )}
           <button
             type="button"
             onClick={openAddModal}
@@ -795,28 +841,30 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {[
-          { key: "today" as const, label: "Today", accent: "bg-red-500", count: summaryCounts.today },
-          { key: "tomorrow" as const, label: "Tomorrow", accent: "bg-purple-600", count: summaryCounts.tomorrow },
-          { key: "upcoming" as const, label: "Upcoming", accent: "bg-blue-600", count: summaryCounts.upcoming },
-          { key: "past" as const, label: "Total", accent: "bg-slate-700", count: pagedAppointments.totalCount ?? displayedAppointments.length },
-        ].map((card) => (
-          <article key={card.key} className="rounded-2xl border border-border bg-background p-4">
-            <div className="flex items-center gap-3">
-              <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${card.accent}`}>
-                <CalendarDays className="h-5 w-5 text-white" />
+      {viewMode === "list" && (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {[
+            { key: "today" as const, label: "Today", accent: "bg-red-500", count: summaryCounts.today },
+            { key: "tomorrow" as const, label: "Tomorrow", accent: "bg-purple-600", count: summaryCounts.tomorrow },
+            { key: "upcoming" as const, label: "Upcoming", accent: "bg-blue-600", count: summaryCounts.upcoming },
+            { key: "past" as const, label: "Total", accent: "bg-slate-700", count: pagedAppointments.totalCount ?? displayedAppointments.length },
+          ].map((card) => (
+            <article key={card.key} className="rounded-2xl border border-border bg-background p-4">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${card.accent}`}>
+                  <CalendarDays className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">{card.label}</div>
+                  <div className="enx-kpi-value text-text">{card.count}</div>
+                </div>
               </div>
-              <div>
-                <div className="text-sm text-muted-foreground">{card.label}</div>
-                <div className="enx-kpi-value text-text">{card.count}</div>
-              </div>
-            </div>
-          </article>
-        ))}
-      </div>
+            </article>
+          ))}
+        </div>
+      )}
 
-      {showFilters && (
+      {viewMode === "list" && showFilters && (
         <div className="grid gap-3 rounded-2xl border border-border bg-background p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <label className="space-y-1 text-sm text-muted-foreground xl:col-span-2">
             <span className="block text-muted-foreground">Search</span>
@@ -974,173 +1022,188 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
         </div>
       )}
 
-      <div className="space-y-4">
-        {displayedAppointments.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border bg-background p-6 text-base text-muted-foreground">
-            No appointments found for the selected filters.
-          </div>
-        ) : null}
+      {viewMode === "list" && (
+        <div className="space-y-4">
+          {displayedAppointments.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border bg-background p-6 text-base text-muted-foreground">
+              No appointments found for the selected filters.
+            </div>
+          ) : null}
 
-        {(["today", "tomorrow", "upcoming", "past"] as const).map((groupKey) => {
-          const groupItems = groupedAppointments[groupKey];
-          if (groupItems.length === 0) {
-            return null;
-          }
+          {(["today", "tomorrow", "upcoming", "past"] as const).map((groupKey) => {
+            const groupItems = groupedAppointments[groupKey];
+            if (groupItems.length === 0) {
+              return null;
+            }
 
-          const groupLabel = groupKey.charAt(0).toUpperCase() + groupKey.slice(1);
-          const isGroupCollapsed = collapsedGroups[groupKey];
+            const groupLabel = groupKey.charAt(0).toUpperCase() + groupKey.slice(1);
+            const isGroupCollapsed = collapsedGroups[groupKey];
 
-          return (
-            <section key={groupKey} className="space-y-3 rounded-2xl border border-border bg-background p-4">
-              <button
-                type="button"
-                aria-expanded={!isGroupCollapsed}
-                onClick={() => setCollapsedGroups((current) => ({ ...current, [groupKey]: !current[groupKey] }))}
-                className="flex w-full items-center justify-between gap-3 text-left"
-              >
-                <div className="flex items-center gap-2 text-text">
-                  <CalendarDays className="h-4 w-4 text-primary" />
-                  <span className="font-semibold">{groupLabel}</span>
-                  <span className="text-sm text-muted-foreground">• {groupItems.length} appointments</span>
-                </div>
-                <ChevronDown
-                  className={`h-4 w-4 shrink-0 text-muted-foreground transition ${isGroupCollapsed ? "-rotate-90" : "rotate-0"}`}
-                />
-              </button>
+            return (
+              <section key={groupKey} className="space-y-3 rounded-2xl border border-border bg-background p-4">
+                <button
+                  type="button"
+                  aria-expanded={!isGroupCollapsed}
+                  onClick={() => setCollapsedGroups((current) => ({ ...current, [groupKey]: !current[groupKey] }))}
+                  className="flex w-full items-center justify-between gap-3 text-left"
+                >
+                  <div className="flex items-center gap-2 text-text">
+                    <CalendarDays className="h-4 w-4 text-primary" />
+                    <span className="font-semibold">{groupLabel}</span>
+                    <span className="text-sm text-muted-foreground">• {groupItems.length} appointments</span>
+                  </div>
+                  <ChevronDown
+                    className={`h-4 w-4 shrink-0 text-muted-foreground transition ${isGroupCollapsed ? "-rotate-90" : "rotate-0"}`}
+                  />
+                </button>
 
-              <div className={isGroupCollapsed ? "hidden" : "space-y-3"}>
-                {groupItems.map((appointment) => {
-                  const isExpanded = expandedIds.includes(appointment.id);
-                  const statusTone =
-                    appointment.status === "booked"
-                      ? "bg-blue-500/15 text-blue-600"
-                      : appointment.status === "completed"
-                        ? "bg-emerald-500/15 text-emerald-600"
-                        : appointment.status === "cancelled"
-                          ? "bg-rose-500/15 text-rose-600"
-                          : "bg-amber-500/15 text-amber-600";
+                <div className={isGroupCollapsed ? "hidden" : "space-y-3"}>
+                  {groupItems.map((appointment) => {
+                    const isExpanded = expandedIds.includes(appointment.id);
+                    const statusTone =
+                      appointment.status === "booked"
+                        ? "bg-blue-500/15 text-blue-600"
+                        : appointment.status === "completed"
+                          ? "bg-emerald-500/15 text-emerald-600"
+                          : appointment.status === "cancelled"
+                            ? "bg-rose-500/15 text-rose-600"
+                            : "bg-amber-500/15 text-amber-600";
 
-                  return (
-                    <article
-                      key={appointment.id}
-                      className="rounded-2xl border border-border bg-card p-4 transition hover:bg-muted/60"
-                    >
-                      <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center">
-                        <button
-                          type="button"
-                          onClick={() => toggleExpanded(appointment.id)}
-                          className="flex min-w-0 flex-1 flex-col gap-3 text-left xl:flex-row xl:items-center xl:gap-4"
-                        >
-                          <div className="flex min-w-0 items-start gap-3">
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-text">
-                              {getInitials(appointment.name)}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="text-sm font-semibold text-text">
-                                {formatAppointmentTimeRange(appointment.date, appointment.start_time, appointment.end_time)}
-                              </div>
-                              <div className="truncate font-semibold text-text">
-                                {appointment.name ?? "Unnamed appointment"}
-                              </div>
-                              <div className="truncate text-sm text-muted-foreground">{appointment.phone ?? "-"}</div>
-                              <div className="mt-1 truncate text-sm text-muted-foreground xl:hidden">
-                                {appointment.service ?? "-"}
-                              </div>
-                            </div>
-                            <span className={`shrink-0 rounded-xl px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${statusTone}`}>
-                              {appointment.status ?? "tentative"}
-                            </span>
-                          </div>
-
-                          <div className="hidden min-w-0 xl:block xl:w-56">
-                            <div className="truncate text-base font-semibold text-text">{appointment.service ?? "-"}</div>
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                              <MapPin className="h-3.5 w-3.5" />
-                              {appointment.location ?? "-"}
-                            </div>
-                          </div>
-                        </button>
-
-                        <div className="flex items-center gap-2 self-end xl:self-auto">
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(appointment, "reschedule")}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition hover:text-text"
-                            title="Reschedule"
-                            aria-label="Reschedule appointment"
-                          >
-                            <Clock3 className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(appointment, "edit")}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition hover:text-text"
-                            title="Edit"
-                            aria-label="Edit appointment"
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPendingStatusChange({
-                                appointmentId: appointment.id,
-                                appointmentName: appointment.name ?? "Unnamed appointment",
-                                nextStatus: "cancelled",
-                              });
-                            }}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition hover:border-rose-500/30 hover:text-rose-600"
-                            title="Cancel"
-                            aria-label="Cancel appointment"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDeleteError(null);
-                              setPendingDelete({ id: appointment.id, name: appointment.name ?? "Unnamed appointment" });
-                            }}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition hover:border-rose-500/30 hover:text-rose-600"
-                            title="Delete"
-                            aria-label="Delete appointment"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                    return (
+                      <article
+                        key={appointment.id}
+                        className="rounded-2xl border border-border bg-card p-4 transition hover:bg-muted/60"
+                      >
+                        <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center">
                           <button
                             type="button"
                             onClick={() => toggleExpanded(appointment.id)}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition hover:text-text"
-                            aria-label={isExpanded ? "Collapse details" : "Expand details"}
+                            className="flex min-w-0 flex-1 flex-col gap-3 text-left xl:flex-row xl:items-center xl:gap-4"
                           >
-                            <ChevronDown className={`h-4 w-4 transition ${isExpanded ? "rotate-180" : "rotate-0"}`} />
+                            <div className="flex min-w-0 items-start gap-3">
+                              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-text">
+                                {getInitials(appointment.name)}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-semibold text-text">
+                                  {formatAppointmentTimeRange(appointment.date, appointment.start_time, appointment.end_time)}
+                                </div>
+                                <div className="truncate font-semibold text-text">
+                                  {appointment.name ?? "Unnamed appointment"}
+                                </div>
+                                <div className="truncate text-sm text-muted-foreground">{appointment.phone ?? "-"}</div>
+                                <div className="mt-1 truncate text-sm text-muted-foreground xl:hidden">
+                                  {appointment.service ?? "-"}
+                                </div>
+                              </div>
+                              <span className={`shrink-0 rounded-xl px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${statusTone}`}>
+                                {appointment.status ?? "tentative"}
+                              </span>
+                            </div>
+
+                            <div className="hidden min-w-0 xl:block xl:w-56">
+                              <div className="truncate text-base font-semibold text-text">{appointment.service ?? "-"}</div>
+                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <MapPin className="h-3.5 w-3.5" />
+                                {appointment.location ?? "-"}
+                              </div>
+                            </div>
                           </button>
-                        </div>
-                      </div>
 
-                      {isExpanded && (
-                        <div className="mt-4 grid gap-2 border-t border-border pt-4 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
-                          <div>Customer: {appointment.name ?? "-"}</div>
-                          <div>Phone: {appointment.phone ?? "-"}</div>
-                          <div>Email: {appointment.email ?? "-"}</div>
-                          <div>Service: {appointment.service ?? "-"}</div>
-                          <div>Staff: {appointment.staff_name ?? "-"}</div>
-                          <div>Location: {appointment.location ?? "-"}</div>
-                          <div>Slot: {formatAppointmentDuration(appointment.start_time, appointment.end_time, appointment.date)}</div>
-                          <div>Date: {appointment.date ?? "-"}</div>
-                          <div className="sm:col-span-2 lg:col-span-4">Remark: {appointment.remark ?? "-"}</div>
+                          <div className="flex items-center gap-2 self-end xl:self-auto">
+                            <button
+                              type="button"
+                              onClick={() => openEditModal(appointment, "reschedule")}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition hover:text-text"
+                              title="Reschedule"
+                              aria-label="Reschedule appointment"
+                            >
+                              <Clock3 className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openEditModal(appointment, "edit")}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition hover:text-text"
+                              title="Edit"
+                              aria-label="Edit appointment"
+                            >
+                              <Edit3 className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPendingStatusChange({
+                                  appointmentId: appointment.id,
+                                  appointmentName: appointment.name ?? "Unnamed appointment",
+                                  nextStatus: "cancelled",
+                                });
+                              }}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition hover:border-rose-500/30 hover:text-rose-600"
+                              title="Cancel"
+                              aria-label="Cancel appointment"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeleteError(null);
+                                setPendingDelete({ id: appointment.id, name: appointment.name ?? "Unnamed appointment" });
+                              }}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition hover:border-rose-500/30 hover:text-rose-600"
+                              title="Delete"
+                              aria-label="Delete appointment"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => toggleExpanded(appointment.id)}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition hover:text-text"
+                              aria-label={isExpanded ? "Collapse details" : "Expand details"}
+                            >
+                              <ChevronDown className={`h-4 w-4 transition ${isExpanded ? "rotate-180" : "rotate-0"}`} />
+                            </button>
+                          </div>
                         </div>
-                      )}
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })}
-      </div>
 
-      {displayedAppointments.length > 0 && (
+                        {isExpanded && (
+                          <div className="mt-4 grid gap-2 border-t border-border pt-4 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
+                            <div>Customer: {appointment.name ?? "-"}</div>
+                            <div>Phone: {appointment.phone ?? "-"}</div>
+                            <div>Email: {appointment.email ?? "-"}</div>
+                            <div>Service: {appointment.service ?? "-"}</div>
+                            <div>Staff: {appointment.staff_name ?? "-"}</div>
+                            <div>Location: {appointment.location ?? "-"}</div>
+                            <div>Slot: {formatAppointmentDuration(appointment.start_time, appointment.end_time, appointment.date)}</div>
+                            <div>Date: {appointment.date ?? "-"}</div>
+                            <div className="sm:col-span-2 lg:col-span-4">Remark: {appointment.remark ?? "-"}</div>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      )}
+
+      {viewMode !== "list" && (
+        <AppointmentsCalendar
+          date={calendarDate}
+          appointments={rangeAppointments.appointments}
+          staffOptions={staffOptions}
+          loading={rangeAppointments.loading}
+          error={rangeAppointments.error}
+          onDateChange={setCalendarDate}
+          onSlotClick={openAddModalFromSlot}
+          onCardClick={(appointment) => openEditModal(appointment, "edit")}
+        />
+      )}
+
+      {viewMode === "list" && displayedAppointments.length > 0 && (
         <ListPaginationControls
           loadedCount={pagedAppointments.items.length}
           totalCount={pagedAppointments.totalCount}
