@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { VitalsCard } from "@/components/dashboard/consultation/vitals-card";
 import { PatientStrip } from "@/components/dashboard/patient/patient-strip";
 import { Button } from "@/components/ui/button";
 import { useConsultations } from "@/hooks/use-consultations";
@@ -45,6 +46,12 @@ import {
   type ConsultDisplayType,
 } from "@/lib/consultation-types";
 import { fetchConsultationById } from "@/lib/consultation-queries";
+import {
+  EMPTY_VITALS_FORM,
+  normalizeVitals,
+  vitalsToForm,
+  type VitalsFormInput,
+} from "@/lib/consultation-vitals";
 import { formatUtcToIst, formatUtcToIstTimeLabel } from "@/lib/time-utils";
 
 function digitsOnly(value: string) {
@@ -448,6 +455,8 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
   const [editorForm, setEditorForm] = useState<EditorFormState>(emptyEditorForm);
   const [medications, setMedications] = useState<MedicationDraft[]>([]);
   const [exercises, setExercises] = useState<ExerciseDraft[]>([]);
+  const [vitalsForm, setVitalsForm] = useState<VitalsFormInput>(EMPTY_VITALS_FORM);
+  const [vitalsError, setVitalsError] = useState<string | null>(null);
   const [selectedRow, setSelectedRow] = useState<ConsultationQueueRow | null>(null);
   const [isNewConsultOpen, setIsNewConsultOpen] = useState(false);
   const [newVisitType, setNewVisitType] = useState<ConsultDisplayType>("New");
@@ -468,6 +477,8 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
   useEffect(() => {
     if (activeConsultation) {
       setEditorForm(formFromConsultation(activeConsultation));
+      setVitalsForm(vitalsToForm(activeConsultation.vitals));
+      setVitalsError(null);
       setMedications(
         activeConsultation.medications.map((item) => ({
           key: item.id,
@@ -656,16 +667,29 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
     }
   }
 
+  /** Validates vitals first; an invalid value shows inline, scrolls to the card and sends no request. */
+  function buildSavePayload() {
+    const result = normalizeVitals(vitalsForm);
+    if (!result.ok) {
+      setVitalsError(result.error);
+      document.getElementById("consult-vitals")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return null;
+    }
+
+    return { ...payloadFromForm(editorForm, medications, exercises), vitals: result.vitals };
+  }
+
   async function handleSaveDraft() {
     if (!activeConsultation) {
       return;
     }
 
-    await saveConsultation(
-      activeConsultation.id,
-      payloadFromForm(editorForm, medications, exercises),
-      "DRAFT",
-    );
+    const payload = buildSavePayload();
+    if (!payload) {
+      return;
+    }
+
+    await saveConsultation(activeConsultation.id, payload, "DRAFT");
   }
 
   async function handleSaveComplete() {
@@ -673,10 +697,12 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
       return;
     }
 
-    await completeConsultation(
-      activeConsultation.id,
-      payloadFromForm(editorForm, medications, exercises),
-    );
+    const payload = buildSavePayload();
+    if (!payload) {
+      return;
+    }
+
+    await completeConsultation(activeConsultation.id, payload);
     setMode("queue");
     clearActiveConsultation();
     setSelectedRow(null);
@@ -1191,6 +1217,16 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                 </div>
               </div>
             </section>
+
+            <VitalsCard
+              value={vitalsForm}
+              onChange={(next) => {
+                setVitalsForm(next);
+                setVitalsError(null);
+              }}
+              error={vitalsError}
+              disabled={saving}
+            />
 
             <div className="grid gap-6 2xl:grid-cols-2">
               <EditorCard
