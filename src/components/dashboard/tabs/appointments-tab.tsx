@@ -20,9 +20,11 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { usePagedList } from "@/hooks/use-paged-list";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import {
+  createAppointment,
   fetchAppointmentFilterOptions,
   fetchAppointmentsPage,
   softDeleteAppointment,
+  type AppointmentPayload,
   type AppointmentRow,
 } from "@/lib/appointment-queries";
 import {
@@ -32,7 +34,7 @@ import {
 } from "@/lib/time-utils";
 import { fetchCustomersPage } from "@/lib/billing-queries";
 import type { CustomerRecord } from "@/lib/billing-types";
-import { getSupabaseClient } from "@/lib/supabase";
+import { formatSupabaseError, getSupabaseClient } from "@/lib/supabase";
 
 type AppointmentFormState = {
   name: string;
@@ -541,6 +543,9 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
   async function handleSaveAppointment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSaving) {
+      return;
+    }
     setAddError(null);
 
     const phoneDigits = form.phone.replace(/\D/g, "");
@@ -576,7 +581,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       return;
     }
 
-    const payload = {
+    const payload: AppointmentPayload = {
       name: toNullable(form.name),
       phone: phoneDigits,
       email: toNullable(form.email),
@@ -594,13 +599,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       setIsSaving(true);
 
       if (!editingAppointment) {
-        const { error: insertError } = await client
-          .from("appointments")
-          .insert({ client_id: clientId, ...payload });
-
-        if (insertError) {
-          throw insertError;
-        }
+        await createAppointment(clientId, payload);
       } else {
         const { error: updateError } = await client.from("appointments").update(payload).eq("id", editingAppointment.id);
         if (updateError) {
@@ -626,7 +625,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       setEditingAppointment(null);
       resetForm();
     } catch (saveError) {
-      setAddError(saveError instanceof Error ? saveError.message : "Unable to save appointment.");
+      setAddError(formatSupabaseError(saveError, "Unable to save appointment."));
     } finally {
       setIsSaving(false);
     }

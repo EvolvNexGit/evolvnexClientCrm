@@ -7,6 +7,8 @@ import {
   type ListPageResult,
 } from "@/lib/list-pagination";
 
+export type AppointmentStatus = "tentative" | "booked" | "cancelled" | "completed";
+
 export type AppointmentRow = {
   id: string;
   name: string | null;
@@ -18,7 +20,21 @@ export type AppointmentRow = {
   date: string | null;
   start_time: string | null;
   end_time: string | null;
-  status: "tentative" | "booked" | "cancelled" | "completed" | null;
+  status: AppointmentStatus | null;
+  remark: string | null;
+};
+
+export type AppointmentPayload = {
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  service: string | null;
+  staff_name: string | null;
+  location: string | null;
+  date: string;
+  start_time: string | null;
+  end_time: string | null;
+  status: AppointmentStatus;
   remark: string | null;
 };
 
@@ -151,6 +167,16 @@ export async function fetchAppointmentFilterOptions(clientId: string) {
     staff: Array.from(new Set(rows.map((row) => row.staff_name).filter((value): value is string => Boolean(value)))).sort(),
     statuses: Array.from(new Set(rows.map((row) => row.status).filter((value): value is string => Boolean(value)))).sort(),
   };
+}
+
+/** client_id is written after the payload spread so payload contents can never override the tenant. */
+export async function createAppointment(clientId: string, payload: AppointmentPayload): Promise<void> {
+  const supabase = getClient();
+  const { error } = await supabase.from("appointments").insert({ ...payload, client_id: clientId });
+
+  if (error) {
+    throw error;
+  }
 }
 
 /** Soft delete: stamps deleted_at; every read filters it out. */
