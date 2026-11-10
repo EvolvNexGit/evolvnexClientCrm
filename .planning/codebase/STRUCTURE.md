@@ -74,8 +74,18 @@ evolvnexClientCrm/
 
 **`src/components/dashboard/patient/`:**
 - Purpose: Patient profile slide-over opened from the customer list for clients with the consultation tab.
-- Contains: `patient-profile-drawer.tsx`, `patient-overview-panel.tsx`, `patient-visits-panel.tsx`, `patient-files-panel.tsx`
-- Key files: `src/components/dashboard/patient/patient-profile-drawer.tsx`
+- Contains: `patient-profile-drawer.tsx`, `patient-overview-panel.tsx`, `patient-visits-panel.tsx`, `patient-files-panel.tsx`, `patient-strip.tsx` (sticky name, age, allergies strip in the consult editor)
+- Key files: `src/components/dashboard/patient/patient-profile-drawer.tsx`, `src/components/dashboard/patient/patient-strip.tsx`
+
+**`src/components/dashboard/consultation/`:**
+- Purpose: Consultation editor pieces and the body-only prescription print content.
+- Contains: `vitals-card.tsx`, `attachment-open-button.tsx` (single guarded Open via 300 s signed URL, shared with the Patient Files panel), `consultation-summary.tsx` (`ConsultationSummaryBody`, shared by history summary and read-only completed view), `prescription-print.tsx`
+- Key files: `src/components/dashboard/consultation/prescription-print.tsx`
+
+**`src/components/dashboard/print/`:**
+- Purpose: Shared print mechanism (prescriptions now, Phase 3 receipts later) and clinic letterhead margin settings.
+- Contains: `print-sheet.tsx` (body portal with margin spacers; pairs with the `@media print` block in `src/app/globals.css`), `print-settings-modal.tsx`, `test-print-body.tsx`
+- Key files: `src/components/dashboard/print/print-sheet.tsx`
 
 **`src/components/dashboard/billing/`:**
 - Purpose: Reusable list/modal chrome used by POS and CRM lists (not billing-only despite the folder name).
@@ -94,12 +104,12 @@ evolvnexClientCrm/
 
 **`src/hooks/`:**
 - Purpose: Client-side data + UI persistence. One hook per domain aggregate, plus shared list utilities.
-- Contains: `use-customers.ts`, `use-products.ts`, `use-orders.ts`, `use-transactions.ts`, `use-promotions.ts`, `use-ingredients.ts`, `use-recipes.ts`, `use-consultations.ts`, `use-appointments-range.ts`, `use-cafe-summary.ts`, `use-doctor-summary.ts`, `use-whatsapp-auto-replies.ts`, `use-paged-list.ts`, `use-persistent-state.ts`, `use-debounced-value.ts`
+- Contains: `use-customers.ts`, `use-products.ts`, `use-orders.ts`, `use-transactions.ts`, `use-promotions.ts`, `use-ingredients.ts`, `use-recipes.ts`, `use-consultations.ts`, `use-print-settings.ts`, `use-print-job.ts`, `use-appointments-range.ts`, `use-cafe-summary.ts`, `use-doctor-summary.ts`, `use-whatsapp-auto-replies.ts`, `use-paged-list.ts`, `use-persistent-state.ts`, `use-debounced-value.ts`
 - Key files: `src/hooks/use-paged-list.ts`, `src/hooks/use-whatsapp-auto-replies.ts`
 
 **`src/lib/`:**
 - Purpose: Types, queries, navigation, Supabase clients, analytics, providers.
-- Contains: domain `*-queries.ts` / `*-types.ts`, `tabs.ts`, `module-navigation.ts`, `dashboard-tab-routes.ts`, `supabase.ts`, `supabase-admin.ts`, `orderService.ts`, `inventory-units.ts` (unit families + conversion; single source for ingredient/recipe/POS units), `appointment-schedule.ts` (import-free pure scheduling and conflict helpers), `list-pagination.ts`, `client-cache.ts`, `utils.ts`, `time-utils.ts`
+- Contains: domain `*-queries.ts` / `*-types.ts`, `tabs.ts`, `module-navigation.ts`, `dashboard-tab-routes.ts`, `supabase.ts`, `supabase-admin.ts`, `orderService.ts`, `inventory-units.ts` (unit families + conversion; single source for ingredient/recipe/POS units), `appointment-schedule.ts` (import-free pure scheduling and conflict helpers), `consultation-vitals.ts` (import-free vitals parse and normalize), `consultation-files.ts` (import-free bucket constants, file validation, storage path and http(s) guard), `print-settings-types.ts` (import-free margin bounds and clamp), `print-settings-queries.ts`, `list-pagination.ts`, `client-cache.ts`, `utils.ts`, `time-utils.ts`
 - Key files: `src/lib/tabs.ts`, `src/lib/module-navigation.ts`, `src/lib/billing-queries.ts`, `src/lib/supabase.ts`
 
 **`src/lib/providers/`:**
@@ -119,7 +129,7 @@ evolvnexClientCrm/
 
 **`supabase/migrations/`:**
 - Purpose: SQL applied to the hosted project (also runnable in SQL editor).
-- Contains: `20260814_whatsapp_auto_replies.sql`, `20260817_customer_status_whatsapp_credentials.sql`, `20260817_customer_contact_fields.sql`, `20260826_communication_message_templates.sql`, `20261107_appointments_soft_delete.sql`, `20261108_phase0_tighten_rls.sql` (live RLS hardening record), `20261110_customers_clinical_fields.sql` (patient clinical columns)
+- Contains: `20260814_whatsapp_auto_replies.sql`, `20260817_customer_status_whatsapp_credentials.sql`, `20260817_customer_contact_fields.sql`, `20260826_communication_message_templates.sql`, `20261107_appointments_soft_delete.sql`, `20261108_phase0_tighten_rls.sql` (live RLS hardening record), `20261110_customers_clinical_fields.sql` (patient clinical columns), `20261111_consultations_vitals.sql` (vitals jsonb with shape check), `20261111_print_settings.sql` (per-client letterhead margins, RLS, explicit grants), `20261111_consultation_files_storage.sql` (private `consultation-files` bucket, `storage_path`, storage policies)
 - Key files: `supabase/migrations/20260814_whatsapp_auto_replies.sql`
 
 **`.planning/`:**
