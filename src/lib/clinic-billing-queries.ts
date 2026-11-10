@@ -135,3 +135,25 @@ export async function markClinicBillPaid(clientId: string, billId: string, mode:
     throw new Error("Bill not found or already paid.");
   }
 }
+
+/** Maps bill id to payment_status for this client's bills since sinceIso that are not paid. No row cap here, so PostgREST's default row limit applies. */
+export async function fetchNonPaidBillStatusesSince(clientId: string, sinceIso: string): Promise<Map<string, string>> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("bills")
+    .select("id, payment_status")
+    .eq("client_id", clientId)
+    .gte("created_at", sinceIso)
+    .neq("payment_status", "paid");
+
+  if (error) {
+    raiseQueryError(error, "Unable to load bill payment status.");
+  }
+
+  const statuses = new Map<string, string>();
+  for (const row of (data ?? []) as unknown as Record<string, unknown>[]) {
+    statuses.set(String(row.id), String(row.payment_status ?? ""));
+  }
+
+  return statuses;
+}

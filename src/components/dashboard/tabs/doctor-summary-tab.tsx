@@ -359,7 +359,7 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
               value={formatInr(analytics.kpis.avgBill.value)}
               trend={analytics.kpis.avgBill.changePercent}
               trendLabel={trendLabel}
-              note="From POS bills (no consultation-fee field)"
+              note="From POS bills and paid clinic bills"
               icon={<IndianRupee className="h-4 w-4 text-white sm:h-5 sm:w-5" />}
               iconClassName="bg-sky-500"
             />
