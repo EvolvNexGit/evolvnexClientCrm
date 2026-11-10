@@ -8,8 +8,8 @@ requires:
   - phase: 02-consultation-and-print
     provides: consultations, PrintSheet, tenant helper crm_can_access_client
 provides:
-  - "migration A: order_source label Clinic (authored, not yet applied)"
-  - "migration B: bills payment CHECK, indexes, create_clinic_bill (authored, not yet applied)"
+  - "migration A: order_source label Clinic (applied live 2026-11-11, verified V1-V10)"
+  - "migration B: bills payment CHECK, indexes, create_clinic_bill (applied live 2026-11-11, verified V1-V10)"
   - "migration C: tab 015 access for doctor client, 004 disabled (authored, applied last in 03-06)"
 affects: [03-02, 03-03, 03-04, 03-05, 03-06]
 actuals:
