@@ -94,7 +94,7 @@ Plans:
   4. The bill is created by a `SECURITY INVOKER` function that verifies customer, products and consultation belong to the caller's client; a foreign id is rejected
   5. A receipt prints through the Phase 2 print mechanism; an unpaid list shows outstanding bills
 
-**Plans:** 5/7 plans executed
+**Plans:** 6/7 plans executed
 **UI hint**: yes
 
 Plans:
@@ -117,7 +117,7 @@ Plans:
 - [ ] 03-06-PLAN.md — Apply migration C last, after the code is deployed: doctor client gets 015 and loses 004 (BILL-01) [wave 6]
 
 **Wave 7** *(blocked on Wave 6 completion)*
-- [ ] 03-07-PLAN.md — Docs, phase gates and consolidated end-of-phase UAT (BILL-01..05) [wave 7]
+- [x] 03-07-PLAN.md — Docs, phase gates and consolidated end-of-phase UAT (BILL-01..05) [wave 7]
 
 ## Progress
 
@@ -128,4 +128,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Doctor appointments and patients | 7/7 | In Progress | - |
 | 2. Consultation and print | 6/6 | In Progress | - |
-| 3. Doctor billing | 5/7 | In Progress | - |
+| 3. Doctor billing | 6/7 | In Progress | - |
