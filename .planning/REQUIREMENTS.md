@@ -10,7 +10,7 @@ Requirements for the doctor/clinic milestone. Existing CRM, WhatsApp and POS cod
 ### Appointments
 
 - [x] **APPT-01**: Staff can view appointments on a day and week calendar with staff columns, and create or edit from an empty slot or a card; the list view remains
-- [ ] **APPT-02**: Booking or moving an appointment onto an overlapping slot for the same staff shows a conflict warning
+- [x] **APPT-02**: Booking or moving an appointment onto an overlapping slot for the same staff shows a conflict warning
 - [x] **APPT-03**: Appointment create, update and status changes live in `appointment-queries.ts`, scoped by `client_id`
 
 ### Patients
@@ -91,7 +91,7 @@ Deferred. Tracked, not in this roadmap.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | APPT-01 | Phase 1 | Complete |
-| APPT-02 | Phase 1 | Pending |
+| APPT-02 | Phase 1 | Complete |
 | APPT-03 | Phase 1 | Complete |
 | PAT-01 | Phase 1 | Complete |
 | PAT-02 | Phase 1 | Complete |

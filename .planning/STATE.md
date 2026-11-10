@@ -4,16 +4,16 @@ milestone: v1.0
 current_phase: 01
 current_phase_name: Doctor appointments and patients
 status: executing
-stopped_at: Completed 01-05-PLAN.md
-last_updated: "2026-11-10T02:03:10.031Z"
+stopped_at: Completed 01-06-PLAN.md
+last_updated: "2026-11-10T02:06:19.542Z"
 last_activity: 2026-11-10
 last_activity_desc: Phase 01 execution started
-state_head: 407224a63e513e0d2bc10391ba18106b78b0861c
+state_head: 5446a3b91ad39e7bc744bbc4cc8abfd1df6eb686
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 7
-  completed_plans: 5
+  completed_plans: 6
 milestone_name: milestone
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-11-10)
 ## Current Position
 
 Phase: 01 (Doctor appointments and patients) — EXECUTING
-Plan: 6 of 7
+Plan: 7 of 7
 Status: Ready to execute
 Last activity: 2026-11-10 — Phase 01 execution started
 
@@ -64,6 +64,7 @@ Progress: ░░░░░░░░░░ 0%
 | Phase 01 P03 | 15min | 2 tasks | 4 files |
 | Phase 01 P04 | 30min | 3 tasks | 4 files |
 | Phase 01 P05 | 10min | 2 tasks | 7 files |
+| Phase 01 P06 | 15min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,7 @@ Recent decisions affecting current work:
 - [Phase 01]: 01-04: Week view uses seven day columns with an All staff chip filter (not staff sub-columns per day)
 - [Phase 01]: 01-04: List-only loading/error early returns in appointments tab gated on viewMode so calendar is never blocked by list failures
 - [Phase 01]: 01-05: patient profile drawer body keyed by patient id with cancelled-flag panel effects; file links limited to http(s)
+- [Phase 01]: 01-06: Double-booking warning is advisory only (D-04); modal loads its own date via second useAppointmentsRange; getConflictingIds reuses findAppointmentConflicts
 
 ### Pending Todos
 
@@ -122,6 +124,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-11-10T02:03:09.992Z
-Stopped at: Completed 01-05-PLAN.md
+Last session: 2026-11-10T02:06:19.503Z
+Stopped at: Completed 01-06-PLAN.md
 Resume file: None
