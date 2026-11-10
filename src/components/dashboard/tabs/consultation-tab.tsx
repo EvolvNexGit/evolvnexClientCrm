@@ -17,6 +17,7 @@ import {
   Plus,
   Save,
   Search,
+  Settings,
   Stethoscope,
   Trash2,
   UserCircle2,
@@ -27,9 +28,11 @@ import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 import { AttachmentOpenButton } from "@/components/dashboard/consultation/attachment-open-button";
 import { VitalsCard } from "@/components/dashboard/consultation/vitals-card";
 import { PatientStrip } from "@/components/dashboard/patient/patient-strip";
+import { PrintSettingsModal } from "@/components/dashboard/print/print-settings-modal";
 import { Button } from "@/components/ui/button";
 import { useConsultations } from "@/hooks/use-consultations";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { usePrintSettings } from "@/hooks/use-print-settings";
 import { fetchCustomersPage, createCustomer } from "@/lib/billing-queries";
 import type { CustomerRecord } from "@/lib/billing-types";
 import {
@@ -447,6 +450,8 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
     removeAttachment,
   } = useConsultations(clientId);
 
+  const printSettings = usePrintSettings(clientId);
+  const [printSettingsOpen, setPrintSettingsOpen] = useState(false);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
   const [historyDetail, setHistoryDetail] = useState<ConsultationDetail | null>(null);
   const [historyDetailLoading, setHistoryDetailLoading] = useState(false);
@@ -990,6 +995,10 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <Button variant="secondary" className="gap-2" onClick={() => setPrintSettingsOpen(true)}>
+                <Settings className="h-4 w-4" />
+                Print settings
+              </Button>
               <Button
                 className="gap-2 bg-[#6d28d9] text-white hover:bg-[#5b21b6]"
                 onClick={() => setIsNewConsultOpen(true)}
@@ -1003,6 +1012,11 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
 
         {error && (
           <div className="rounded-xl border border-primary/50 bg-primary/10 p-5 text-base text-primary">{error}</div>
+        )}
+        {printSettings.error && (
+          <div className="rounded-xl border border-primary/50 bg-primary/10 p-3 text-sm text-primary" role="alert">
+            {printSettings.error}
+          </div>
         )}
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
@@ -1149,6 +1163,15 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
         </section>
 
         {newConsultModal}
+        <PrintSettingsModal
+          open={printSettingsOpen}
+          onClose={() => setPrintSettingsOpen(false)}
+          margins={printSettings.margins}
+          hasSavedSettings={printSettings.hasSavedSettings}
+          saving={printSettings.saving}
+          saveError={printSettings.saveError}
+          onSave={printSettings.save}
+        />
       </div>
     );
   }
