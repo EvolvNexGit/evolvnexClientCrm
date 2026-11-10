@@ -147,3 +147,19 @@ a {
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--primary));
 }
+
+/* Print isolation: only the portal print sheet is printed (shared by prescriptions and receipts). */
+@media print {
+  body > *:not([data-print-root]) {
+    display: none !important;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+}
