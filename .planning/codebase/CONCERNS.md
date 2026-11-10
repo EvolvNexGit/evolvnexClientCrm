@@ -18,6 +18,7 @@
 - Fix approach: Export the full public schema (or baseline dump) into `supabase/migrations/` and add the `create_order_with_inventory` function definition next to the app caller.
 - Update 2026-11-10: the RLS hardening (`20261108_phase0_tighten_rls.sql`) and the clinical columns (`20261110_customers_clinical_fields.sql`) are now versioned in git; table definitions themselves still are not.
 - Update 2026-11-10 (Phase 2): the `storage.objects` policies, the `consultation-files` bucket, `consultation_attachments.storage_path`, `consultations.vitals` constraints and the `print_settings` table are versioned in `supabase/migrations/20261111_*.sql`; base table definitions still are not. The vitals migration was applied through Supabase MCP, the print_settings and storage migrations by the user in the SQL Editor.
+- Update 2026-11-11 (Phase 3): the `Clinic` enum value, the payment constraint and indexes on `bills`, and `create_clinic_bill` are now versioned in `supabase/migrations/20261112_*.sql`; the base `bills` and `bill_items` definitions still are not. Migrations A and B were run by the user in the SQL Editor on 2026-11-11; migration C (tab 015 access) is applied last in plan 03-06.
 
 **Navigation still labels shipped screens as coming soon:**
 - Issue: LEADS “Contacts” and “Auto Replies” are `kind: "coming-soon"` in the module catalog, then special-cased in the dashboard to render real tabs.
@@ -102,6 +103,7 @@
 - Recommendations: Confirm RLS on every `client_id` table; never trust `clientId` from the client without a matching `clients.crm_user_id = auth.uid()` policy.
 - Update 2026-11-10: the 2026-11-08 hardening is recorded in `supabase/migrations/20261108_phase0_tighten_rls.sql` and was verified read-only against live on 2026-11-10 (policies, RLS flags, function privileges). A human should still read the final file once and run the cross-tenant spot check.
 - Update 2026-11-10 (Phase 2): bucket and `print_settings` isolation were verified against live on 2026-11-10 with rolled-back role-simulation probes recorded in the 02-01 SUMMARY (tenant B saw 0 of tenant A's objects and settings rows, could not insert into A's folder or A's settings, A saw its own object, anon was denied, and the public object URL returned 400). The end-of-phase UAT repeats a real two-session check (02-HUMAN-UAT.md).
+- Update 2026-11-11 (Phase 3): `create_clinic_bill` isolation was verified on 2026-11-11 with rolled-back role-simulation probes recorded in the 03-01 SUMMARY (other tenant 42501, foreign or inactive product 22023, wrong patient and not-completed consult P0002, duplicate 23505, anon denied, authenticated without a session 42501; live ended with 0 Clinic bills). Accepted residual (D-11): the existing `bills_insert_own` policy lets a tenant insert a bill row whose `consultation_id` points at a foreign consultation id. It is an existence oracle only (the FK or unique index answers yes or no; no data is returned) and a composite tenant foreign key is out of scope. Also pre-existing and unchanged: `crm_can_access_client(uuid)` is still executable by `anon` (it returns false without a session), and the `allow_menu_read_products` policy exposes products to other tenants for reads (the function still rejects a foreign product).
 
 **Authenticated users can read/write WhatsApp ciphertext:**
 - Risk: Policies grant `authenticated` `SELECT`/`ALL` on `communication_whatsapp_credentials`, including `encrypted_payload`. A tenant user can dump ciphertext from the browser console and can upsert raw (possibly plaintext) payloads without `encryptSecret`.
@@ -194,6 +196,18 @@
 - Completed consultations are read-only by design and cannot be un-completed from the consultation screen.
 - Legacy name+URL attachment rows remain (`storage_path` null) and are shown as links only when the URL is http or https; other values show as plain text.
 - Print buttons are disabled while print settings are loading or failed to load, so margins can never silently default to 0.
+
+**Doctor billing (Phase 3):**
+- Trust model: Mark paid is a direct scoped `bills` update, and the owning tenant can still insert or update `bills` rows directly under `bills_{insert,update}_own` (amounts and payment state included). This is the same trust model as cafe bills. There is no void, edit or delete in v1 (D-05); a mistaken bill is fixed by hand in the database.
+- Transaction tab (009): Clinic bills still appear there, carrying the cafe defaults `order_type = 'Dine-In'` and `table_number = 'T0'` (set by the table defaults, seen in the V5 probe), listed as Delivered, and the tab has no payment status column. Patient totals (`totalSpent`) and the Transaction tab keep including Clinic bills regardless of payment status (D-09, E5 and E6 intentionally unchanged).
+- Create bill is offered only on Completed rows of today's queue and in the read-only Completed view reached from it (D-02); the queue lists only today's consultations, so an earlier day's consultation cannot be billed from the UI.
+- Fee items must exist in Services (008) first; a client with none sees an empty state with an Open Services link.
+- Receipt number is the cafe `trg_generate_order_id` format (`<client_code>-<n>`, for example `T-3-1`), not a clinic-specific sequence.
+- `fetchNonPaidBillStatusesSince` (doctor summary) is a second payment-status read, non-paid bills only, next to the shared transactions fetch. It has no row cap, so PostgREST's default row limit (commonly 1000 per request) applies: more non-paid bills than that across the current and previous period truncates the map, and a Clinic bill missing from the map is treated as paid.
+- The Pending Payments alert still links to `/dashboard/transaction`, which shows no payment status; unpaid clinic bills are better found in the Doctor Billing tab (015). Candidate follow-up: point the alert at `/dashboard/doctor-billing` once migration C is live.
+- The new-order push route and `src/lib/web-push-server.ts` were verified statically only: the `web-push` package is missing from local `node_modules` (baseline `tsc` error, `npm run build` fails on it too), so they could not be imported or run locally. Check a Clinic bill against the live webhook in the UAT.
+- Migration C hard-codes the doctor client id `eafea940-a6d1-4aa2-95e2-339f614502ea`; a future doctor client needs an equivalent access seed. Tab lists are cached for the session (`src/lib/tabs.ts`), so the doctor must sign out and in once after C.
+- Receipt printing: Chrome and Edge remain the supported print browsers; Safari does not honour `@page` margins reliably. HEIC photo uploads stay rejected (Phase 2 D-12), so export as JPG first.
 
 ## Scaling Limits
 
