@@ -7,7 +7,7 @@ import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 import { useApp } from "@/contexts/app-context";
 import { usePersistentState } from "@/hooks/use-persistent-state";
-import type { CustomerPayload, CustomerRecord } from "@/lib/billing-types";
+import { BLOOD_GROUP_OPTIONS, GENDER_OPTIONS, type CustomerPayload, type CustomerRecord } from "@/lib/billing-types";
 import { formatUtcToIst } from "@/lib/time-utils";
 
 function formatDateOnly(value: string | null) {
@@ -41,7 +41,10 @@ type CustomerFormState = {
   email: string;
   dob: string;
   outreachStatus: string;
+  gender: string;
+  bloodGroup: string;
   allergies: string;
+  chronicConditions: string;
 };
 
 const initialForm: CustomerFormState = {
@@ -50,8 +53,21 @@ const initialForm: CustomerFormState = {
   email: "",
   dob: "",
   outreachStatus: "",
+  gender: "",
+  bloodGroup: "",
   allergies: "",
+  chronicConditions: "",
 };
+
+/** Clinical payload fields; old persisted form state may lack these keys, hence the `?? ""` reads. */
+function buildClinicalPayload(form: CustomerFormState): Partial<CustomerPayload> {
+  return {
+    gender: (form.gender ?? "").trim() || null,
+    bloodGroup: (form.bloodGroup ?? "").trim() || null,
+    allergies: (form.allergies ?? "").trim() || null,
+    chronicConditions: (form.chronicConditions ?? "").trim() || null,
+  };
+}
 
 
 
@@ -141,7 +157,10 @@ export function CustomerTable({
       email: customer.email ?? "",
       dob: customer.dob ?? "",
       outreachStatus: customer.outreach_status ?? "",
+      gender: customer.gender ?? "",
+      bloodGroup: customer.blood_group ?? "",
       allergies: customer.allergies ?? "",
+      chronicConditions: customer.chronic_conditions ?? "",
     });
   }
 
@@ -156,7 +175,7 @@ export function CustomerTable({
         email: form.email.trim() || null,
         dob: form.dob || null,
         outreachStatus: form.outreachStatus.trim() || null,
-        ...(hasClinicalFields ? { allergies: (form.allergies ?? "").trim() || null } : {}),
+        ...(hasClinicalFields ? buildClinicalPayload(form) : {}),
       });
       setIsAddOpen(false);
       resetForm();
@@ -181,7 +200,7 @@ export function CustomerTable({
         email: form.email.trim() || null,
         dob: form.dob || null,
         outreachStatus: form.outreachStatus.trim() || null,
-        ...(hasClinicalFields ? { allergies: (form.allergies ?? "").trim() || null } : {}),
+        ...(hasClinicalFields ? buildClinicalPayload(form) : {}),
       });
       setEditingCustomer(null);
       resetForm();
@@ -384,6 +403,12 @@ export function CustomerTable({
   );
 }
 
+/** Keeps a stored value that is not in the preset list selectable so saving never silently blanks it. */
+function withStoredOption(options: readonly string[], current: string | undefined): string[] {
+  const value = (current ?? "").trim();
+  return value && !options.includes(value) ? [...options, value] : [...options];
+}
+
 function CustomerForm({
   form,
   onChange,
@@ -451,17 +476,63 @@ function CustomerForm({
       </label>
 
       {showClinicalFields && (
-        <label className="block text-base text-muted-foreground">
-          <span className="mb-1 block">Allergies</span>
-          <textarea
-            value={form.allergies ?? ""}
-            onChange={(event) => onChange({ ...form, allergies: event.target.value })}
-            placeholder="e.g. Penicillin, peanuts"
-            maxLength={500}
-            rows={2}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
-          />
-        </label>
+        <>
+          <label className="block text-base text-muted-foreground">
+            <span className="mb-1 block">Gender</span>
+            <select
+              value={form.gender ?? ""}
+              onChange={(event) => onChange({ ...form, gender: event.target.value })}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
+            >
+              <option value="">Not set</option>
+              {withStoredOption(GENDER_OPTIONS, form.gender).map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block text-base text-muted-foreground">
+            <span className="mb-1 block">Blood group</span>
+            <select
+              value={form.bloodGroup ?? ""}
+              onChange={(event) => onChange({ ...form, bloodGroup: event.target.value })}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
+            >
+              <option value="">Not set</option>
+              {withStoredOption(BLOOD_GROUP_OPTIONS, form.bloodGroup).map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block text-base text-muted-foreground">
+            <span className="mb-1 block">Allergies</span>
+            <textarea
+              value={form.allergies ?? ""}
+              onChange={(event) => onChange({ ...form, allergies: event.target.value })}
+              placeholder="e.g. Penicillin, peanuts"
+              maxLength={500}
+              rows={2}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
+            />
+          </label>
+
+          <label className="block text-base text-muted-foreground">
+            <span className="mb-1 block">Chronic conditions</span>
+            <textarea
+              value={form.chronicConditions ?? ""}
+              onChange={(event) => onChange({ ...form, chronicConditions: event.target.value })}
+              placeholder="e.g. Diabetes, hypertension"
+              maxLength={500}
+              rows={2}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
+            />
+          </label>
+        </>
       )}
 
       <Button type="submit" className="w-full" disabled={saving}>

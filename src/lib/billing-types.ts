@@ -17,7 +17,10 @@ export type CustomerRecord = {
   is_blocked: boolean;
   notes: string | null;
   assigned_to: string | null;
+  gender: string | null;
+  blood_group: string | null;
   allergies: string | null;
+  chronic_conditions: string | null;
   created_at: string;
   totalOrders: number;
   totalSpent: number;
@@ -34,7 +37,10 @@ export type CustomerPayload = {
   isBlocked?: boolean;
   notes?: string | null;
   assignedTo?: string | null;
+  gender?: string | null;
+  bloodGroup?: string | null;
   allergies?: string | null;
+  chronicConditions?: string | null;
 };
 
 export type ContactStats = {
@@ -50,6 +56,12 @@ export type ContactAudienceGroup = {
 };
 
 export const CONTACT_SOURCE_OPTIONS = ["Campaign", "Walk-in", "Website", "Referral"] as const;
+
+export const GENDER_OPTIONS = ["Male", "Female", "Other"] as const;
+export type GenderOption = (typeof GENDER_OPTIONS)[number];
+
+export const BLOOD_GROUP_OPTIONS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
+export type BloodGroupOption = (typeof BLOOD_GROUP_OPTIONS)[number];
 
 export type ProductRecord = {
   id: string;
