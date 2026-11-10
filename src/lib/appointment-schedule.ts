@@ -62,7 +62,8 @@ export function clockToMinutes(value: string | null | undefined): number | null 
   if (!value) {
     return null;
   }
-  const input = value.trim();
+  // Repairs the malformed `...T02:00:00:00Z` shape (same fix as normalizeAppointmentTimestamp in time-utils).
+  const input = value.trim().replace(/(T\d{2}:\d{2}:\d{2}):\d{2}(Z)$/i, "$1$2");
 
   const timeOnly = input.match(TIME_ONLY_PATTERN);
   if (timeOnly) {
@@ -133,34 +134,44 @@ export function buildSlotStarts(range: { startMinutes: number; endMinutes: numbe
   return slots;
 }
 
+/** Comparison key for staff names: trimmed and lowercased so "dr shah" and "Dr Shah" are one person. */
+export function staffKey(name: string | null | undefined): string {
+  return (name ?? "").trim().toLowerCase();
+}
+
 export type StaffColumn = { key: string; label: string; staffName: string | null };
 
-/** Distinct staff names (options plus appointments) sorted, then Unassigned when needed or when no staff exists. */
+/**
+ * Distinct staff (options plus appointments, matched case-insensitively; first-seen casing is the label) sorted,
+ * then Unassigned when needed or when no staff exists.
+ */
 export function buildStaffColumns(
   staffOptions: string[],
   appointments: { staff_name: string | null }[],
 ): StaffColumn[] {
-  const names = new Set<string>();
+  const names = new Map<string, string>();
   let hasUnassigned = false;
 
   for (const option of staffOptions) {
     const name = option.trim();
-    if (name) {
-      names.add(name);
+    if (name && !names.has(staffKey(name))) {
+      names.set(staffKey(name), name);
     }
   }
   for (const appointment of appointments) {
     const name = (appointment.staff_name ?? "").trim();
     if (name) {
-      names.add(name);
+      if (!names.has(staffKey(name))) {
+        names.set(staffKey(name), name);
+      }
     } else {
       hasUnassigned = true;
     }
   }
 
-  const columns: StaffColumn[] = Array.from(names)
-    .sort((left, right) => left.localeCompare(right))
-    .map((name) => ({ key: name, label: name, staffName: name }));
+  const columns: StaffColumn[] = Array.from(names.entries())
+    .sort((left, right) => left[1].localeCompare(right[1]))
+    .map(([key, name]) => ({ key, label: name, staffName: name }));
 
   if (hasUnassigned || columns.length === 0) {
     columns.push({ key: UNASSIGNED_COLUMN_KEY, label: UNASSIGNED_COLUMN_LABEL, staffName: null });
@@ -268,7 +279,7 @@ export function findAppointmentConflicts<T extends ScheduleAppointment>(
   candidate: ConflictCandidate,
   existing: T[],
 ): T[] {
-  const staff = (candidate.staff_name ?? "").trim();
+  const staff = staffKey(candidate.staff_name);
   if (!staff || !candidate.date || isCancelled(candidate.status)) {
     return [];
   }
@@ -280,7 +291,7 @@ export function findAppointmentConflicts<T extends ScheduleAppointment>(
   const matches: { item: T; interval: AppointmentInterval }[] = [];
   for (const item of existing) {
     if (
-      (item.staff_name ?? "").trim() !== staff ||
+      staffKey(item.staff_name) !== staff ||
       item.date !== candidate.date ||
       isCancelled(item.status) ||
       (candidate.id !== null && item.id === candidate.id)
@@ -306,7 +317,7 @@ export function findAppointmentConflicts<T extends ScheduleAppointment>(
 export function getConflictingIds<T extends ScheduleAppointment>(appointments: T[]): Set<string> {
   const groups = new Map<string, T[]>();
   for (const appointment of appointments) {
-    const staff = (appointment.staff_name ?? "").trim();
+    const staff = staffKey(appointment.staff_name);
     if (!staff || !appointment.date || isCancelled(appointment.status) || !getAppointmentInterval(appointment)) {
       continue;
     }

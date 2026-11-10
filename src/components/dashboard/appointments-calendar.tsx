@@ -18,6 +18,7 @@ import {
   layoutColumnAppointments,
   minutesToClock,
   splitScheduled,
+  staffKey,
 } from "@/lib/appointment-schedule";
 import { formatUtcToIst } from "@/lib/time-utils";
 import { cn } from "@/lib/utils";
@@ -95,7 +96,7 @@ function rowStaffKey(appointment: AppointmentRow) {
 }
 
 function matchesStaff(appointment: AppointmentRow, staffName: string | null) {
-  return staffName === null ? rowStaffKey(appointment) === "" : rowStaffKey(appointment) === staffName;
+  return staffName === null ? rowStaffKey(appointment) === "" : staffKey(appointment.staff_name) === staffKey(staffName);
 }
 
 export function AppointmentsCalendar({
@@ -126,17 +127,17 @@ export function AppointmentsCalendar({
   const conflictingIds = useMemo(() => getConflictingIds(windowRows), [windowRows]);
 
   const effectiveStaffKey =
-    isWeek && staffColumns.some((column) => column.key === selectedStaffKey) ? selectedStaffKey : ALL_STAFF_KEY;
-  const selectedStaff = isWeek ? (staffColumns.find((column) => column.key === effectiveStaffKey) ?? null) : null;
+    staffColumns.some((column) => column.key === selectedStaffKey) ? selectedStaffKey : ALL_STAFF_KEY;
+  const selectedStaff = staffColumns.find((column) => column.key === effectiveStaffKey) ?? null;
 
   const { scheduled: allScheduled, unscheduled } = useMemo(() => splitScheduled(windowRows), [windowRows]);
 
   const scheduled = useMemo(
     () =>
-      isWeek && selectedStaff
+      selectedStaff
         ? allScheduled.filter((appointment) => matchesStaff(appointment, selectedStaff.staffName))
         : allScheduled,
-    [allScheduled, isWeek, selectedStaff],
+    [allScheduled, selectedStaff],
   );
 
   const range = useMemo(
@@ -166,22 +167,24 @@ export function AppointmentsCalendar({
       }));
     }
 
-    return staffColumns.map((column) => ({
-      key: column.key,
-      label: column.label,
-      ariaLabel: column.label,
-      date,
-      staffName: column.staffName,
-      rows: scheduled.filter((appointment) => matchesStaff(appointment, column.staffName)),
-    }));
-  }, [isWeek, visibleDates, selectedStaff, scheduled, staffColumns, date]);
+    // Day view: one column for the date; the doctor filter narrows it and each card names its doctor.
+    return [
+      {
+        key: date,
+        label: formatDate(date, { weekday: "short", day: "numeric" }),
+        ariaLabel: formatDate(date, { weekday: "short", day: "numeric", month: "short" }),
+        date,
+        staffName: selectedStaff?.staffName ?? null,
+        rows: scheduled,
+      },
+    ];
+  }, [isWeek, visibleDates, selectedStaff, scheduled, date]);
 
   const columnMinWidth = isWeek ? WEEK_COLUMN_MIN_WIDTH : DAY_COLUMN_MIN_WIDTH;
   const gridTemplateColumns = `${GUTTER_WIDTH} repeat(${columns.length}, minmax(${columnMinWidth}, 1fr))`;
   const gridMinWidth = `calc(${GUTTER_WIDTH} + ${columns.length} * ${columnMinWidth})`;
   const hourMarks = slotStarts.filter((minutes) => minutes % 60 === 0);
   const stepDays = isWeek ? 7 : 1;
-  const showStaffOnCards = isWeek && effectiveStaffKey === ALL_STAFF_KEY;
 
   const heading = isWeek
     ? `${formatDate(visibleDates[0], { day: "numeric", month: "short" })} - ${formatDate(visibleDates[visibleDates.length - 1], {
@@ -242,8 +245,8 @@ export function AppointmentsCalendar({
         />
       </div>
 
-      {isWeek && (
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by staff">
+      {staffColumns.length > 0 && (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by doctor">
           <button
             type="button"
             aria-pressed={effectiveStaffKey === ALL_STAFF_KEY}
@@ -255,7 +258,7 @@ export function AppointmentsCalendar({
                 : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-text",
             )}
           >
-            All staff
+            All doctors
           </button>
           {staffColumns.map((column) => (
             <button
@@ -422,7 +425,7 @@ export function AppointmentsCalendar({
                         </div>
                         <div className={cn("truncate", isCancelled && "line-through")}>{appointmentLabel(item)}</div>
                         {item.service ? <div className="truncate opacity-80">{item.service}</div> : null}
-                        {showStaffOnCards ? <div className="truncate opacity-80">{staffLabel}</div> : null}
+                        <div className="truncate opacity-80">{staffLabel}</div>
                         {hasOverlap ? <div className="truncate text-[10px] font-semibold uppercase">Overlap</div> : null}
                       </div>
                     </button>

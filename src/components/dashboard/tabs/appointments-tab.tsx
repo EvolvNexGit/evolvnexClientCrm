@@ -38,6 +38,7 @@ import {
 } from "@/lib/appointment-queries";
 import {
   TIME_STEP_SECONDS,
+  clockToMinutes,
   findAppointmentConflicts,
   getAppointmentInterval,
   getWeekDates,
@@ -122,7 +123,7 @@ function CustomerPickerField({
   onSelect: (customer: CustomerRecord) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<CustomerRecord[]>([]);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -140,6 +141,7 @@ function CustomerPickerField({
 
   useEffect(() => {
     if (!open || !clientId) {
+      setLoading(false);
       return;
     }
     // Ignore stale responses when the query changes mid-flight.
@@ -166,8 +168,9 @@ function CustomerPickerField({
     };
   }, [clientId, debouncedValue, open]);
 
+  // -1 = nothing highlighted, so Enter keeps typed free text unless the user arrowed to a suggestion.
   useEffect(() => {
-    setActiveIndex(0);
+    setActiveIndex(-1);
   }, [suggestions]);
 
   function pick(customer: CustomerRecord) {
@@ -195,10 +198,14 @@ function CustomerPickerField({
               setActiveIndex((current) => (current + 1) % suggestions.length);
             } else if (event.key === "ArrowUp" && suggestions.length > 0) {
               event.preventDefault();
-              setActiveIndex((current) => (current - 1 + suggestions.length) % suggestions.length);
-            } else if (event.key === "Enter" && open && suggestions[activeIndex]) {
+              setActiveIndex((current) => (current <= 0 ? suggestions.length - 1 : current - 1));
+            } else if (event.key === "Enter" && open) {
               event.preventDefault();
-              pick(suggestions[activeIndex]);
+              if (activeIndex >= 0 && suggestions[activeIndex]) {
+                pick(suggestions[activeIndex]);
+              } else {
+                setOpen(false);
+              }
             }
           }}
           placeholder="Search or type new customer name"
@@ -431,24 +438,24 @@ function getGroupKey(date: string | null): GroupKey {
 }
 
 export default function AppointmentsTab({ clientId }: { clientId: string }) {
-  const [expandedIds, setExpandedIds] = usePersistentState<string[]>("appointments-tab-expanded-ids", []);
-  const [locationFilter, setLocationFilter] = usePersistentState("appointments-tab-location-filter", "all");
-  const [statusFilter, setStatusFilter] = usePersistentState("appointments-tab-status-filter", "all");
-  const [serviceFilter, setServiceFilter] = usePersistentState("appointments-tab-service-filter", "all");
-  const [staffFilter, setStaffFilter] = usePersistentState("appointments-tab-staff-filter", "all");
-  const [searchQuery, setSearchQuery] = usePersistentState("appointments-tab-search-query", "");
-  const [dateFilter, setDateFilter] = usePersistentState("appointments-tab-date-filter", "");
+  const [expandedIds, setExpandedIds] = usePersistentState<string[]>(`appointments-tab-expanded-ids:${clientId}`, []);
+  const [locationFilter, setLocationFilter] = usePersistentState(`appointments-tab-location-filter:${clientId}`, "all");
+  const [statusFilter, setStatusFilter] = usePersistentState(`appointments-tab-status-filter:${clientId}`, "all");
+  const [serviceFilter, setServiceFilter] = usePersistentState(`appointments-tab-service-filter:${clientId}`, "all");
+  const [staffFilter, setStaffFilter] = usePersistentState(`appointments-tab-staff-filter:${clientId}`, "all");
+  const [searchQuery, setSearchQuery] = usePersistentState(`appointments-tab-search-query:${clientId}`, "");
+  const [dateFilter, setDateFilter] = usePersistentState(`appointments-tab-date-filter:${clientId}`, "");
   const [dateFilterMode, setDateFilterMode] = usePersistentState<"day" | "month" | "year">(
-    "appointments-tab-date-filter-mode",
+    `appointments-tab-date-filter-mode:${clientId}`,
     "day",
   );
   const [sortBy, setSortBy] = usePersistentState<"date" | "status" | "service" | "location">(
-    "appointments-tab-sort-by",
+    `appointments-tab-sort-by:${clientId}`,
     "date",
   );
-  const [sortOrder, setSortOrder] = usePersistentState<"asc" | "desc">("appointments-tab-sort-order", "asc");
+  const [sortOrder, setSortOrder] = usePersistentState<"asc" | "desc">(`appointments-tab-sort-order:${clientId}`, "asc");
   const [showFilters, setShowFilters] = useState(false);
-  const [viewMode, setViewMode] = usePersistentState<"list" | "day" | "week">("appointments-tab-view-mode", "list");
+  const [viewMode, setViewMode] = usePersistentState<"list" | "day" | "week">(`appointments-tab-view-mode:${clientId}`, "list");
   const [calendarDate, setCalendarDate] = useState(() => formatUtcToIst(new Date().toISOString()).slice(0, 10));
   // Only today's group starts open; the rest stay collapsed until toggled.
   const [collapsedGroups, setCollapsedGroups] = useState<Record<GroupKey, boolean>>({
@@ -459,15 +466,15 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   });
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [editingAppointment, setEditingAppointment] = useState<AppointmentRow | null>(null);
-  const [addError, setAddError] = usePersistentState<string | null>("appointments-tab-add-error", null);
+  const [addError, setAddError] = usePersistentState<string | null>(`appointments-tab-add-error:${clientId}`, null);
   const [isSaving, setIsSaving] = useState(false);
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
   const [pendingStatusChange, setPendingStatusChange] = useState<PendingStatusChange | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [statusChangeError, setStatusChangeError] = usePersistentState<string | null>("appointments-tab-status-change-error", null);
-  const [form, setForm] = usePersistentState<AppointmentFormState>("appointments-tab-form", initialForm);
+  const [statusChangeError, setStatusChangeError] = usePersistentState<string | null>(`appointments-tab-status-change-error:${clientId}`, null);
+  const [form, setForm] = usePersistentState<AppointmentFormState>(`appointments-tab-form:${clientId}`, initialForm);
   const [filterOptions, setFilterOptions] = useState<{
     locations: string[];
     services: string[];
@@ -648,12 +655,37 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       return;
     }
 
+    // noValidate skips the browser checks, so email and time-range rules are enforced here.
+    const emailValue = form.email.trim();
+    if (emailValue && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+      setAddError("Enter a valid email address.");
+      return;
+    }
+
+    const startMinutes = clockToMinutes(form.start_time);
+    if (startMinutes === null) {
+      setAddError("Start time is required.");
+      return;
+    }
+
+    if (form.end_time.trim()) {
+      const endMinutes = clockToMinutes(form.end_time);
+      if (endMinutes === null || endMinutes <= startMinutes) {
+        setAddError("End time must be after the start time.");
+        return;
+      }
+    }
+
+    // Reuse an existing option's spelling so the same name never splits into two staff/service values.
+    const matchOptionCasing = (value: string, options: string[]) =>
+      options.find((option) => option.trim().toLowerCase() === value.trim().toLowerCase())?.trim() ?? value;
+
     const payload: AppointmentPayload = {
       name: toNullable(form.name),
       phone: phoneDigits,
       email: toNullable(form.email),
-      service: toNullable(form.service),
-      staff_name: toNullable(form.staff_name),
+      service: toNullable(matchOptionCasing(form.service, serviceOptions)),
+      staff_name: toNullable(matchOptionCasing(form.staff_name, staffOptions)),
       location: toNullable(form.location),
       date: form.date,
       start_time: toNullable(form.start_time),
@@ -670,30 +702,32 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       } else {
         await updateAppointment(clientId, editingAppointment.id, payload);
       }
-
-      await pagedAppointments.refresh();
-      await rangeAppointments.refresh();
-      const options = await fetchAppointmentFilterOptions(clientId);
-      const nextServices = Array.from(
-        new Set([...options.services, form.service.trim()].filter(Boolean)),
-      ).sort();
-      const nextStaff = Array.from(
-        new Set([...options.staff, form.staff_name.trim()].filter(Boolean)),
-      ).sort();
-      setFilterOptions({
-        ...options,
-        services: nextServices,
-        staff: nextStaff,
-      });
-
-      setModalMode(null);
-      setEditingAppointment(null);
-      resetForm();
     } catch (saveError) {
+      // Only a failed write keeps the modal open; a retry after a successful write would duplicate the row.
       setAddError(formatSupabaseError(saveError, "Unable to save appointment."));
-    } finally {
       setIsSaving(false);
+      return;
     }
+
+    setModalMode(null);
+    setEditingAppointment(null);
+    resetForm();
+    setIsSaving(false);
+
+    // Follow-up refreshes are best-effort; the write already succeeded.
+    const savedService = payload.service;
+    const savedStaff = payload.staff_name;
+    void Promise.allSettled([
+      pagedAppointments.refresh(),
+      rangeAppointments.refresh(),
+      fetchAppointmentFilterOptions(clientId).then((options) => {
+        setFilterOptions({
+          ...options,
+          services: Array.from(new Set([...options.services, savedService ?? ""].filter(Boolean))).sort(),
+          staff: Array.from(new Set([...options.staff, savedStaff ?? ""].filter(Boolean))).sort(),
+        });
+      }),
+    ]);
   }
 
   async function handleStatusChange(appointmentId: string, nextStatus: AppointmentStatus) {
@@ -1378,9 +1412,8 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                 <span>Start time *</span>
                 <input
                   value={form.start_time}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, start_time: snapTimeToStep(event.target.value) }))
-                  }
+                  onChange={(event) => setForm((current) => ({ ...current, start_time: event.target.value }))}
+                  onBlur={() => setForm((current) => ({ ...current, start_time: snapTimeToStep(current.start_time) }))}
                   type="time"
                   step={TIME_STEP_SECONDS}
                   className="w-full min-h-11 rounded-xl border border-border bg-background px-3 py-2 text-base text-text sm:text-sm"
@@ -1391,9 +1424,8 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                 <span>End time</span>
                 <input
                   value={form.end_time}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, end_time: snapTimeToStep(event.target.value) }))
-                  }
+                  onChange={(event) => setForm((current) => ({ ...current, end_time: event.target.value }))}
+                  onBlur={() => setForm((current) => ({ ...current, end_time: snapTimeToStep(current.end_time) }))}
                   type="time"
                   step={TIME_STEP_SECONDS}
                   className="w-full min-h-11 rounded-xl border border-border bg-background px-3 py-2 text-base text-text sm:text-sm"

@@ -101,23 +101,28 @@ export function CustomerTable({
   const hasClinicalFields = tabs.some((tab) => tab.key === "consultation");
   // Plain state on purpose: the open patient is clinical data and must never reach localStorage.
   const [profilePatient, setProfilePatient] = useState<CustomerRecord | null>(null);
-  const [isAddOpen, setIsAddOpen] = usePersistentState("customer-table-is-add-open", false);
+  const [isAddOpen, setIsAddOpen] = usePersistentState(`customer-table-is-add-open:${clientId}`, false);
   const [editingCustomer, setEditingCustomer] = usePersistentState<CustomerRecord | null>(
-    "customer-table-editing-customer",
+    `customer-table-editing-customer:${clientId}`,
     null,
   );
-  const [form, setForm] = usePersistentState<CustomerFormState>("customer-table-form", initialForm);
-  const [actionError, setActionError] = usePersistentState<string | null>("customer-table-action-error", null);
+  const [form, setForm] = usePersistentState<CustomerFormState>(`customer-table-form:${clientId}`, initialForm);
+  const [actionError, setActionError] = usePersistentState<string | null>(`customer-table-action-error:${clientId}`, null);
   const [pendingDeleteCustomer, setPendingDeleteCustomer] = usePersistentState<CustomerRecord | null>(
-    "customer-table-pending-delete",
+    `customer-table-pending-delete:${clientId}`,
     null,
   );
 
   const hasRows = customers.length > 0;
 
   function downloadCsv(filename: string, rows: string[][]) {
+    // Prefix a quote so cells starting with = + - @ (or tab/CR) open as text, not as spreadsheet formulas.
+    const safeCell = (cell: string) => {
+      const text = String(cell ?? "");
+      return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+    };
     const csv = rows
-      .map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
+      .map((row) => row.map((cell) => `"${safeCell(cell).replace(/"/g, '""')}"`).join(","))
       .join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -125,7 +130,8 @@ export function CustomerTable({
     link.href = url;
     link.download = filename;
     link.click();
-    URL.revokeObjectURL(url);
+    // Revoke after the click is handled so the download is not cancelled in some browsers.
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   function exportCustomersCsv() {

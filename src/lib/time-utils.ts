@@ -3,6 +3,8 @@ export function normalizeAppointmentTimestamp(value: string): string {
   return value.trim().replace(/(T\d{2}:\d{2}:\d{2}):\d{2}(Z)$/i, "$1$2");
 }
 
+const TIME_ONLY_PATTERN = /^(\d{1,2}):(\d{2})(?::\d{2})?$/;
+
 function hasExplicitTimezone(value: string) {
   return /(?:Z|[+-]\d{2}(?::?\d{2})?)$/i.test(value.trim());
 }
@@ -95,6 +97,12 @@ export function formatUtcToIstTime(
     return Number.isNaN(value.getTime()) ? "-" : formatDateToIstTime(value);
   }
 
+  // Time-only values come from `time without time zone` columns: stored clinic wall-clock, no conversion.
+  const wallClock = String(value).trim().match(TIME_ONLY_PATTERN);
+  if (wallClock) {
+    return `${wallClock[1].padStart(2, "0")}:${wallClock[2]}`;
+  }
+
   const parsed = parseAppointmentDateTime(String(value), options?.date);
   if (parsed) {
     return formatDateToIstTime(parsed);
@@ -161,6 +169,14 @@ export function formatElapsedMmSs(createdAt: string | Date | null | undefined, n
 
 /** Time only in IST, e.g. `08:30 PM`. */
 export function formatUtcToIstTimeLabel(value: string | Date | null | undefined): string {
+  if (typeof value === "string") {
+    const wallClock = value.trim().match(TIME_ONLY_PATTERN);
+    if (wallClock) {
+      const hours = Number(wallClock[1]);
+      return `${hours % 12 === 0 ? 12 : hours % 12}:${wallClock[2]} ${hours < 12 ? "AM" : "PM"}`;
+    }
+  }
+
   const date = parseDbTimestamp(value);
   if (!date) {
     return "-";

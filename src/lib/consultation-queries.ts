@@ -382,6 +382,7 @@ export async function fetchConsultationById(
 
 /** Caps how many of a patient's consultations are searched for attachments. */
 const PATIENT_ATTACHMENT_CONSULTATION_LIMIT = 200;
+const PATIENT_ATTACHMENT_ID_CHUNK_SIZE = 50;
 
 export async function fetchPatientAttachments(
   clientId: string,
@@ -407,18 +408,32 @@ export async function fetchPatientAttachments(
     return [];
   }
 
-  const { data, error } = await supabase
-    .from("consultation_attachments")
-    .select("*")
-    .eq("client_id", clientId)
-    .in("consultation_id", consultationIds)
-    .order("uploaded_at", { ascending: false });
-
-  if (error) {
-    raiseQueryError(error, "Unable to load patient files.");
+  // Chunk the id list so the PostgREST `in.(...)` URL stays well under common request-line limits.
+  const chunks: string[][] = [];
+  for (let index = 0; index < consultationIds.length; index += PATIENT_ATTACHMENT_ID_CHUNK_SIZE) {
+    chunks.push(consultationIds.slice(index, index + PATIENT_ATTACHMENT_ID_CHUNK_SIZE));
   }
 
-  return (data ?? []).map((item) => mapAttachmentRow(item));
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      supabase
+        .from("consultation_attachments")
+        .select("*")
+        .eq("client_id", clientId)
+        .in("consultation_id", chunk)
+        .order("uploaded_at", { ascending: false }),
+    ),
+  );
+
+  const attachments: ConsultationAttachmentRecord[] = [];
+  for (const { data, error } of results) {
+    if (error) {
+      raiseQueryError(error, "Unable to load patient files.");
+    }
+    attachments.push(...(data ?? []).map((item) => mapAttachmentRow(item)));
+  }
+
+  return attachments.sort((left, right) => right.uploaded_at.localeCompare(left.uploaded_at));
 }
 
 export async function fetchPatientConsultationHistory(

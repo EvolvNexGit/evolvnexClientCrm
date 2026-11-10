@@ -191,6 +191,7 @@ export async function updateAppointment(
     .update(payload)
     .eq("client_id", clientId)
     .eq("id", appointmentId)
+    .is("deleted_at", null)
     .select("id");
 
   if (error) {
@@ -213,6 +214,7 @@ export async function setAppointmentStatus(
     .update({ status })
     .eq("client_id", clientId)
     .eq("id", appointmentId)
+    .is("deleted_at", null)
     .select("id");
 
   if (error) {
@@ -260,14 +262,20 @@ export async function fetchAppointmentsRange(
 /** Soft delete: stamps deleted_at; every read filters it out. */
 export async function softDeleteAppointment(clientId: string, appointmentId: string): Promise<void> {
   const supabase = getClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("appointments")
     .update({ deleted_at: new Date().toISOString() })
     .eq("client_id", clientId)
-    .eq("id", appointmentId);
+    .eq("id", appointmentId)
+    .is("deleted_at", null)
+    .select("id");
 
   if (error) {
     throw error;
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error("Appointment not found.");
   }
 }
 
