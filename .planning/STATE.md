@@ -3,17 +3,17 @@ gsd_state_version: "1.0"
 milestone: v1.0
 current_phase: 01
 current_phase_name: Doctor appointments and patients
-status: executing
-stopped_at: Completed 01-06-PLAN.md
-last_updated: "2026-11-10T02:06:19.542Z"
+status: verifying
+stopped_at: Completed 01-07-PLAN.md (human UAT pending)
+last_updated: "2026-11-10T02:09:32.847Z"
 last_activity: 2026-11-10
 last_activity_desc: Phase 01 execution started
-state_head: 5446a3b91ad39e7bc744bbc4cc8abfd1df6eb686
+state_head: de07a50c78713d3573d95a3945a4b52c7d0c2acc
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
 milestone_name: milestone
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-11-10)
 
 Phase: 01 (Doctor appointments and patients) — EXECUTING
 Plan: 7 of 7
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-11-10 — Phase 01 execution started
 
 Progress: ░░░░░░░░░░ 0%
@@ -65,6 +65,7 @@ Progress: ░░░░░░░░░░ 0%
 | Phase 01 P04 | 30min | 3 tasks | 4 files |
 | Phase 01 P05 | 10min | 2 tasks | 7 files |
 | Phase 01 P06 | 15min | 2 tasks | 3 files |
+| Phase 01 P07 | 15min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,8 @@ Recent decisions affecting current work:
 - [Phase 01]: 01-04: List-only loading/error early returns in appointments tab gated on viewMode so calendar is never blocked by list failures
 - [Phase 01]: 01-05: patient profile drawer body keyed by patient id with cancelled-flag panel effects; file links limited to http(s)
 - [Phase 01]: 01-06: Double-booking warning is advisory only (D-04); modal loads its own date via second useAppointmentsRange; getConflictingIds reuses findAppointmentConflicts
+- [Phase 01]: 01-07: phase0 RLS migration file aligned to live (no service_role grant on generate_order_id); verified read-only 2026-11-10
+- [Phase 01]: 01-07: Assumption A-01 resolved - live appointments start_time/end_time are time without time zone; list view converts via IST, calendar renders raw clock time (UAT compare)
 
 ### Pending Todos
 
@@ -124,6 +127,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-11-10T02:06:19.503Z
-Stopped at: Completed 01-06-PLAN.md
+Last session: 2026-11-10T02:09:32.804Z
+Stopped at: Completed 01-07-PLAN.md (human UAT pending)
 Resume file: None

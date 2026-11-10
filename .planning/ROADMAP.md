@@ -29,7 +29,7 @@ This milestone turns the existing client-scoped CRM into a usable **doctor/clini
   5. Patient profile shows Overview, Visits (consult history) and Files for one patient from the customer list
   6. `supabase/migrations/20261108_phase0_tighten_rls.sql` in git matches what is live; tenant A cannot read tenant B appointments, bills, products or clients
 
-**Plans:** 6/7 plans executed
+**Plans:** 7/7 plans executed
 **UI hint**: yes
 
 Plans:
@@ -46,7 +46,7 @@ Plans:
 - [x] 01-06-PLAN.md — Advisory conflict warning in the modal and on calendar cards (APPT-02) [wave 3]
 
 **Wave 4** *(blocked on Wave 3 completion)*
-- [ ] 01-07-PLAN.md — Live apply of clinical migration (user), read-only SEC-01 parity check, docs, phase gates and UAT [wave 4]
+- [x] 01-07-PLAN.md — Live apply of clinical migration (user), read-only SEC-01 parity check, docs, phase gates and UAT [wave 4]
 
 ### Phase 2: Consultation and print
 
@@ -91,6 +91,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Doctor appointments and patients | 6/7 | In Progress | - |
+| 1. Doctor appointments and patients | 7/7 | In Progress | - |
 | 2. Consultation and print | 0/0 | Not started | - |
 | 3. Doctor billing | 0/0 | Not started | - |
