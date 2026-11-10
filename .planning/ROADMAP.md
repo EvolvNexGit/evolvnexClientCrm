@@ -2,123 +2,82 @@
 
 ## Overview
 
-This milestone keeps the existing CRM tabs and ships a tenant-safe WhatsApp Conversations inbox on a provider-independent data model. Later OS modules (campaigns, POS, LEADS, HRM, AirMenu) stay off this roadmap.
+This milestone turns the existing client-scoped CRM into a usable **doctor/clinic** product on the same multi-tenant OS: a real appointment calendar, a patient profile, a consultation with printable prescription, and simple clinic billing. Clinic features are enabled per client through `client_tab_access`; cafe/POS clients keep their current tabs. The WhatsApp inbox roadmap was dropped on 2026-11-10 (existing WhatsApp code in `src/` is untouched, only the planned work is paused). Live RLS hardening (Phase 0) was applied directly to Supabase on 2026-11-08 and is synced into the repo as part of Phase 1.
 
 ## Phases
 
 **Phase Numbering:**
 - Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+- Decimal phases (1.1, 2.1): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Conversation model** - Generic threads/messages + RLS in git
-- [ ] **Phase 2: Tenant-safe ingest** - HMAC, idempotent inbound, status callbacks
-- [ ] **Phase 3: Server send** - JWT-scoped reply, Graph errors, 24h window
-- [ ] **Phase 4: Inbox UI** - List, thread, states, mobile, live updates
-- [ ] **Phase 5: CRM loop** - Contact match + existing tabs still work
-- [ ] **Phase 6: Communication nav** - Conversations reachable; campaigns not implied shipped
+- [ ] **Phase 1: Doctor appointments and patients** - Calendar, appointment queries, patient profile, Phase 0 RLS migration in repo
+- [ ] **Phase 2: Consultation and print** - Vitals, private file upload, letterhead print settings, prescription print
+- [ ] **Phase 3: Doctor billing** - doctor-billing tab, clinic bill function, receipt print
 
 ## Phase Details
 
-### Phase 1: Conversation model
-**Goal:** Persist provider-independent conversations and messages with tenant RLS, without putting WhatsApp into the customer row model.
-**Mode:** mvp
+### Phase 1: Doctor appointments and patients
+**Goal:** Receptionists book and move appointments on a day/week calendar, and staff see a patient profile with clinical basics, without changing the appointment-to-patient matching (phone) or adding tables beyond nullable columns.
 **Depends on:** Nothing (first phase)
-**Requirements:** MODEL-01, TENANT-01, CRED-01
+**Requirements:** APPT-01, APPT-02, APPT-03, PAT-01, PAT-02, SEC-01
 **Success Criteria** (what must be TRUE):
-  1. New conversation/message tables exist in-repo with RLS enabled for tenant isolation
-  2. WhatsApp identifiers are stored in provider-side records, not as the CRM customer primary key model
-  3. Service-role and provider secrets are still absent from client bundles
-**Plans:** TBD
-**UI hint**: no
+  1. Appointments tab offers a day and week calendar with staff columns; clicking an empty slot opens the add form prefilled; the existing list view still works
+  2. Booking or moving an appointment onto an overlapping slot for the same staff shows a conflict warning
+  3. Appointment create, update and status changes go through `appointment-queries.ts` (no direct Supabase writes left in the tab)
+  4. A patient has gender, blood group, allergies and chronic conditions; allergies show prominently on the patient profile
+  5. Patient profile shows Overview, Visits (consult history) and Files for one patient from the customer list
+  6. `supabase/migrations/20261108_phase0_tighten_rls.sql` in git matches what is live; tenant A cannot read tenant B appointments, bills, products or clients
+**Plans:** 7 plans
+**UI hint**: yes
 
 Plans:
-- [ ] 01-01: TBD during `/gsd-plan-phase 1`
+- [ ] 01-01-PLAN.md — Appointment query layer: create/update/status/range, tenant-scoped, tab writes moved (APPT-03) [wave 1]
+- [ ] 01-02-PLAN.md — SEC-01 migration file 20261108_phase0_tighten_rls.sql, idempotent, matches live (SEC-01) [wave 1]
+- [ ] 01-03-PLAN.md — Customers clinical fields: migration, types, queries, consultation-gated modal inputs (PAT-01) [wave 1]
+- [ ] 01-04-PLAN.md — Day/Week calendar with staff columns, click-to-book and click-to-edit (APPT-01) [wave 2]
+- [ ] 01-05-PLAN.md — Patient profile drawer: Overview, Visits, Files, allergies in red (PAT-02) [wave 2]
+- [ ] 01-06-PLAN.md — Advisory conflict warning in the modal and on calendar cards (APPT-02) [wave 3]
+- [ ] 01-07-PLAN.md — Live apply of clinical migration (user), read-only SEC-01 parity check, docs, phase gates and UAT [wave 4]
 
-### Phase 2: Tenant-safe ingest
-**Goal:** Meta can deliver messages and statuses to the correct tenant only, without duplicates.
-**Mode:** mvp
+### Phase 2: Consultation and print
+**Goal:** A doctor records vitals, attaches real files privately, and prints a body-only prescription on pre-printed letterhead using the clinic's own margin settings.
 **Depends on:** Phase 1
-**Requirements:** WHHK-01, WHHK-02, WHHK-03, WHHK-04
+**Requirements:** CONS-01, CONS-02, CONS-03, PRNT-01, PRNT-02
 **Success Criteria** (what must be TRUE):
-  1. A payload signed for tenant A’s number does not persist messages for another number
-  2. Retrying the same inbound WhatsApp message id does not duplicate the thread UI row
-  3. Status callbacks for this number return success to Meta and update outbound state
-  4. Tenant is resolved from WABA `phone_number_id`, not from a client-supplied id
+  1. Consultation form stores and shows vitals (BP, pulse, temperature, weight, SpO2) on `consultations.vitals`
+  2. A pinned patient strip (name, age, allergies) stays visible while the consult form scrolls
+  3. Attachments upload to a private `consultation-files` bucket scoped by `client_id`; viewing uses signed URLs; another tenant cannot fetch the file
+  4. A clinic saves header height, footer height, left and right margins (mm) once; print uses them via CSS `@page`
+  5. Printing a completed consult outputs medications, advice and follow-up in the body area only
 **Plans:** TBD
-**UI hint**: no
+**UI hint**: yes
 
 Plans:
 - [ ] 02-01: TBD during `/gsd-plan-phase 2`
 
-### Phase 3: Server send
-**Goal:** Staff can reply from the server with honest success/failure and a closed customer-care window.
-**Mode:** mvp
+### Phase 3: Doctor billing
+**Goal:** Doctor clients bill consult fees from a dedicated doctor-billing tab that reuses the existing bills tables, prints a receipt, and never pollutes cafe analytics or order alerts.
 **Depends on:** Phase 2
-**Requirements:** SEND-01, SEND-02, SEND-03
+**Requirements:** BILL-01, BILL-02, BILL-03, BILL-04, BILL-05
 **Success Criteria** (what must be TRUE):
-  1. A reply leaves through a Route Handler; the Cloud API token is not visible in the browser
-  2. A Graph rejection shows a safe error and is not treated as delivered
-  3. Outside the 24-hour window, free-form session send cannot appear successful
+  1. Doctor client `eafea940-a6d1-4aa2-95e2-339f614502ea` sees `doctor-billing` (key 015) and no longer sees `004 Billing`; `009 Transaction` stays; cafe clients are unaffected
+  2. A bill can be created from a completed consult with patient and fee prefilled, with payment mode and paid/unpaid status
+  3. Clinic bills use order source `Clinic` and a final status, so they never appear as active orders or trigger alerts and are excluded from cafe summary numbers
+  4. The bill is created by a `SECURITY INVOKER` function that verifies customer, products and consultation belong to the caller's client; a foreign id is rejected
+  5. A receipt prints through the Phase 2 print mechanism; an unpaid list shows outstanding bills
 **Plans:** TBD
-**UI hint**: no
+**UI hint**: yes
 
 Plans:
 - [ ] 03-01: TBD during `/gsd-plan-phase 3`
 
-### Phase 4: Inbox UI
-**Goal:** Staff can use Conversations as a real inbox (list, thread, empty/error, mobile, live messages).
-**Mode:** mvp
-**Depends on:** Phase 3
-**Requirements:** INBX-01, INBX-02, INBX-03, INBX-04
-**Success Criteria** (what must be TRUE):
-  1. Staff see this tenant’s thread list after sign-in
-  2. Opening a thread shows chronological history
-  3. Empty, loading, and error states work on a mobile viewport
-  4. A newly stored message appears without a full page reload while the thread is open
-**Plans:** TBD
-**UI hint**: yes
-
-Plans:
-- [ ] 04-01: TBD during `/gsd-plan-phase 4`
-
-### Phase 5: CRM loop
-**Goal:** Inbox sits on CRM people; current CRM tabs do not regress.
-**Mode:** mvp
-**Depends on:** Phase 4
-**Requirements:** CONT-01, CRM-01
-**Success Criteria** (what must be TRUE):
-  1. An inbound number that matches a tenant customer (normalized) links the thread to that contact
-  2. Contacts, appointments, consultations, and promotions still work for the signed-in tenant
-**Plans:** TBD
-**UI hint**: yes
-
-Plans:
-- [ ] 05-01: TBD during `/gsd-plan-phase 5`
-
-### Phase 6: Communication nav
-**Goal:** Conversations is reachable in Communication navigation without advertising unbuilt campaign/automation product.
-**Mode:** mvp
-**Depends on:** Phase 5
-**Requirements:** NAV-01
-**Success Criteria** (what must be TRUE):
-  1. Staff can navigate to Conversations from the product chrome
-  2. Campaigns / Segments / Automation are not presented as shipped features
-**Plans:** TBD
-**UI hint**: yes
-
-Plans:
-- [ ] 06-01: TBD during `/gsd-plan-phase 6`
-
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
+Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Conversation model | 0/1 | Not started | - |
-| 2. Tenant-safe ingest | 0/1 | Not started | - |
-| 3. Server send | 0/1 | Not started | - |
-| 4. Inbox UI | 0/1 | Not started | - |
-| 5. CRM loop | 0/1 | Not started | - |
-| 6. Communication nav | 0/1 | Not started | - |
+| 1. Doctor appointments and patients | 0/0 | Not started | - |
+| 2. Consultation and print | 0/0 | Not started | - |
+| 3. Doctor billing | 0/0 | Not started | - |
