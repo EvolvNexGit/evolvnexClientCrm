@@ -2,6 +2,39 @@
 
 Newest first. Each entry: what changed, files, contracts. Structural changes are also patched into STRUCTURE.md / ARCHITECTURE.md.
 
+## 2026-11-11 — Phase 3: doctor billing
+
+**Problem:** Doctor clients were billed through the cafe POS tab, with no consultation link, no paid/unpaid state, no receipt on their letterhead, and no way to keep clinic bills out of cafe analytics and order alerts.
+
+**Status at time of writing:** migrations A and B are applied to live (2026-11-11, probes V1-V10 in the 03-01 SUMMARY) and the code is committed on `feature/doctor-crm-phase1`. Migration C (`20261112_doctor_billing_tab.sql`) is authored but NOT applied; plan 03-06 applies it last. Until then no client can see the new tab.
+
+**Contracts introduced**
+- `order_source` enum gains the label `Clinic` (migration A, alone).
+- `bills` columns `payment_status` (lowercase `paid` / `unpaid`), `payment_mode` (`CASH`, `UPI`, `CARD`, `OTHER`), `consultation_id` and `appointment_id` (columns and FKs were already live; recorded with guards). Scoped CHECK `bills_clinic_payment_chk`: the mode rule applies to `Clinic` rows only (`coalesce(order_source::text, '') <> 'Clinic'` short-circuits), so the 597 legacy paid/NULL-mode rows stay valid. Clinic rows: paid needs a mode, unpaid has none.
+- Partial unique index `bills_consultation_id_uniq` (one bill per consultation) and `bills_clinic_unpaid_idx` (unpaid Clinic list).
+- `public.create_clinic_bill`: SECURITY INVOKER, `search_path = public`, execute for `authenticated` only (revoked from public and anon). Arguments (the browser sends no price, total, appointment or status): `p_client_id`, consultation id, customer id, `p_items` (product ids and quantities), flat discount, payment status, payment mode. Checks: tenant through `crm_can_access_client` (42501 Not allowed); consultation belongs to the client, matches the patient and is COMPLETED (P0002); products belong to the client, are active, 1-20 distinct lines, quantity 1-99 (22023 Invalid items); discount between 0 and the subtotal (22023 Invalid discount); paid needs a mode (22023 Invalid payment); second bill for the same consult (23505 This consultation is already billed). Price is read from `products`, appointment is derived from the consultation, an advisory lock serialises per consultation, status is stored `DELIVERED`, source `Clinic`. Unpaid with a mode stores a NULL mode.
+- `src/lib/clinic-billing-types.ts` (import-free: payment constants, guards, `describeClinicPayment`, integer-paise money helpers `parseMoneyInput`, `parseQuantity`, `toPaise`, `computeTotalsPaise`, payload types) and `src/lib/clinic-billing-queries.ts` (clinic-only `CLINIC_BILL_SELECT`, `fetchClinicBillsPage`, `fetchClinicBillById`, `markClinicBillPaid`, `createClinicBill` RPC wrapper with SQLSTATE mapping, `fetchNonPaidBillStatusesSince`).
+- Hooks `useClinicBills` (paged Unpaid | All list, Mark paid) and `useClinicReceiptPrint` (usePrintSettings + usePrintJob + by-id fetch).
+- `doctor-billing` tab for DB key `015` (sidebar label Billing under POS), registered in `tabs.ts`, `dashboard-tab-routes.ts`, `module-navigation.ts` and `dashboard-page.tsx`. `ClinicBillModal` (create) and `ClinicReceiptPrint` (receipt body through `PrintSheet`, receipt number is `bills.order_id`, date in IST, one payment line `PAID - UPI` / `UNPAID`, margins read only, no clinic header or footer).
+- Exclusion guards through `isClinicOrderSource` (NULL-safe, JS-side, in the import-free `order-alert-policy.ts`; there is no database-side Clinic filter and the shared `BILL_TRANSACTION_SELECT` is byte-identical): E1 `fetchActiveOrders` (orders list, alert hydrate, 3 s poll); E2 `fetchTransactionsSince` excludes Clinic unless `{ includeClinic: true }`; E3 realtime INSERT alert handler returns early; E4 `shouldSendOrderPush` and the new-order route (`{ ok: true, skipped: "clinic_order" }`).
+- Doctor summary opts in with `includeClinic`: only paid Clinic bills count as revenue, order count, Avg Bill and hourly revenue; unpaid Clinic bills appear under Pending Payments. A second small read (`fetchNonPaidBillStatusesSince`) supplies payment status; Clinic bills missing from its map are treated as paid.
+
+**Behaviour decisions**
+- D-01: fee items are active products from Services (008); one active product is preselected, none shows an empty state with an Open Services link.
+- D-02: bill only from a Completed consultation, one bill per consult; Create bill is offered on Completed consultation-source rows of today's queue (mobile cards and xl table) and in the read-only Completed view, both gated by the doctor-billing tab.
+- D-03: no price override, flat discount only; the database decides every amount.
+- D-04: lowercase `paid` / `unpaid`, four payment modes, Mark paid is a scoped update that requires a mode.
+- D-05: no void, edit, refund or delete in v1.
+- D-11: the existing `bills_insert_own` residual (foreign consultation id existence oracle) is accepted and recorded in CONCERNS.md.
+
+**Deploy-order rule:** apply `20261112_bills_order_source_clinic.sql` ALONE first (an enum value must commit before use), then `20261112_clinic_billing_schema.sql`, BEFORE deploying this code (the code selects the new fields and calls `create_clinic_bill`). Apply `20261112_doctor_billing_tab.sql` LAST, after the code is deployed: it adds the 015 access row for the doctor client and disables 004 (kept, not deleted), so running it earlier leaves the doctor without a working billing screen. All are applied by the user in the Supabase SQL Editor after approval, never `supabase db push` (the live migration table does not list repo files). A and B were applied on 2026-11-11 with rolled-back probes recorded in the 03-01 SUMMARY; C is applied in plan 03-06. The doctor must sign out and in after C because the tab list is cached for the session.
+
+**Known limits (details in CONCERNS.md):** Clinic bills carry the cafe defaults `Dine-In` / `T0` in the Transaction tab, which still lists them (and patient totals still include them) with no payment status column; only today's consultations are billable from the UI; `fetchNonPaidBillStatusesSince` has no row cap (PostgREST default 1000); the Pending Payments alert still links to `/dashboard/transaction`; the push route is verified statically only; `crm_can_access_client` is still executable by anon (pre-existing, returns false without a session); Chrome and Edge are the supported print browsers.
+
+**Files**
+- Added: `supabase/migrations/20261112_{bills_order_source_clinic,clinic_billing_schema,doctor_billing_tab}.sql`, `src/lib/{clinic-billing-types,clinic-billing-queries}.ts`, `src/hooks/{use-clinic-bills,use-clinic-receipt-print}.ts`, `src/components/dashboard/tabs/doctor-billing-tab.tsx`, `src/components/dashboard/billing/clinic-bill-modal.tsx`, `src/components/dashboard/print/clinic-receipt-print.tsx`
+- Modified: `src/lib/{billing-types,billing-queries,tabs,dashboard-tab-routes,module-navigation,order-alert-policy,web-push-server,doctor-summary-analytics}.ts`, `src/hooks/{use-order-alerts,use-doctor-summary}.ts`, `src/app/api/notifications/new-order/route.ts`, `src/components/dashboard/dashboard-page.tsx`, `src/components/dashboard/tabs/{consultation-tab,doctor-summary-tab}.tsx`
+
 ## 2026-11-10 — Phase 2: consultation and print
 
 **Problem:** Consultations had no vitals, allergies were not visible while writing notes, attachments were bare name+URL rows with no real file behind them, and there was no way to print a prescription on a clinic's pre-printed letterhead.
