@@ -3,7 +3,7 @@ phase: 03-doctor-billing
 plan: 01
 subsystem: database
 tags: [postgres, supabase, rls, plpgsql, migrations]
-status: in-progress
+status: complete
 requires:
   - phase: 02-consultation-and-print
     provides: consultations, PrintSheet, tenant helper crm_can_access_client
@@ -76,3 +76,22 @@ None.
 ## Self-Check: PASSED
 
 Files present: the three migration files; commit 88af9ea on feature/doctor-crm-phase1.
+
+## Task 3: apply and verify (2026-11-11)
+
+Migration A was run ALONE by the user in the Supabase SQL Editor, then migration B as a second run (never the CLI push, never in one run). Migration C was NOT applied (plan 03-06). Probes were run by the orchestrator through MCP execute_sql; every DML block ended in rollback (a final raise exception), and afterwards live holds 597 bills, 0 Clinic bills, 0 temp products.
+
+| Probe | Result |
+|---|---|
+| V1 enum | `{POS,"Air Menu",Clinic}` |
+| V2 catalog | chk valid true; 2 FKs; 2 indexes; function prosecdef false, search_path=public, anon false, public false, authenticated true |
+| V3 legacy rows | 597 paid / 0 not paid / 0 with mode (unchanged) |
+| V4 CHECK | Clinic paid no mode -> 23514; Clinic unpaid with mode -> 23514; POS paid no mode -> accepted (legacy shape) |
+| V5a/V5b happy path | total 1000.00, discount 50.00, final 950.00 (client price 1 ignored, server price 500); stored Clinic / DELIVERED / unpaid / mode null; appointment_id taken from the consultation; order_id `T-3-1` (shape `<client_code>-<n>`); order_type and table_number carry cafe defaults 'Dine-In' / 'T0' (documented limit) |
+| V6 duplicate | 23505 This consultation is already billed |
+| V7a-i | other tenant 42501 Not allowed; wrong patient, not-completed consult P0002; foreign product (visible to D: count 1, confirming allow_menu_read_products exposure), inactive product, qty 0, qty 100, 21 items, duplicate ids all 22023 Invalid items; discount 1001 and -1 22023 Invalid discount; paid without mode, BITCOIN, status void 22023 Invalid payment; unpaid with mode UPI succeeds and stores NULL mode |
+| V8 mark paid | own bill 1 row; null mode 23514; other tenant 0 rows |
+| V9 anon | permission denied for function (42501); authenticated without sub 42501 Not allowed |
+| V10 cafe function | create_order_with_inventory md5 `0f2a22a2624dfe9f37d0017aa59fe52d`, unchanged |
+
+Note: the repo files equal what ran. `crm_can_access_client` stays executable by anon (pre-existing; returns false without a session).
