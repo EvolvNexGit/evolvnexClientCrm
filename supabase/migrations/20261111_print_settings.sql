@@ -1,7 +1,7 @@
 -- Per-client letterhead margins for body-only print (D-05, D-12). Additive and idempotent.
 -- RLS stays enabled; nothing is granted to anon or public.
--- Applied to live through Supabase MCP execute_sql with these exact contents (never the CLI push:
--- the live migration table does not list repo files).
+-- Applied live 2026-11-10 by running this file in the Supabase SQL Editor with these exact contents
+-- (never the CLI push: the live migration table does not list repo files).
 -- Apply to live BEFORE deploying code that selects these columns.
 -- Live default privileges give new public tables to anon, so they are revoked explicitly below.
 

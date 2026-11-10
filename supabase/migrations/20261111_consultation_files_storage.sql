@@ -1,8 +1,8 @@
 -- Private bucket for consultation files, tenant-scoped storage policies, and storage_path on attachments
 -- (D-03, D-04, D-12). Additive and idempotent. RLS stays enabled; nothing is granted to anon or public.
 -- Object path convention: <client_id>/<consultation_id>/<uuid>-<safe_name>
--- Applied to live through Supabase MCP execute_sql with these exact contents (never the CLI push:
--- the live migration table does not list repo files).
+-- Applied live 2026-11-10 by running this file in the Supabase SQL Editor with these exact contents
+-- (never the CLI push: the live migration table does not list repo files).
 -- Apply to live BEFORE deploying code that selects these columns.
 
 -- Part A: attachments. Legacy name+URL rows keep a null storage_path and stay valid (D-04).
