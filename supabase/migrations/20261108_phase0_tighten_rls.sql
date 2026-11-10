@@ -73,8 +73,9 @@ grant execute on function public.get_client_code(uuid) to authenticated, service
 revoke execute on function public.current_client_id() from public, anon;
 grant execute on function public.current_client_id() to authenticated, service_role;
 
+-- Trigger function: EXECUTE is not needed at fire time. Live has no grant to
+-- service_role here (verified 2026-11-10), so none is added.
 revoke execute on function public.generate_order_id() from public, anon, authenticated;
-grant execute on function public.generate_order_id() to service_role;
 
 revoke execute on function public.generate_client_code() from public, anon, authenticated;
 
