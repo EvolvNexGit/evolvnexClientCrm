@@ -4,16 +4,16 @@ milestone: v1.0
 current_phase: 01
 current_phase_name: Doctor appointments and patients
 status: executing
-stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-11-10T01:51:52.402Z"
+stopped_at: Completed 01-04-PLAN.md
+last_updated: "2026-11-10T01:59:46.359Z"
 last_activity: 2026-11-10
 last_activity_desc: Phase 01 execution started
-state_head: ab025f3fb9eb6f8e2f7ea4d6f4122a59ed9d9fe6
+state_head: 740e94e2ea53dbf8495d43aa52924d1223b9ab75
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 7
-  completed_plans: 3
+  completed_plans: 4
 milestone_name: milestone
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-11-10)
 ## Current Position
 
 Phase: 01 (Doctor appointments and patients) — EXECUTING
-Plan: 4 of 7
+Plan: 5 of 7
 Status: Ready to execute
 Last activity: 2026-11-10 — Phase 01 execution started
 
@@ -62,6 +62,7 @@ Progress: ░░░░░░░░░░ 0%
 | Phase 01 P01 | 10min | 2 tasks | 2 files |
 | Phase 01 P02 | 6min | 2 tasks | 1 files |
 | Phase 01 P03 | 15min | 2 tasks | 4 files |
+| Phase 01 P04 | 30min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,8 @@ Recent decisions affecting current work:
 - [Phase 01]: 01-01: appointment writes live in appointment-queries.ts; update/status throw 'Appointment not found.' on zero rows; client_id written after payload spread
 - [Phase 01]: 01-02: RLS migration records live hand-applied state; no begin/commit wrapper, statements individually idempotent; crm_can_access_client reused not redefined
 - [Phase 01]: [01-03] Clinical fields gated on consultation tab; clinical payload keys added by conditional spread, update skips undefined keys; empty stored as null
+- [Phase 01]: 01-04: Week view uses seven day columns with an All staff chip filter (not staff sub-columns per day)
+- [Phase 01]: 01-04: List-only loading/error early returns in appointments tab gated on viewMode so calendar is never blocked by list failures
 
 ### Pending Todos
 
@@ -117,6 +120,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-11-10T01:51:52.366Z
-Stopped at: Completed 01-03-PLAN.md
+Last session: 2026-11-10T01:59:46.320Z
+Stopped at: Completed 01-04-PLAN.md
 Resume file: None

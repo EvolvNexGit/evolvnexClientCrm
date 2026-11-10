@@ -29,7 +29,7 @@ This milestone turns the existing client-scoped CRM into a usable **doctor/clini
   5. Patient profile shows Overview, Visits (consult history) and Files for one patient from the customer list
   6. `supabase/migrations/20261108_phase0_tighten_rls.sql` in git matches what is live; tenant A cannot read tenant B appointments, bills, products or clients
 
-**Plans:** 3/7 plans executed
+**Plans:** 4/7 plans executed
 **UI hint**: yes
 
 Plans:
@@ -39,7 +39,7 @@ Plans:
 - [x] 01-03-PLAN.md — Customers clinical fields: migration, types, queries, consultation-gated modal inputs (PAT-01) [wave 1]
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 01-04-PLAN.md — Day/Week calendar with staff columns, click-to-book and click-to-edit (APPT-01) [wave 2]
+- [x] 01-04-PLAN.md — Day/Week calendar with staff columns, click-to-book and click-to-edit (APPT-01) [wave 2]
 - [ ] 01-05-PLAN.md — Patient profile drawer: Overview, Visits, Files, allergies in red (PAT-02) [wave 2]
 
 **Wave 3** *(blocked on Wave 2 completion)*
@@ -91,6 +91,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Doctor appointments and patients | 3/7 | In Progress | - |
+| 1. Doctor appointments and patients | 4/7 | In Progress | - |
 | 2. Consultation and print | 0/0 | Not started | - |
 | 3. Doctor billing | 0/0 | Not started | - |
