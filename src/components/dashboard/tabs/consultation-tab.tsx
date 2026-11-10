@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import {
   ArrowLeft,
   CalendarClock,
@@ -27,6 +27,7 @@ import {
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 import { AttachmentOpenButton } from "@/components/dashboard/consultation/attachment-open-button";
+import { ConsultationSummaryBody } from "@/components/dashboard/consultation/consultation-summary";
 import { PrescriptionPrint } from "@/components/dashboard/consultation/prescription-print";
 import { VitalsCard } from "@/components/dashboard/consultation/vitals-card";
 import { PatientStrip } from "@/components/dashboard/patient/patient-strip";
@@ -310,53 +311,48 @@ function EditorCard({
   );
 }
 
-function SummarySection({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="rounded-2xl border border-border bg-background p-4">
-      <h5 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</h5>
-      <div className="mt-2 text-sm text-text">{children}</div>
-    </section>
-  );
-}
-
 /** Read-only recap of a past visit so the doctor sees symptoms, assessment and advice in one click. */
 function HistorySummary({
   detail,
   loading,
   error,
   onBack,
+  onPrint,
+  printDisabled,
 }: {
   detail: ConsultationDetail | null;
   loading: boolean;
   error: string | null;
   onBack: () => void;
+  onPrint?: () => void;
+  printDisabled?: boolean;
 }) {
-  const text = (value: string | null | undefined) => (value?.trim() ? value.trim() : null);
-  const sections: Array<{ title: string; value: string | null }> = detail
-    ? [
-        { title: "Symptoms / Findings", value: text(detail.findings) },
-        { title: "Assessment", value: text(detail.assessment) },
-        { title: "Advice", value: text(detail.advice) },
-        { title: "Medication notes", value: text(detail.medication_notes) },
-        { title: "Exercise notes", value: text(detail.exercise_notes) },
-        { title: "Treatment plan", value: text(detail.treatment_plan) },
-        { title: "Other notes", value: text(detail.other_notes) },
-      ]
-    : [];
-  const hasContent =
-    sections.some((section) => section.value) ||
-    Boolean(detail && (detail.medications.length > 0 || detail.exercises.length > 0 || detail.followup_date));
+  const canPrint = Boolean(onPrint && detail && toDisplayStatus(detail.status) === "Completed");
 
   return (
     <div className="space-y-3">
-      <button
-        type="button"
-        onClick={onBack}
-        className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground hover:text-text"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        Back to history
-      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground hover:text-text"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to history
+        </button>
+        {canPrint && (
+          <Button
+            variant="secondary"
+            className="gap-2"
+            disabled={printDisabled}
+            title={printDisabled ? "Print settings are not loaded" : "Print prescription"}
+            onClick={onPrint}
+          >
+            <Printer className="h-4 w-4" />
+            Print
+          </Button>
+        )}
+      </div>
 
       {loading ? (
         <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
@@ -376,58 +372,7 @@ function HistorySummary({
             <p className="mt-1 text-xs font-medium text-muted-foreground">{toDisplayStatus(detail.status)}</p>
           </div>
 
-          {!hasContent && <p className="text-sm text-muted-foreground">No notes were recorded for this visit.</p>}
-
-          {sections.map(
-            (section) =>
-              section.value && (
-                <SummarySection key={section.title} title={section.title}>
-                  <p className="whitespace-pre-wrap">{section.value}</p>
-                </SummarySection>
-              ),
-          )}
-
-          {detail.medications.length > 0 && (
-            <SummarySection title="Medications">
-              <ul className="space-y-2">
-                {detail.medications.map((medication) => (
-                  <li key={medication.id}>
-                    <p className="font-medium">{medication.medicine_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {[medication.dosage, medication.frequency, medication.duration].filter(Boolean).join(" · ") || "—"}
-                    </p>
-                    {medication.instructions && (
-                      <p className="text-xs text-muted-foreground">{medication.instructions}</p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </SummarySection>
-          )}
-
-          {detail.exercises.length > 0 && (
-            <SummarySection title="Exercises">
-              <ul className="space-y-2">
-                {detail.exercises.map((exercise) => (
-                  <li key={exercise.id}>
-                    <p className="font-medium">{exercise.exercise_name}</p>
-                    {exercise.instructions && (
-                      <p className="text-xs text-muted-foreground">{exercise.instructions}</p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </SummarySection>
-          )}
-
-          {(detail.followup_date || text(detail.followup_notes)) && (
-            <SummarySection title="Follow-up">
-              {detail.followup_date && <p>{detail.followup_date}</p>}
-              {text(detail.followup_notes) && (
-                <p className="whitespace-pre-wrap text-muted-foreground">{text(detail.followup_notes)}</p>
-              )}
-            </SummarySection>
-          )}
+          <ConsultationSummaryBody detail={detail} />
         </>
       )}
     </div>
@@ -663,6 +608,8 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
   const patientAge = formatPatientAge(activeConsultation?.patient?.dob ?? null);
   const visitType = toDisplayVisitType(activeConsultation?.visit_type);
   const consultStatus = toDisplayStatus(activeConsultation?.status);
+  // Completed consults are never reopened for editing and never un-completed (D-11).
+  const isReadOnly = consultStatus === "Completed";
 
   const appointmentDate =
     formatAppointmentDate(activeConsultation?.appointment?.date) ??
@@ -725,7 +672,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
   }
 
   async function handleSaveDraft() {
-    if (!activeConsultation) {
+    if (isReadOnly || !activeConsultation) {
       return;
     }
 
@@ -738,7 +685,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
   }
 
   async function handleSaveComplete() {
-    if (!activeConsultation) {
+    if (isReadOnly || !activeConsultation) {
       return;
     }
 
@@ -754,6 +701,10 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
   }
 
   async function handleCancelConsult() {
+    if (isReadOnly) {
+      return;
+    }
+
     if (!activeConsultation) {
       setMode("queue");
       return;
@@ -854,7 +805,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
   }
 
   async function handleRemoveAttachment(attachment: ConsultationAttachmentRecord) {
-    if (!activeConsultation) {
+    if (isReadOnly || !activeConsultation) {
       return;
     }
 
@@ -870,6 +821,10 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
   }
 
   async function handleFileSelected(event: ChangeEvent<HTMLInputElement>) {
+    if (isReadOnly) {
+      return;
+    }
+
     const input = event.target;
     const file = input.files?.[0];
     setAttachmentError(null);
@@ -1020,6 +975,18 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
     </EntityModal>
   );
 
+  const printSettingsModal = (
+    <PrintSettingsModal
+      open={printSettingsOpen}
+      onClose={() => setPrintSettingsOpen(false)}
+      margins={printSettings.margins}
+      hasSavedSettings={printSettings.hasSavedSettings}
+      saving={printSettings.saving}
+      saveError={printSettings.saveError}
+      onSave={printSettings.save}
+    />
+  );
+
   if (mode === "queue") {
     return (
       <div className="space-y-6">
@@ -1110,10 +1077,10 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                       </div>
                       <Button
                         className="mt-3 w-full bg-[#6d28d9] text-white hover:bg-[#5b21b6]"
-                        disabled={saving || row.status === "Completed"}
+                        disabled={saving}
                         onClick={() => void handleStartConsult(row)}
                       >
-                        {row.status === "In Progress" ? "Continue" : "Start Consult"}
+                        {row.status === "Completed" ? "View / Print" : row.status === "In Progress" ? "Continue" : "Start Consult"}
                       </Button>
                     </article>
                   ))
@@ -1173,10 +1140,10 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                         <td className="px-4 py-4">
                           <Button
                             className="bg-[#6d28d9] text-white hover:bg-[#5b21b6]"
-                            disabled={saving || row.status === "Completed"}
+                            disabled={saving}
                             onClick={() => void handleStartConsult(row)}
                           >
-                            {row.status === "In Progress" ? "Continue" : "Start Consult"}
+                            {row.status === "Completed" ? "View / Print" : row.status === "In Progress" ? "Continue" : "Start Consult"}
                           </Button>
                         </td>
                         <td className="px-4 py-4 text-right text-muted-foreground">
@@ -1200,15 +1167,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
         </section>
 
         {newConsultModal}
-        <PrintSettingsModal
-          open={printSettingsOpen}
-          onClose={() => setPrintSettingsOpen(false)}
-          margins={printSettings.margins}
-          hasSavedSettings={printSettings.hasSavedSettings}
-          saving={printSettings.saving}
-          saveError={printSettings.saveError}
-          onSave={printSettings.save}
-        />
+        {printSettingsModal}
       </div>
     );
   }
@@ -1226,7 +1185,9 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div>
-              <p className="text-sm font-medium uppercase tracking-wider text-primary">Consultation</p>
+              <p className="text-sm font-medium uppercase tracking-wider text-primary">
+                {isReadOnly ? "Consultation (completed, read only)" : "Consultation"}
+              </p>
               <h2 className="enx-page-title mt-2">{visitType} Consult</h2>
             </div>
           </div>
@@ -1236,23 +1197,47 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
               <History className="h-4 w-4" />
               Back to Queue
             </Button>
-            <Button
-              variant="secondary"
-              className="gap-2"
-              disabled={saving || detailLoading}
-              onClick={() => void handleSaveDraft()}
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Save as Draft
-            </Button>
-            <Button
-              className="gap-2 bg-[#ff4b5c] text-white hover:bg-[#e83d4d]"
-              disabled={saving || detailLoading}
-              onClick={() => void handleSaveComplete()}
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              Save & Complete
-            </Button>
+            {isReadOnly ? (
+              <>
+                <Button variant="secondary" className="gap-2" onClick={() => setPrintSettingsOpen(true)}>
+                  <Settings className="h-4 w-4" />
+                  Print settings
+                </Button>
+                <Button
+                  className="gap-2 bg-[#6d28d9] text-white hover:bg-[#5b21b6]"
+                  disabled={!activeConsultation || detailLoading || !printSettings.ready}
+                  title={printSettings.ready ? "Print prescription" : "Print settings are not loaded"}
+                  onClick={() => {
+                    if (activeConsultation) {
+                      requestPrint(activeConsultation);
+                    }
+                  }}
+                >
+                  <Printer className="h-4 w-4" />
+                  Print
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="secondary"
+                  className="gap-2"
+                  disabled={saving || detailLoading}
+                  onClick={() => void handleSaveDraft()}
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Save as Draft
+                </Button>
+                <Button
+                  className="gap-2 bg-[#ff4b5c] text-white hover:bg-[#e83d4d]"
+                  disabled={saving || detailLoading}
+                  onClick={() => void handleSaveComplete()}
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  Save & Complete
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -1311,6 +1296,37 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
               </div>
             </section>
 
+            {isReadOnly && activeConsultation ? (
+              <>
+                <section className="space-y-3 rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+                  <ConsultationSummaryBody detail={activeConsultation} />
+                </section>
+
+                <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+                  <div className="p-0 pb-3">
+                    <SectionLabel number="4" title="Attachments" icon={Paperclip} />
+                  </div>
+                  <div className="rounded-2xl border border-border bg-muted/30 p-5">
+                    <p className="text-sm font-medium text-text">
+                      Attached Files ({activeConsultation.attachments.length})
+                    </p>
+                    {activeConsultation.attachments.length > 0 ? (
+                      <ul className="mt-3 space-y-2">
+                        {activeConsultation.attachments.map((attachment) => (
+                          <li key={attachment.id} className="flex items-center justify-between gap-3">
+                            <span className="min-w-0 truncate text-sm text-text">{attachment.file_name}</span>
+                            <AttachmentOpenButton attachment={attachment} />
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-sm text-muted-foreground">No files attached.</p>
+                    )}
+                  </div>
+                </section>
+              </>
+            ) : (
+              <>
             <VitalsCard
               value={vitalsForm}
               onChange={(next) => {
@@ -1730,6 +1746,8 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                 Save & Complete
               </Button>
             </div>
+              </>
+            )}
           </div>
 
           <aside className="rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-5">
@@ -1750,6 +1768,8 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                   loading={historyDetailLoading}
                   error={historyDetailError}
                   onBack={() => setSelectedHistoryId(null)}
+                  onPrint={historyDetail ? () => requestPrint(historyDetail) : undefined}
+                  printDisabled={!printSettings.ready}
                 />
               </div>
             ) : (
@@ -1847,6 +1867,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
         </div>
       )}
       {printSheet}
+      {printSettingsModal}
     </div>
   );
 }
