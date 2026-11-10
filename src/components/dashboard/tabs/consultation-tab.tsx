@@ -681,7 +681,11 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
       return;
     }
 
-    await saveConsultation(activeConsultation.id, payload, "DRAFT");
+    try {
+      await saveConsultation(activeConsultation.id, payload, "DRAFT");
+    } catch {
+      // The hook already shows the failure in the error banner; nothing else to do here.
+    }
   }
 
   async function handleSaveComplete() {
@@ -694,7 +698,13 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
       return;
     }
 
-    await completeConsultation(activeConsultation.id, payload);
+    try {
+      await completeConsultation(activeConsultation.id, payload);
+    } catch {
+      // The hook already shows the failure in the error banner; stay in the editor.
+      return;
+    }
+
     setMode("queue");
     clearActiveConsultation();
     setSelectedRow(null);
