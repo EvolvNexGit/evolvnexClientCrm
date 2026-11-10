@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 import { PrintSheet } from "@/components/dashboard/print/print-sheet";
 import { TestPrintBody } from "@/components/dashboard/print/test-print-body";
@@ -21,6 +21,11 @@ type PrintSettingsModalProps = {
   onClose: () => void;
   margins: PrintMargins;
   hasSavedSettings: boolean;
+  /** False while loading or after a failed load; saving then would overwrite real margins with defaults. */
+  ready: boolean;
+  loading: boolean;
+  loadError: string | null;
+  onRetry: () => void;
   saving: boolean;
   saveError: string | null;
   onSave: (payload: PrintSettingsPayload) => Promise<void>;
@@ -31,6 +36,10 @@ export function PrintSettingsModal({
   onClose,
   margins,
   hasSavedSettings,
+  ready,
+  loading,
+  loadError,
+  onRetry,
   saving,
   saveError,
   onSave,
@@ -38,17 +47,29 @@ export function PrintSettingsModal({
   const [form, setForm] = useState<Record<PrintMarginKey, string>>(() => marginsToForm(margins));
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<PrintMarginKey, string>>>({});
   const { printPayload, requestPrint } = usePrintJob<PrintMargins>();
+  const dirtyRef = useRef(false);
   const draft = parseMarginsForm(form);
 
-  // Initialise only when the modal opens so a background refresh never overwrites typing.
   useEffect(() => {
     if (open) {
-      setForm(marginsToForm(margins));
-      setFieldErrors({});
+      dirtyRef.current = false;
     }
   }, [open]);
 
+  // Initialise when the modal opens, and again when the load completes while it is open,
+  // but never once the user has typed so a refresh cannot overwrite their edits.
+  useEffect(() => {
+    if (open && !dirtyRef.current) {
+      setForm(marginsToForm(margins));
+      setFieldErrors({});
+    }
+  }, [open, ready]);
+
   const handleSave = async () => {
+    if (!ready) {
+      return;
+    }
+
     const parsed = parseMarginsForm(form);
     if (!parsed.ok) {
       setFieldErrors(parsed.errors);
@@ -83,7 +104,18 @@ export function PrintSettingsModal({
             Distance in millimetres kept clear for your pre-printed letterhead. Adjust after a test print on your
             letterhead.
           </p>
-          {!hasSavedSettings && (
+          {loading && <p className="text-sm text-muted-foreground">Loading saved print settings...</p>}
+          {!loading && !ready && (
+            <div className="flex flex-wrap items-center gap-2" role="alert">
+              <p className="text-sm text-primary">
+                {loadError ?? "Print settings are not loaded."} Saving is disabled until they load.
+              </p>
+              <Button variant="secondary" onClick={onRetry}>
+                Retry
+              </Button>
+            </div>
+          )}
+          {ready && !hasSavedSettings && (
             <p className="text-sm text-muted-foreground">Nothing saved yet: prints use 0 mm until you save.</p>
           )}
 
@@ -104,7 +136,10 @@ export function PrintSettingsModal({
                     min={limits.min}
                     max={limits.max}
                     value={form[key]}
-                    onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))}
+                    onChange={(event) => {
+                      dirtyRef.current = true;
+                      setForm((current) => ({ ...current, [key]: event.target.value }));
+                    }}
                     className="min-h-11 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text outline-none"
                   />
                   {fieldErrors[key] && (
@@ -127,10 +162,10 @@ export function PrintSettingsModal({
             <Button variant="secondary" onClick={onClose} disabled={saving}>
               Cancel
             </Button>
-            <Button variant="secondary" onClick={handleTestPrint} disabled={saving || !draft.ok}>
+            <Button variant="secondary" onClick={handleTestPrint} disabled={saving || !ready || !draft.ok}>
               Test print
             </Button>
-            <Button onClick={() => void handleSave()} disabled={saving}>
+            <Button onClick={() => void handleSave()} disabled={saving || !ready}>
               {saving ? "Saving..." : "Save"}
             </Button>
           </div>

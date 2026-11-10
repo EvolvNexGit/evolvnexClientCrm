@@ -981,6 +981,10 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
       onClose={() => setPrintSettingsOpen(false)}
       margins={printSettings.margins}
       hasSavedSettings={printSettings.hasSavedSettings}
+      ready={printSettings.ready}
+      loading={printSettings.loading}
+      loadError={printSettings.error}
+      onRetry={() => void printSettings.refresh()}
       saving={printSettings.saving}
       saveError={printSettings.saveError}
       onSave={printSettings.save}
