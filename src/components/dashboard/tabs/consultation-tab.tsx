@@ -401,7 +401,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
 
   const printSettings = usePrintSettings(clientId);
   const [printSettingsOpen, setPrintSettingsOpen] = useState(false);
-  const { printPayload, requestPrint } = usePrintJob<ConsultationDetail>();
+  const { printPayload, requestPrint, clearPrintJob } = usePrintJob<ConsultationDetail>();
   const [printingId, setPrintingId] = useState<string | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
@@ -409,6 +409,13 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
   const [historyDetailLoading, setHistoryDetailLoading] = useState(false);
   const [historyDetailError, setHistoryDetailError] = useState<string | null>(null);
   const [mode, setMode] = useState<ConsultMode>("queue");
+  const activeConsultationId = activeConsultation?.id ?? null;
+
+  // A leftover print job (afterprint never fired) must not survive a mode or patient change,
+  // or a manual Ctrl+P would print the previous patient's prescription.
+  useEffect(() => {
+    clearPrintJob();
+  }, [mode, activeConsultationId, clearPrintJob]);
   const [queueView, setQueueView] = useState<QueueView>("All");
   const [activePlanTab, setActivePlanTab] = useState<PlanTab>("Advice");
   const [activeFilter, setActiveFilter] = useState<(typeof historyFilters)[number]>("All");
