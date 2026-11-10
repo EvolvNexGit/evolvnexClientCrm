@@ -6,6 +6,7 @@ import {
   type ListPageParams,
   type ListPageResult,
 } from "@/lib/list-pagination";
+import { isClinicOrderSource } from "@/lib/order-alert-policy";
 import { getSupabaseClient } from "@/lib/supabase";
 import type {
   ContactAudienceGroup,
@@ -793,6 +794,7 @@ export async function fetchTransactionsPage(
 export async function fetchTransactionsSince(
   clientId: string,
   sinceIso: string,
+  options?: { includeClinic?: boolean },
 ): Promise<TransactionRecord[]> {
   const supabase = getClient();
   const { data, error } = await supabase
@@ -806,7 +808,13 @@ export async function fetchTransactionsSince(
     throw error;
   }
 
-  return (data ?? []).map((row) => mapBillRowToTransaction(row as Record<string, unknown>));
+  const transactions = (data ?? []).map((row) => mapBillRowToTransaction(row as Record<string, unknown>));
+  if (options?.includeClinic) {
+    return transactions;
+  }
+
+  // Clinic bills stay out of cafe numbers; only the doctor summary opts in.
+  return transactions.filter((transaction) => !isClinicOrderSource(transaction.order_source));
 }
 
 function isDeliveredStatus(status: TransactionRecord["status"]): boolean {
@@ -831,7 +839,8 @@ export async function fetchActiveOrders(clientId: string): Promise<TransactionRe
 
   return (data ?? [])
     .map((row) => mapBillRowToTransaction(row as Record<string, unknown>))
-    .filter((transaction) => !isDeliveredStatus(transaction.status));
+    .filter((transaction) => !isDeliveredStatus(transaction.status))
+    .filter((transaction) => !isClinicOrderSource(transaction.order_source));
 }
 
 export async function updateBillStatus(clientId: string, billId: string, status: "pending" | "accepted" | "delivered") {

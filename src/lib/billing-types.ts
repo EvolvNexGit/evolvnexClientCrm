@@ -103,5 +103,7 @@ export type TransactionRecord = {
   order_source?: string | null;
   order_type?: string | null;
   status?: "pending" | "accepted" | "delivered" | null;
+  /** Only the doctor summary hook fills this; the shared mapper never does. */
+  payment_status?: string | null;
   items: TransactionItem[];
 };

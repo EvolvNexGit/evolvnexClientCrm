@@ -63,3 +63,8 @@ export function isLocalPosOrderId(clientId: string, orderId: string) {
 export function isPosOrderSource(orderSource: unknown) {
   return String(orderSource ?? "").trim().toUpperCase() === "POS";
 }
+
+/** NULL-safe and JS-side by design: legacy rows can have no source and the enum value may not exist on a given deploy. */
+export function isClinicOrderSource(orderSource: unknown) {
+  return String(orderSource ?? "").trim().toUpperCase() === "CLINIC";
+}
