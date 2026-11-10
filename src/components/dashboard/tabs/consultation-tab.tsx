@@ -16,6 +16,7 @@ import {
   Paperclip,
   Plus,
   Printer,
+  Receipt,
   Save,
   Search,
   Settings,
@@ -25,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { DataState } from "@/components/dashboard/billing/data-state";
+import { ClinicBillModal } from "@/components/dashboard/billing/clinic-bill-modal";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 import { AttachmentOpenButton } from "@/components/dashboard/consultation/attachment-open-button";
 import { ConsultationSummaryBody } from "@/components/dashboard/consultation/consultation-summary";
@@ -34,6 +36,7 @@ import { PatientStrip } from "@/components/dashboard/patient/patient-strip";
 import { PrintSettingsModal } from "@/components/dashboard/print/print-settings-modal";
 import { PrintSheet } from "@/components/dashboard/print/print-sheet";
 import { Button } from "@/components/ui/button";
+import { useApp } from "@/contexts/app-context";
 import { useConsultations } from "@/hooks/use-consultations";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { usePrintJob } from "@/hooks/use-print-job";
@@ -399,6 +402,9 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
     removeAttachment,
   } = useConsultations(clientId);
 
+  const { tabs } = useApp();
+  const canBill = tabs.some((tab) => tab.key === "doctor-billing");
+  const [billTarget, setBillTarget] = useState<{ consultationId: string; patientId: string; patientName: string } | null>(null);
   const printSettings = usePrintSettings(clientId);
   const [printSettingsOpen, setPrintSettingsOpen] = useState(false);
   const { printPayload, requestPrint, clearPrintJob } = usePrintJob<ConsultationDetail>();
@@ -992,6 +998,17 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
     </EntityModal>
   );
 
+  const clinicBillModal = (
+    <ClinicBillModal
+      open={billTarget !== null}
+      clientId={clientId}
+      consultationId={billTarget?.consultationId ?? ""}
+      patientId={billTarget?.patientId ?? ""}
+      patientName={billTarget?.patientName ?? ""}
+      onClose={() => setBillTarget(null)}
+    />
+  );
+
   const printSettingsModal = (
     <PrintSettingsModal
       open={printSettingsOpen}
@@ -1237,6 +1254,22 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                   <Printer className="h-4 w-4" />
                   Print
                 </Button>
+                {canBill && activeConsultation ? (
+                  <Button
+                    variant="secondary"
+                    className="gap-2"
+                    onClick={() =>
+                      setBillTarget({
+                        consultationId: activeConsultation.id,
+                        patientId: activeConsultation.patient_id,
+                        patientName,
+                      })
+                    }
+                  >
+                    <Receipt className="h-4 w-4" />
+                    Create bill
+                  </Button>
+                ) : null}
               </>
             ) : (
               <>
@@ -1889,6 +1922,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
       )}
       {printSheet}
       {printSettingsModal}
+      {clinicBillModal}
     </div>
   );
 }
