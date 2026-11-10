@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { PatientProfileDrawer } from "@/components/dashboard/patient/patient-profile-drawer";
 import { ListPaginationControls } from "@/components/ui/list-pagination-controls";
 import { Button } from "@/components/ui/button";
 import { RecordCard, ResponsivePageToolbar, ResponsiveRecordList, ResponsiveTableScroll } from "@/components/ui/responsive";
@@ -9,6 +11,7 @@ import { useApp } from "@/contexts/app-context";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import { BLOOD_GROUP_OPTIONS, GENDER_OPTIONS, type CustomerPayload, type CustomerRecord } from "@/lib/billing-types";
 import { formatUtcToIst } from "@/lib/time-utils";
+import { cn } from "@/lib/utils";
 
 function formatDateOnly(value: string | null) {
   if (!value) return "-";
@@ -17,6 +20,7 @@ function formatDateOnly(value: string | null) {
 }
 
 type CustomerTableProps = {
+  clientId: string;
   customers: CustomerRecord[];
   loading: boolean;
   error: string | null;
@@ -80,6 +84,7 @@ function formatCurrency(amount: number) {
 }
 
 export function CustomerTable({
+  clientId,
   customers,
   loading,
   error,
@@ -94,6 +99,8 @@ export function CustomerTable({
   const { tabs } = useApp();
   // Clinical fields are collected only for clinic clients (those with the consultation tab).
   const hasClinicalFields = tabs.some((tab) => tab.key === "consultation");
+  // Plain state on purpose: the open patient is clinical data and must never reach localStorage.
+  const [profilePatient, setProfilePatient] = useState<CustomerRecord | null>(null);
   const [isAddOpen, setIsAddOpen] = usePersistentState("customer-table-is-add-open", false);
   const [editingCustomer, setEditingCustomer] = usePersistentState<CustomerRecord | null>(
     "customer-table-editing-customer",
@@ -264,14 +271,30 @@ export function CustomerTable({
           cards={customers.map((customer) => (
             <RecordCard key={customer.id}>
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate font-semibold text-text">{customer.name}</p>
-                  <p className="mt-1 truncate text-sm text-muted-foreground">{customer.phone ?? "-"}</p>
-                  <p className="truncate text-sm text-muted-foreground">{customer.email ?? "-"}</p>
-                  <p className="mt-1 truncate text-sm text-muted-foreground">
-                    Status: {customer.outreach_status || "-"}
-                  </p>
-                </div>
+                {(() => {
+                  const details = (
+                    <>
+                      <p className="truncate font-semibold text-text">{customer.name}</p>
+                      <p className="mt-1 truncate text-sm text-muted-foreground">{customer.phone ?? "-"}</p>
+                      <p className="truncate text-sm text-muted-foreground">{customer.email ?? "-"}</p>
+                      <p className="mt-1 truncate text-sm text-muted-foreground">
+                        Status: {customer.outreach_status || "-"}
+                      </p>
+                    </>
+                  );
+                  return hasClinicalFields ? (
+                    <button
+                      type="button"
+                      onClick={() => setProfilePatient(customer)}
+                      aria-label={`Open patient profile for ${customer.name}`}
+                      className="min-w-0 text-left"
+                    >
+                      {details}
+                    </button>
+                  ) : (
+                    <div className="min-w-0">{details}</div>
+                  );
+                })()}
                 <div className="shrink-0 text-right">
                   <p className="text-sm text-muted-foreground">{customer.totalOrders} orders</p>
                   <p className="mt-1 font-semibold text-text">{formatCurrency(customer.totalSpent)}</p>
@@ -305,8 +328,24 @@ export function CustomerTable({
                 </thead>
                 <tbody className="divide-y divide-border">
                   {customers.map((customer) => (
-                    <tr key={customer.id} className="hover:bg-muted/40">
-                      <td className="px-3 py-3 text-text">{customer.name}</td>
+                    <tr
+                      key={customer.id}
+                      className={cn("hover:bg-muted/40", hasClinicalFields && "cursor-pointer")}
+                      onClick={hasClinicalFields ? () => setProfilePatient(customer) : undefined}
+                    >
+                      <td className="px-3 py-3 text-text">
+                        {hasClinicalFields ? (
+                          <button
+                            type="button"
+                            aria-label={`Open patient profile for ${customer.name}`}
+                            className="text-left"
+                          >
+                            {customer.name}
+                          </button>
+                        ) : (
+                          customer.name
+                        )}
+                      </td>
                       <td className="px-3 py-3 text-muted-foreground">{customer.phone ?? "-"}</td>
                       <td className="px-3 py-3 text-muted-foreground">{customer.email ?? "-"}</td>
                       <td className="px-3 py-3 text-muted-foreground">{customer.outreach_status || "-"}</td>
@@ -314,7 +353,7 @@ export function CustomerTable({
                       <td className="px-3 py-3 text-muted-foreground">{formatUtcToIst(customer.created_at).slice(0, 10)}</td>
                       <td className="px-3 py-3 text-muted-foreground">{customer.totalOrders}</td>
                       <td className="px-3 py-3 text-muted-foreground">{formatCurrency(customer.totalSpent)}</td>
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-3" onClick={(event) => event.stopPropagation()}>
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
@@ -352,6 +391,15 @@ export function CustomerTable({
         onShowAll={pagination.onShowAll}
         itemLabel="customers"
       />
+
+      {hasClinicalFields && (
+        <PatientProfileDrawer
+          open={profilePatient !== null}
+          clientId={clientId}
+          patient={profilePatient}
+          onClose={() => setProfilePatient(null)}
+        />
+      )}
 
       <EntityModal open={isAddOpen} title="Add Customer" onClose={() => setIsAddOpen(false)}>
         <CustomerForm
