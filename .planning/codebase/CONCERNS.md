@@ -17,6 +17,7 @@
 - Impact: New environments cannot recreate the product. RLS assumptions cannot be reviewed. Checkout depends on an undocumented RPC.
 - Fix approach: Export the full public schema (or baseline dump) into `supabase/migrations/` and add the `create_order_with_inventory` function definition next to the app caller.
 - Update 2026-11-10: the RLS hardening (`20261108_phase0_tighten_rls.sql`) and the clinical columns (`20261110_customers_clinical_fields.sql`) are now versioned in git; table definitions themselves still are not.
+- Update 2026-11-10 (Phase 2): the `storage.objects` policies, the `consultation-files` bucket, `consultation_attachments.storage_path`, `consultations.vitals` constraints and the `print_settings` table are versioned in `supabase/migrations/20261111_*.sql`; base table definitions still are not. The vitals migration was applied through Supabase MCP, the print_settings and storage migrations by the user in the SQL Editor.
 
 **Navigation still labels shipped screens as coming soon:**
 - Issue: LEADS “Contacts” and “Auto Replies” are `kind: "coming-soon"` in the module catalog, then special-cased in the dashboard to render real tabs.
@@ -100,6 +101,7 @@
 - Current mitigation: Communication tables in `supabase/migrations/20260814_whatsapp_auto_replies.sql` enable RLS. Core CRM tables are not defined here.
 - Recommendations: Confirm RLS on every `client_id` table; never trust `clientId` from the client without a matching `clients.crm_user_id = auth.uid()` policy.
 - Update 2026-11-10: the 2026-11-08 hardening is recorded in `supabase/migrations/20261108_phase0_tighten_rls.sql` and was verified read-only against live on 2026-11-10 (policies, RLS flags, function privileges). A human should still read the final file once and run the cross-tenant spot check.
+- Update 2026-11-10 (Phase 2): bucket and `print_settings` isolation were verified against live on 2026-11-10 with rolled-back role-simulation probes recorded in the 02-01 SUMMARY (tenant B saw 0 of tenant A's objects and settings rows, could not insert into A's folder or A's settings, A saw its own object, anon was denied, and the public object URL returned 400). The end-of-phase UAT repeats a real two-session check (02-HUMAN-UAT.md).
 
 **Authenticated users can read/write WhatsApp ciphertext:**
 - Risk: Policies grant `authenticated` `SELECT`/`ALL` on `communication_whatsapp_credentials`, including `encrypted_payload`. A tenant user can dump ciphertext from the browser console and can upsert raw (possibly plaintext) payloads without `encryptSecret`.
@@ -182,6 +184,16 @@
 - Why fragile: Client-generated UUIDs work around RLS that blocks `SELECT` after `INSERT`. `select("*")` on medications/exercises/attachments. Comment in file acknowledges RLS mismatch.
 - Safe modification: Tighten column lists; keep client UUID generation until INSERT…RETURNING is allowed.
 - Test coverage: None.
+
+**Print and attachments (Phase 2):**
+- Print browsers: Chrome and Edge are the supported print browsers. Safari does not honour `@page` margins reliably, so letterhead margins can be wrong there; do not rely on it.
+- Paper size is chosen in the print dialog; the Test print box assumes A4.
+- Multi-page prescriptions depend on repeating table header and footer rows (`thead`/`tfoot` spacers in `PrintSheet`); browsers that do not repeat them will lose the margin on page 2 onwards. Check a long prescription after any browser major update.
+- HEIC photos are rejected by design: the `consultation-files` bucket allows only PDF, JPG, PNG and WebP (D-12). Users must export iPhone photos as JPG first.
+- Orphans: `deleteConsultationFile` removes the object first; if the object is gone but the row delete fails, the row stays and its file no longer opens. If a row insert fails after upload, the object cleanup is best-effort and can leave an orphaned object. No sweeper exists.
+- Completed consultations are read-only by design and cannot be un-completed from the consultation screen.
+- Legacy name+URL attachment rows remain (`storage_path` null) and are shown as links only when the URL is http or https; other values show as plain text.
+- Print buttons are disabled while print settings are loading or failed to load, so margins can never silently default to 0.
 
 ## Scaling Limits
 
