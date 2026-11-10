@@ -469,7 +469,7 @@ Red token `border-primary/50 bg-primary/10 text-primary` is the repo's error/red
 | A12 | Tailwind 3.4 supports `print:` variant like v4 docs fetched | Stack | Use plain `@media print` CSS instead |
 | A13 | Standard (non-resumable) upload is fine up to 10 MB (docs recommend resumable above 6 MB) | Pattern 2 | Slow-network failures for 6-10 MB; cap at 6 MB if needed [CITED: supabase.com/docs/guides/storage/uploads/standard-uploads] |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Temperature unit (Fahrenheit or Celsius)?**
    - Known: D-01 fixes five keys, no unit key. Indian clinics commonly record Fahrenheit [ASSUMED].
