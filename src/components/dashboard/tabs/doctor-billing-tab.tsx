@@ -1,10 +1,14 @@
 "use client";
 
+import { Printer } from "lucide-react";
 import { useId, useState } from "react";
 import { DataState } from "@/components/dashboard/billing/data-state";
+import { ClinicReceiptPrint } from "@/components/dashboard/print/clinic-receipt-print";
+import { PrintSheet } from "@/components/dashboard/print/print-sheet";
 import { Button } from "@/components/ui/button";
 import { ListPaginationControls } from "@/components/ui/list-pagination-controls";
 import { useClinicBills } from "@/hooks/use-clinic-bills";
+import { useClinicReceiptPrint } from "@/hooks/use-clinic-receipt-print";
 import {
   CLINIC_PAYMENT_MODES,
   isClinicPaymentMode,
@@ -127,6 +131,7 @@ export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
     showAll,
     markPaid,
   } = useClinicBills(clientId, filter);
+  const { printPayload, margins, ready, printingId, printBill } = useClinicReceiptPrint(clientId);
 
   const handleFilterChange = (next: ClinicBillFilter) => {
     setMarkingId(null);
@@ -158,6 +163,19 @@ export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
       onConfirm={(mode) => void handleConfirmPaid(bill.id, mode)}
       onCancel={handleClosePanel}
     />
+  );
+
+  const renderPrintButton = (bill: ClinicBillRecord) => (
+    <Button
+      variant="secondary"
+      className="min-h-11 xl:min-h-0"
+      disabled={!ready || printingId !== null}
+      title={ready ? "Print receipt" : "Print settings are not loaded"}
+      aria-label={`Print receipt ${bill.order_id ?? bill.id}`}
+      onClick={() => void printBill(bill.id)}
+    >
+      <Printer className="h-4 w-4" />
+    </Button>
   );
 
   return (
@@ -203,11 +221,14 @@ export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
                       <StatusPill bill={bill} />
                     </div>
                     <p className="text-lg font-semibold text-text">{currencyFormatter.format(bill.final_amount)}</p>
-                    {bill.payment_status === "unpaid" && markingId !== bill.id && (
-                      <Button variant="secondary" className="w-full" onClick={() => handleOpenPanel(bill.id)}>
-                        Mark paid
-                      </Button>
-                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {renderPrintButton(bill)}
+                      {bill.payment_status === "unpaid" && markingId !== bill.id && (
+                        <Button variant="secondary" className="min-h-11 flex-1" onClick={() => handleOpenPanel(bill.id)}>
+                          Mark paid
+                        </Button>
+                      )}
+                    </div>
                     {markingId === bill.id && renderPanel(bill)}
                   </article>
                 ))}
@@ -236,13 +257,16 @@ export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
                           <StatusPill bill={bill} />
                         </td>
                         <td className="px-4 py-3">
-                          {markingId === bill.id ? (
-                            renderPanel(bill)
-                          ) : bill.payment_status === "unpaid" ? (
-                            <Button variant="secondary" onClick={() => handleOpenPanel(bill.id)}>
-                              Mark paid
-                            </Button>
-                          ) : null}
+                          <div className="flex flex-wrap items-start gap-2">
+                            {renderPrintButton(bill)}
+                            {markingId === bill.id ? (
+                              renderPanel(bill)
+                            ) : bill.payment_status === "unpaid" ? (
+                              <Button variant="secondary" onClick={() => handleOpenPanel(bill.id)}>
+                                Mark paid
+                              </Button>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -263,6 +287,12 @@ export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
           />
         </div>
       </section>
+
+      {printPayload ? (
+        <PrintSheet margins={margins}>
+          <ClinicReceiptPrint bill={printPayload} />
+        </PrintSheet>
+      ) : null}
     </div>
   );
 }

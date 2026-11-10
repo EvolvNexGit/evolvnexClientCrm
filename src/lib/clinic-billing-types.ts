@@ -12,6 +12,15 @@ export function isClinicPaymentStatus(value: unknown): value is ClinicPaymentSta
   return typeof value === "string" && (CLINIC_PAYMENT_STATUSES as readonly string[]).includes(value);
 }
 
+/** One receipt payment line: "PAID - UPI", "PAID", "UNPAID", or an empty string when the status is unknown. */
+export function describeClinicPayment(status: ClinicPaymentStatus | null, mode: ClinicPaymentMode | null): string {
+  if (status === "paid") {
+    return mode ? `PAID - ${mode}` : "PAID";
+  }
+
+  return status === "unpaid" ? "UNPAID" : "";
+}
+
 export type ClinicBillFilter = "unpaid" | "all";
 
 export type ClinicBillItem = {

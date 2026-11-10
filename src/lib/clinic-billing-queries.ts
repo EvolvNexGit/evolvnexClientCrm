@@ -111,6 +111,24 @@ export async function fetchClinicBillsPage(
   };
 }
 
+/** Reads one stored clinic bill of this client; the receipt is always built from this re-fetch. Null when no row matches. */
+export async function fetchClinicBillById(clientId: string, billId: string): Promise<ClinicBillRecord | null> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("bills")
+    .select(CLINIC_BILL_SELECT)
+    .eq("client_id", clientId)
+    .eq("id", billId)
+    .eq("order_source", BILL_ORDER_SOURCE_CLINIC)
+    .maybeSingle();
+
+  if (error) {
+    raiseQueryError(error, "Unable to load the bill.");
+  }
+
+  return data ? mapClinicBillRow(data as unknown as Record<string, unknown>) : null;
+}
+
 /** Marks one unpaid clinic bill of this client paid. Zero or many rows updated is an error. */
 export async function markClinicBillPaid(clientId: string, billId: string, mode: ClinicPaymentMode): Promise<void> {
   if (!isClinicPaymentMode(mode)) {
