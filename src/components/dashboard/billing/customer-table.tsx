@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { RecordCard, ResponsivePageToolbar, ResponsiveRecordList, ResponsiveTableScroll } from "@/components/ui/responsive";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { useApp } from "@/contexts/app-context";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import type { CustomerPayload, CustomerRecord } from "@/lib/billing-types";
 import { formatUtcToIst } from "@/lib/time-utils";
@@ -40,6 +41,7 @@ type CustomerFormState = {
   email: string;
   dob: string;
   outreachStatus: string;
+  allergies: string;
 };
 
 const initialForm: CustomerFormState = {
@@ -48,6 +50,7 @@ const initialForm: CustomerFormState = {
   email: "",
   dob: "",
   outreachStatus: "",
+  allergies: "",
 };
 
 
@@ -72,6 +75,9 @@ export function CustomerTable({
   onDelete,
   pagination,
 }: CustomerTableProps) {
+  const { tabs } = useApp();
+  // Clinical fields are collected only for clinic clients (those with the consultation tab).
+  const hasClinicalFields = tabs.some((tab) => tab.key === "consultation");
   const [isAddOpen, setIsAddOpen] = usePersistentState("customer-table-is-add-open", false);
   const [editingCustomer, setEditingCustomer] = usePersistentState<CustomerRecord | null>(
     "customer-table-editing-customer",
@@ -135,6 +141,7 @@ export function CustomerTable({
       email: customer.email ?? "",
       dob: customer.dob ?? "",
       outreachStatus: customer.outreach_status ?? "",
+      allergies: customer.allergies ?? "",
     });
   }
 
@@ -149,6 +156,7 @@ export function CustomerTable({
         email: form.email.trim() || null,
         dob: form.dob || null,
         outreachStatus: form.outreachStatus.trim() || null,
+        ...(hasClinicalFields ? { allergies: (form.allergies ?? "").trim() || null } : {}),
       });
       setIsAddOpen(false);
       resetForm();
@@ -173,6 +181,7 @@ export function CustomerTable({
         email: form.email.trim() || null,
         dob: form.dob || null,
         outreachStatus: form.outreachStatus.trim() || null,
+        ...(hasClinicalFields ? { allergies: (form.allergies ?? "").trim() || null } : {}),
       });
       setEditingCustomer(null);
       resetForm();
@@ -331,6 +340,7 @@ export function CustomerTable({
           onChange={setForm}
           onSubmit={submitAdd}
           saving={saving}
+          showClinicalFields={hasClinicalFields}
           submitLabel="Create Customer"
         />
       </EntityModal>
@@ -345,6 +355,7 @@ export function CustomerTable({
           onChange={setForm}
           onSubmit={submitEdit}
           saving={saving}
+          showClinicalFields={hasClinicalFields}
           submitLabel="Save Changes"
         />
       </EntityModal>
@@ -378,12 +389,14 @@ function CustomerForm({
   onChange,
   onSubmit,
   saving,
+  showClinicalFields,
   submitLabel,
 }: {
   form: CustomerFormState;
   onChange: (next: CustomerFormState) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
   saving: boolean;
+  showClinicalFields: boolean;
   submitLabel: string;
 }) {
   return (
@@ -436,6 +449,20 @@ function CustomerForm({
           className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
         />
       </label>
+
+      {showClinicalFields && (
+        <label className="block text-base text-muted-foreground">
+          <span className="mb-1 block">Allergies</span>
+          <textarea
+            value={form.allergies ?? ""}
+            onChange={(event) => onChange({ ...form, allergies: event.target.value })}
+            placeholder="e.g. Penicillin, peanuts"
+            maxLength={500}
+            rows={2}
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
+          />
+        </label>
+      )}
 
       <Button type="submit" className="w-full" disabled={saving}>
         {saving ? "Saving..." : submitLabel}

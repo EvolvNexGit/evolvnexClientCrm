@@ -77,7 +77,7 @@ function latestTimestamp(values: Array<string | null | undefined>): string | nul
 }
 
 const CUSTOMER_SELECT =
-  "id, name, phone, email, dob, outreach_status, contact_tags, contact_source, last_activity_at, is_blocked, notes, assigned_to, created_at, bills(id, final_amount, created_at)";
+  "id, name, phone, email, dob, outreach_status, contact_tags, contact_source, last_activity_at, is_blocked, notes, assigned_to, allergies, created_at, bills(id, final_amount, created_at)";
 
 function mapCustomer(row: any): CustomerRecord {
   const bills = Array.isArray(row.bills) ? row.bills : [];
@@ -97,6 +97,7 @@ function mapCustomer(row: any): CustomerRecord {
     is_blocked: Boolean(row.is_blocked),
     notes: row.notes ?? null,
     assigned_to: row.assigned_to ?? null,
+    allergies: row.allergies ?? null,
     created_at: row.created_at ?? "",
     totalOrders: bills.length,
     totalSpent,
@@ -226,10 +227,11 @@ export async function createCustomer(clientId: string, payload: CustomerPayload)
       is_blocked: Boolean(payload.isBlocked),
       notes: payload.notes?.trim() || null,
       assigned_to: payload.assignedTo?.trim() || null,
+      allergies: payload.allergies?.trim() || null,
       last_activity_at: new Date().toISOString(),
     })
     .select(
-      "id, name, phone, email, dob, outreach_status, contact_tags, contact_source, last_activity_at, is_blocked, notes, assigned_to, created_at",
+      "id, name, phone, email, dob, outreach_status, contact_tags, contact_source, last_activity_at, is_blocked, notes, assigned_to, allergies, created_at",
     )
     .single();
 
@@ -261,6 +263,7 @@ export async function updateCustomer(
       ...(payload.isBlocked !== undefined ? { is_blocked: payload.isBlocked } : {}),
       ...(payload.notes !== undefined ? { notes: payload.notes?.trim() || null } : {}),
       ...(payload.assignedTo !== undefined ? { assigned_to: payload.assignedTo?.trim() || null } : {}),
+      ...(payload.allergies !== undefined ? { allergies: payload.allergies?.trim() || null } : {}),
       last_activity_at: new Date().toISOString(),
     })
     .eq("id", customerId)

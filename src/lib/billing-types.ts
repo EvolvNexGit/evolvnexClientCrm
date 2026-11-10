@@ -17,6 +17,7 @@ export type CustomerRecord = {
   is_blocked: boolean;
   notes: string | null;
   assigned_to: string | null;
+  allergies: string | null;
   created_at: string;
   totalOrders: number;
   totalSpent: number;
@@ -33,6 +34,7 @@ export type CustomerPayload = {
   isBlocked?: boolean;
   notes?: string | null;
   assignedTo?: string | null;
+  allergies?: string | null;
 };
 
 export type ContactStats = {
