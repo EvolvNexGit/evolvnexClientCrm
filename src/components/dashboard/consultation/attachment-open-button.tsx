@@ -45,7 +45,7 @@ export function AttachmentOpenButton({ attachment, className }: AttachmentOpenBu
     };
 
     return (
-      <span className="inline-flex shrink-0 flex-col items-end gap-1">
+      <span className="inline-flex max-w-[12rem] shrink-0 flex-col items-end gap-1">
         <button
           type="button"
           disabled={opening}
@@ -55,7 +55,7 @@ export function AttachmentOpenButton({ attachment, className }: AttachmentOpenBu
           {opening ? "Opening..." : "Open"}
         </button>
         {openError ? (
-          <span role="alert" className="text-xs text-primary">
+          <span role="alert" className="max-w-full break-words text-right text-xs text-primary">
             {openError}
           </span>
         ) : null}
