@@ -791,6 +791,8 @@ export async function deleteConsultationFile(
   await deleteConsultationAttachment(clientId, attachment.id);
 }
 
+const CONSULTATION_ALREADY_COMPLETED_MESSAGE = "Consultation is already completed.";
+
 export async function updateConsultation(
   clientId: string,
   consultationId: string,
@@ -821,22 +823,51 @@ export async function updateConsultation(
   // Only written when provided, so status-only updates never wipe stored vitals.
   if (payload.vitals !== undefined) updateRow.vitals = payload.vitals;
 
-  const { error } = await supabase
+  // A Completed consult is final (D-11): refuse before any child rows are touched.
+  const { data: current, error: readError } = await supabase
     .from("consultations")
-    .update(updateRow)
+    .select("status")
     .eq("id", consultationId)
-    .eq("client_id", clientId);
+    .eq("client_id", clientId)
+    .maybeSingle();
 
-  if (error) {
-    raiseQueryError(error, "Unable to update consultation.");
+  if (readError) {
+    raiseQueryError(readError, "Unable to update consultation.");
   }
 
+  if (!current) {
+    throw new Error("Consultation not found.");
+  }
+
+  if (current.status === "COMPLETED") {
+    throw new Error(CONSULTATION_ALREADY_COMPLETED_MESSAGE);
+  }
+
+  // Children first, the consultation row (and so COMPLETED) last: if a child write fails
+  // the consult stays editable instead of becoming a Completed visit with no medications.
   if (payload.medications) {
     await replaceConsultationMedications(clientId, consultationId, payload.medications);
   }
 
   if (payload.exercises) {
     await replaceConsultationExercises(clientId, consultationId, payload.exercises);
+  }
+
+  // The status guard also closes the race with another tab completing the visit after the read above.
+  const { data: updated, error } = await supabase
+    .from("consultations")
+    .update(updateRow)
+    .eq("id", consultationId)
+    .eq("client_id", clientId)
+    .or("status.is.null,status.neq.COMPLETED")
+    .select("id");
+
+  if (error) {
+    raiseQueryError(error, "Unable to update consultation.");
+  }
+
+  if (!updated || updated.length === 0) {
+    throw new Error(CONSULTATION_ALREADY_COMPLETED_MESSAGE);
   }
 }
 

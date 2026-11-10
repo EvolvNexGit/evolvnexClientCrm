@@ -108,7 +108,9 @@ export function useConsultations(clientId: string) {
           return loadConsultation(consultationId);
         }
 
-        if (row.status !== "In Progress" && row.status !== "Completed") {
+        // The queue row can be stale (completed in another tab): decide from the stored status.
+        const current = await fetchConsultationById(clientId, row.id);
+        if (current && current.status !== "IN_PROGRESS" && current.status !== "COMPLETED") {
           await setConsultationStatus(clientId, row.id, "IN_PROGRESS");
           await refreshQueue();
         }
