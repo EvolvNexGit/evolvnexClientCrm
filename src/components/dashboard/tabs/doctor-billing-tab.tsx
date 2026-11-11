@@ -29,9 +29,9 @@ const FILTERS: { key: ClinicBillFilter; label: string }[] = [
   { key: "all", label: "All" },
 ];
 
-const EMPTY_LABELS: Record<ClinicBillFilter, string> = {
+const EMPTY_TITLES: Record<ClinicBillFilter, string> = {
   unpaid: "No unpaid bills.",
-  all: "No clinic bills yet. Create one from a completed consultation.",
+  all: "No clinic bills yet.",
 };
 
 const currencyFormatter = new Intl.NumberFormat("en-IN", {
@@ -246,7 +246,19 @@ export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
         </div>
 
         <div className="min-w-0 space-y-3 p-4">
-          <DataState loading={loading} error={error} empty={items.length === 0} emptyLabel={EMPTY_LABELS[filter]} />
+          <DataState loading={loading} error={error} empty={false} emptyLabel="" />
+          {!loading && !error && items.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border bg-card p-5 text-base text-muted-foreground">
+              <p>{EMPTY_TITLES[filter]}</p>
+              <p className="mt-1 text-sm">
+                Bills are created from a completed consultation in the{" "}
+                <Link href="/dashboard/consultation" className="font-medium text-primary underline">
+                  Consultations
+                </Link>{" "}
+                tab.
+              </p>
+            </div>
+          ) : null}
 
           {items.length > 0 && (
             <>
