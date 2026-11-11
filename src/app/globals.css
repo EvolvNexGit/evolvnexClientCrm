@@ -35,17 +35,17 @@
 .light {
   color-scheme: light;
 
-  --background: 0 0% 100%;
+  --background: 0 0% 97%;
   --foreground: 0 0% 0%;
 
-  --card: 0 0% 96%;
+  --card: 0 0% 100%;
   --card-foreground: 0 0% 0%;
 
-  --border: 0 0% 85%;
-  --input: 0 0% 85%;
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
 
-  --muted: 0 0% 92%;
-  --muted-foreground: 0 0% 40%;
+  --muted: 0 0% 95%;
+  --muted-foreground: 0 0% 38%;
 
   --primary: 0 85% 50%;
   --primary-foreground: 0 0% 100%;
