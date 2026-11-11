@@ -51,6 +51,7 @@ export type ClinicBillRecord = {
 export const CLINIC_BILL_MAX_ITEMS = 20;
 export const CLINIC_BILL_MAX_QUANTITY = 99;
 export const CLINIC_ALREADY_BILLED_MESSAGE = "This consultation is already billed.";
+export const CLINIC_BILL_NOT_PAYABLE_MESSAGE = "Bill not found or already paid.";
 
 /** Integer 1..99 from a trimmed digit string, otherwise null. */
 export function parseQuantity(raw: string): number | null {

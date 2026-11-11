@@ -2,7 +2,12 @@
 
 import { useCallback, useState } from "react";
 import { fetchClinicBillsPage, markClinicBillPaid } from "@/lib/clinic-billing-queries";
-import type { ClinicBillFilter, ClinicBillRecord, ClinicPaymentMode } from "@/lib/clinic-billing-types";
+import {
+  CLINIC_BILL_NOT_PAYABLE_MESSAGE,
+  type ClinicBillFilter,
+  type ClinicBillRecord,
+  type ClinicPaymentMode,
+} from "@/lib/clinic-billing-types";
 import { usePagedList } from "@/hooks/use-paged-list";
 
 export function useClinicBills(clientId: string, filter: ClinicBillFilter) {
@@ -25,7 +30,12 @@ export function useClinicBills(clientId: string, filter: ClinicBillFilter) {
         await refresh();
         return true;
       } catch (saveError) {
-        setActionError(saveError instanceof Error ? saveError.message : "Unable to mark the bill paid.");
+        const message = saveError instanceof Error ? saveError.message : "Unable to mark the bill paid.";
+        setActionError(message);
+        if (message === CLINIC_BILL_NOT_PAYABLE_MESSAGE) {
+          // Someone else already paid it (or a double tap won): reload so the stale unpaid row goes away.
+          await refresh();
+        }
         return false;
       } finally {
         setSaving(false);

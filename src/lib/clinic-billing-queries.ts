@@ -1,6 +1,7 @@
 import { BILL_ORDER_SOURCE_CLINIC } from "@/lib/billing-types";
 import {
   CLINIC_ALREADY_BILLED_MESSAGE,
+  CLINIC_BILL_NOT_PAYABLE_MESSAGE,
   isClinicPaymentMode,
   isClinicPaymentStatus,
   type ClinicBillFilter,
@@ -158,7 +159,7 @@ export async function markClinicBillPaid(clientId: string, billId: string, mode:
   }
 
   if (!data || data.length !== 1) {
-    throw new Error("Bill not found or already paid.");
+    throw new Error(CLINIC_BILL_NOT_PAYABLE_MESSAGE);
   }
 }
 
