@@ -64,7 +64,7 @@ type QuantityStepperProps = {
 function QuantityStepper({ id, value, disabled, ariaLabel, onChange }: QuantityStepperProps) {
   const current = parseQuantity(value);
   const buttonClass =
-    "inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border bg-card text-text hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-50";
+    "inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border bg-card text-text hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50";
 
   return (
     <div className="flex shrink-0 items-center gap-0.5">
@@ -91,7 +91,7 @@ function QuantityStepper({ id, value, disabled, ariaLabel, onChange }: QuantityS
             onChange("1");
           }
         }}
-        className="min-h-11 w-10 rounded-xl border border-border bg-background px-1 text-center text-base text-text focus:outline-none focus:ring-2 focus:ring-primary/40"
+        className="min-h-11 w-10 rounded-xl border border-border bg-background px-1 text-center text-base text-text focus:outline-none focus:ring-2 focus:ring-primary"
       />
       <button
         type="button"
@@ -392,7 +392,7 @@ function ClinicBillBody({
                   aria-label={`Remove item ${index + 1}`}
                   disabled={saving}
                   onClick={() => handleRemoveLine(state.line.key)}
-                  className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground hover:bg-muted hover:text-text focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground hover:bg-muted hover:text-text focus:outline-none focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>

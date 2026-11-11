@@ -984,7 +984,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
             aria-controls={filtersPanelId}
             className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold transition ${
               showFilters
-                ? "border-primary/40 bg-primary/10 text-text"
+                ? "border-primary bg-muted text-text"
                 : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-text"
             }`}
           >
