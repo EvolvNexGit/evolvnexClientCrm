@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Printer } from "lucide-react";
+import { Loader2, Minus, Plus, Printer, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
@@ -14,6 +14,7 @@ import { createClinicBill } from "@/lib/clinic-billing-queries";
 import {
   CLINIC_ALREADY_BILLED_MESSAGE,
   CLINIC_BILL_MAX_ITEMS,
+  CLINIC_BILL_MAX_QUANTITY,
   CLINIC_PAYMENT_MODES,
   computeTotalsPaise,
   describeClinicPayment,
@@ -49,6 +50,60 @@ function formatRupees(amount: number) {
 
 function formatPaise(paise: number) {
   return inrFormatter.format(paise / 100);
+}
+
+type QuantityStepperProps = {
+  id: string;
+  value: string;
+  disabled: boolean;
+  ariaLabel: string;
+  onChange: (next: string) => void;
+};
+
+/** Minus / typeable input / plus. Quantity is clamped to 1..99 and never left blank. */
+function QuantityStepper({ id, value, disabled, ariaLabel, onChange }: QuantityStepperProps) {
+  const current = parseQuantity(value);
+  const buttonClass =
+    "inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border bg-card text-text hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-50";
+
+  return (
+    <div className="flex shrink-0 items-center gap-0.5">
+      <button
+        type="button"
+        aria-label="Decrease quantity"
+        disabled={disabled || current === null || current <= 1}
+        onClick={() => onChange(String(Math.max(1, (current ?? 2) - 1)))}
+        className={buttonClass}
+      >
+        <Minus className="h-4 w-4" />
+      </button>
+      <input
+        id={id}
+        type="text"
+        inputMode="numeric"
+        maxLength={2}
+        aria-label={ariaLabel}
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value.replace(/\D/g, ""))}
+        onBlur={() => {
+          if (parseQuantity(value) === null) {
+            onChange("1");
+          }
+        }}
+        className="min-h-11 w-10 rounded-xl border border-border bg-background px-1 text-center text-base text-text focus:outline-none focus:ring-2 focus:ring-primary/40"
+      />
+      <button
+        type="button"
+        aria-label="Increase quantity"
+        disabled={disabled || (current !== null && current >= CLINIC_BILL_MAX_QUANTITY)}
+        onClick={() => onChange(String(Math.min(CLINIC_BILL_MAX_QUANTITY, (current ?? 0) + 1)))}
+        className={buttonClass}
+      >
+        <Plus className="h-4 w-4" />
+      </button>
+    </div>
+  );
 }
 
 type CreatedPanelProps = {
@@ -151,7 +206,7 @@ function ClinicBillBody({
         setProducts(loaded);
         // D-01: one fee item means the receptionist does not have to pick it.
         const only = loaded.length === 1 ? loaded[0] : null;
-        setLines([{ key: nextKey.current++, productId: only ? only.id : "", quantity: only ? "1" : "" }]);
+        setLines([{ key: nextKey.current++, productId: only ? only.id : "", quantity: "1" }]);
       })
       .catch((fetchError: unknown) => {
         if (!cancelled) {
@@ -320,29 +375,27 @@ function ClinicBillBody({
                 ))}
               </select>
             </div>
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="w-24 space-y-1">
-                <label htmlFor={`${idPrefix}-qty-${state.line.key}`} className="text-sm font-medium text-text">
-                  Quantity
-                </label>
-                <input
-                  id={`${idPrefix}-qty-${state.line.key}`}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={2}
-                  value={state.line.quantity}
-                  disabled={saving}
-                  onChange={(event) => updateLine(state.line.key, { quantity: event.target.value.replace(/\D/g, "") })}
-                  className={inputClass}
-                />
-              </div>
-              <p className="min-h-11 flex-1 content-center text-sm text-text">
+            <div className="flex items-center gap-1.5">
+              <QuantityStepper
+                id={`${idPrefix}-qty-${state.line.key}`}
+                value={state.line.quantity}
+                disabled={saving}
+                ariaLabel={`Quantity for item ${index + 1}`}
+                onChange={(next) => updateLine(state.line.key, { quantity: next })}
+              />
+              <p className="min-w-0 flex-1 text-right text-xs font-medium tabular-nums text-text sm:text-sm">
                 {state.valid ? formatPaise(state.pricePaise * (state.quantity ?? 0)) : "-"}
               </p>
               {lines.length > 1 ? (
-                <Button variant="ghost" disabled={saving} onClick={() => handleRemoveLine(state.line.key)}>
-                  Remove
-                </Button>
+                <button
+                  type="button"
+                  aria-label={`Remove item ${index + 1}`}
+                  disabled={saving}
+                  onClick={() => handleRemoveLine(state.line.key)}
+                  className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground hover:bg-muted hover:text-text focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               ) : null}
             </div>
           </div>

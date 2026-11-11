@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   ChevronDown,
@@ -465,6 +465,10 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     past: true,
   });
   const [modalMode, setModalMode] = useState<ModalMode>(null);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const moreOptionsId = useId();
+  const filtersPanelId = useId();
+  const dateFilterLabelId = useId();
   const [editingAppointment, setEditingAppointment] = useState<AppointmentRow | null>(null);
   const [addError, setAddError] = usePersistentState<string | null>(`appointments-tab-add-error:${clientId}`, null);
   const [isSaving, setIsSaving] = useState(false);
@@ -552,6 +556,24 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   const loading = pagedAppointments.loading;
   const error = pagedAppointments.error;
   const displayedAppointments = pagedAppointments.items;
+
+  // Optional fields stay collapsed unless the form being opened already carries a value, so edit, reschedule and slot-prefilled opens never hide data.
+  useEffect(() => {
+    if (modalMode === null) {
+      return;
+    }
+
+    setShowMoreOptions(
+      Boolean(
+        form.email.trim() ||
+          form.staff_name.trim() ||
+          form.location.trim() ||
+          form.end_time.trim() ||
+          form.remark.trim() ||
+          form.status !== "tentative",
+      ),
+    );
+  }, [modalMode]);
 
   function resetForm() {
     setForm(initialForm);
@@ -658,6 +680,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     // noValidate skips the browser checks, so email and time-range rules are enforced here.
     const emailValue = form.email.trim();
     if (emailValue && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+      setShowMoreOptions(true);
       setAddError("Enter a valid email address.");
       return;
     }
@@ -671,6 +694,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     if (form.end_time.trim()) {
       const endMinutes = clockToMinutes(form.end_time);
       if (endMinutes === null || endMinutes <= startMinutes) {
+        setShowMoreOptions(true);
         setAddError("End time must be after the start time.");
         return;
       }
@@ -823,6 +847,9 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   const serviceOptions = filterOptions.services;
   const staffOptions = filterOptions.staff;
   const statusOptions = filterOptions.statuses as Array<NonNullable<AppointmentRow["status"]>>;
+  const activeFilterCount =
+    [locationFilter, statusFilter, serviceFilter, staffFilter].filter((value) => value !== "all").length +
+    (dateFilter ? 1 : 0);
 
   const groupedAppointments = useMemo(() => {
     const groups: Record<GroupKey, AppointmentRow[]> = {
@@ -904,21 +931,6 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           ))}
         </div>
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
-          {viewMode === "list" && (
-            <button
-              type="button"
-              onClick={() => setShowFilters((current) => !current)}
-              aria-expanded={showFilters}
-              className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-semibold transition sm:w-auto ${
-                showFilters
-                  ? "border-primary/40 bg-primary/10 text-text"
-                  : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-text"
-              }`}
-            >
-              <Filter className="h-4 w-4" />
-              Filters
-            </button>
-          )}
           <button
             type="button"
             onClick={openAddModal}
@@ -953,47 +965,84 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
         </div>
       )}
 
-      {viewMode === "list" && showFilters && (
-        <div className="grid gap-3 rounded-2xl border border-border bg-background p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          <label className="space-y-1 text-sm text-muted-foreground xl:col-span-2">
-            <span className="block text-muted-foreground">Search</span>
-            <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              <input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search or type new customer name"
-                className="w-full bg-transparent text-sm text-text outline-none placeholder:text-muted-foreground"
-              />
-            </div>
-          </label>
-
-          <label className="space-y-1 text-sm text-muted-foreground">
-            <span className="block text-muted-foreground">Location</span>
-            <select
-              value={locationFilter}
-              onChange={(event) => setLocationFilter(event.target.value)}
-              className="w-full rounded-xl border border-border bg-background px-2 py-2 text-sm text-text"
+      {viewMode === "list" && (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-h-11 min-w-0 flex-1 basis-48 items-center gap-2 rounded-xl border border-border bg-background px-3">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              aria-label="Search appointments"
+              placeholder="Search appointments"
+              className="min-h-11 w-full bg-transparent text-sm text-text outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowFilters((current) => !current)}
+            aria-expanded={showFilters}
+            aria-controls={filtersPanelId}
+            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold transition ${
+              showFilters
+                ? "border-primary/40 bg-primary/10 text-text"
+                : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-text"
+            }`}
+          >
+            <Filter className="h-4 w-4" aria-hidden="true" />
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold text-white">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+          {(activeFilterCount > 0 || searchQuery.trim() !== "") && (
+            <button
+              type="button"
+              onClick={() => {
+                clearAllFiltersAndSort();
+                setSearchQuery("");
+              }}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border bg-background px-4 text-sm font-medium text-text hover:bg-muted"
             >
-              <option value="all">All</option>
-              {locationOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
+              <X className="h-4 w-4" aria-hidden="true" />
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
-          <label className="space-y-1 text-sm text-muted-foreground">
-            <span className="block text-muted-foreground">Date</span>
+      {viewMode === "list" && showFilters && (
+        <div id={filtersPanelId} className="grid gap-3 rounded-2xl border border-border bg-background p-4 sm:grid-cols-2 lg:grid-cols-3">
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span className="block text-muted-foreground">Location</span>
+              <select
+                value={locationFilter}
+                onChange={(event) => setLocationFilter(event.target.value)}
+                className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text"
+              >
+                <option value="all">All</option>
+                {locationOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+          <div role="group" aria-labelledby={dateFilterLabelId} className="space-y-1 text-sm text-muted-foreground">
+            <span id={dateFilterLabelId} className="block text-muted-foreground">
+              Date
+            </span>
             <div className="space-y-2">
               <select
                 value={dateFilterMode}
+                aria-label="Date filter mode"
                 onChange={(event) => {
                   setDateFilterMode(event.target.value as "day" | "month" | "year");
                   setDateFilter("");
                 }}
-                className="w-full rounded-xl border border-border bg-background px-2 py-2 text-sm text-text"
+                className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text"
               >
                 <option value="day">Day</option>
                 <option value="month">Month</option>
@@ -1007,16 +1056,16 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                   inputMode="numeric"
                   pattern="[0-9]*"
                   placeholder="YYYY"
-                  className="w-full rounded-xl border border-border bg-background px-2 py-2 text-sm text-text placeholder:text-muted-foreground"
+                  className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text placeholder:text-muted-foreground"
                   aria-label="Filter by year"
                 />
               ) : (
                 <button
                   type="button"
                   onClick={openDatePicker}
-                  className="inline-flex w-full items-center gap-2 rounded-xl border border-border bg-background px-2 py-2 text-left text-sm text-text"
+                  className="inline-flex min-h-11 w-full items-center gap-2 rounded-xl border border-border bg-background px-3 text-left text-sm text-text"
                 >
-                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   <span>{dateFilter || (dateFilterMode === "day" ? "Select date" : "Select month")}</span>
                 </button>
               )}
@@ -1025,7 +1074,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                 <button
                   type="button"
                   onClick={() => setDateFilter("")}
-                  className="rounded-xl border border-border bg-background px-2 py-2 text-sm text-muted-foreground"
+                  className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm text-muted-foreground hover:bg-muted"
                 >
                   Clear
                 </button>
@@ -1042,66 +1091,55 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                 aria-label={dateFilterMode === "day" ? "Select date" : "Select month"}
               />
             )}
-          </label>
-
-          <label className="space-y-1 text-sm text-muted-foreground">
-            <span className="block text-muted-foreground">Status</span>
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              className="w-full rounded-xl border border-border bg-background px-2 py-2 text-sm text-text"
-            >
-              <option value="all">All</option>
-              {statusOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="space-y-1 text-sm text-muted-foreground">
-            <span className="block text-muted-foreground">Service</span>
-            <select
-              value={serviceFilter}
-              onChange={(event) => setServiceFilter(event.target.value)}
-              className="w-full rounded-xl border border-border bg-background px-2 py-2 text-sm text-text"
-            >
-              <option value="all">All</option>
-              {serviceOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="space-y-1 text-sm text-muted-foreground">
-            <span className="block text-muted-foreground">Staff</span>
-            <select
-              value={staffFilter}
-              onChange={(event) => setStaffFilter(event.target.value)}
-              className="w-full rounded-xl border border-border bg-background px-2 py-2 text-sm text-text"
-            >
-              <option value="all">All</option>
-              {staffOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="sm:col-span-2 lg:col-span-3 xl:col-span-6">
-            <div className="mb-1 text-sm text-muted-foreground">Actions</div>
-            <button
-              type="button"
-              onClick={clearAllFiltersAndSort}
-              className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium text-text hover:bg-muted"
-            >
-              Clear all filters and sorting
-            </button>
           </div>
+
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span className="block text-muted-foreground">Status</span>
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text"
+              >
+                <option value="all">All</option>
+                {statusOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span className="block text-muted-foreground">Service</span>
+              <select
+                value={serviceFilter}
+                onChange={(event) => setServiceFilter(event.target.value)}
+                className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text"
+              >
+                <option value="all">All</option>
+                {serviceOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span className="block text-muted-foreground">Staff</span>
+              <select
+                value={staffFilter}
+                onChange={(event) => setStaffFilter(event.target.value)}
+                className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text"
+              >
+                <option value="all">All</option>
+                {staffOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
         </div>
       )}
 
@@ -1348,17 +1386,6 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
               />
             </label>
 
-            <label className="space-y-1 text-sm text-muted-foreground">
-              <span>Email</span>
-              <input
-                value={form.email}
-                onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
-                type="email"
-                placeholder="Email"
-                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted-foreground"
-              />
-            </label>
-
             <SearchableCreatableField
               label="Service"
               required
@@ -1368,35 +1395,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
               onChange={(service) => setForm((current) => ({ ...current, service }))}
             />
 
-            <SearchableCreatableField
-              label="Staff"
-              value={form.staff_name}
-              options={staffOptions}
-              placeholder="Search or add staff"
-              onChange={(staff_name) => setForm((current) => ({ ...current, staff_name }))}
-            />
-
             <label className="space-y-1 text-sm text-muted-foreground">
-              <span>Location</span>
-              <select
-                value={form.location}
-                onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))}
-                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
-              >
-                <option value="">Select location</option>
-                {Array.from(
-                  new Set(
-                    [...(locationOptions ?? []), form.location].filter((value) => Boolean(value?.trim())),
-                  ),
-                ).map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="space-y-1 text-sm text-muted-foreground sm:col-span-2">
               <span>Date *</span>
               <input
                 value={form.date}
@@ -1407,17 +1406,67 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
               />
             </label>
 
-            <div className="grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2">
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span>Start time *</span>
+              <input
+                value={form.start_time}
+                onChange={(event) => setForm((current) => ({ ...current, start_time: event.target.value }))}
+                onBlur={() => setForm((current) => ({ ...current, start_time: snapTimeToStep(current.start_time) }))}
+                type="time"
+                step={TIME_STEP_SECONDS}
+                className="w-full min-h-11 rounded-xl border border-border bg-background px-3 py-2 text-base text-text sm:text-sm"
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={() => setShowMoreOptions((current) => !current)}
+              aria-expanded={showMoreOptions}
+              aria-controls={moreOptionsId}
+              className="inline-flex min-h-11 items-center justify-between gap-2 rounded-xl border border-border bg-background px-3 text-sm font-medium text-text hover:bg-muted sm:col-span-2"
+            >
+              More options
+              <ChevronDown className={`h-4 w-4 transition-transform ${showMoreOptions ? "rotate-180" : ""}`} />
+            </button>
+
+            <div id={moreOptionsId} className={`${showMoreOptions ? "grid" : "hidden"} grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2`}>
               <label className="space-y-1 text-sm text-muted-foreground">
-                <span>Start time *</span>
+                <span>Email</span>
                 <input
-                  value={form.start_time}
-                  onChange={(event) => setForm((current) => ({ ...current, start_time: event.target.value }))}
-                  onBlur={() => setForm((current) => ({ ...current, start_time: snapTimeToStep(current.start_time) }))}
-                  type="time"
-                  step={TIME_STEP_SECONDS}
-                  className="w-full min-h-11 rounded-xl border border-border bg-background px-3 py-2 text-base text-text sm:text-sm"
+                  value={form.email}
+                  onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+                  type="email"
+                  placeholder="Email"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted-foreground"
                 />
+              </label>
+
+              <SearchableCreatableField
+                label="Staff"
+                value={form.staff_name}
+                options={staffOptions}
+                placeholder="Search or add staff"
+                onChange={(staff_name) => setForm((current) => ({ ...current, staff_name }))}
+              />
+
+              <label className="space-y-1 text-sm text-muted-foreground">
+                <span>Location</span>
+                <select
+                  value={form.location}
+                  onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+                >
+                  <option value="">Select location</option>
+                  {Array.from(
+                    new Set(
+                      [...(locationOptions ?? []), form.location].filter((value) => Boolean(value?.trim())),
+                    ),
+                  ).map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label className="space-y-1 text-sm text-muted-foreground">
@@ -1431,46 +1480,46 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                   className="w-full min-h-11 rounded-xl border border-border bg-background px-3 py-2 text-base text-text sm:text-sm"
                 />
               </label>
+
+              <label className="space-y-1 text-sm text-muted-foreground">
+                <span>Duration</span>
+                <input
+                  readOnly
+                  value={formatAppointmentDuration(form.start_time, form.end_time, form.date)}
+                  placeholder="Auto from time range"
+                  className="w-full min-h-11 rounded-xl border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted-foreground"
+                />
+              </label>
+
+              <label className="space-y-1 text-sm text-muted-foreground">
+                <span>Status</span>
+                <select
+                  value={form.status}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      status: event.target.value as AppointmentFormState["status"],
+                    }))
+                  }
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
+                >
+                  <option value="tentative">Tentative</option>
+                  <option value="booked">Booked</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </label>
+
+              <label className="space-y-1 text-sm text-muted-foreground sm:col-span-2">
+                <span>Notes</span>
+                <textarea
+                  value={form.remark}
+                  onChange={(event) => setForm((current) => ({ ...current, remark: event.target.value }))}
+                  placeholder="Add notes about the appointment"
+                  className="min-h-24 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted-foreground"
+                />
+              </label>
             </div>
-
-            <label className="space-y-1 text-sm text-muted-foreground sm:col-span-2">
-              <span>Duration</span>
-              <input
-                readOnly
-                value={formatAppointmentDuration(form.start_time, form.end_time, form.date)}
-                placeholder="Auto from time range"
-                className="w-full min-h-11 rounded-xl border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted-foreground"
-              />
-            </label>
-
-            <label className="space-y-1 text-sm text-muted-foreground">
-              <span>Status *</span>
-              <select
-                value={form.status}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    status: event.target.value as AppointmentFormState["status"],
-                  }))
-                }
-                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text"
-              >
-                <option value="tentative">Tentative</option>
-                <option value="booked">Booked</option>
-                <option value="cancelled">Cancelled</option>
-                <option value="completed">Completed</option>
-              </select>
-            </label>
-
-            <label className="space-y-1 text-sm text-muted-foreground sm:col-span-2">
-              <span>Notes</span>
-              <textarea
-                value={form.remark}
-                onChange={(event) => setForm((current) => ({ ...current, remark: event.target.value }))}
-                placeholder="Add notes about the appointment"
-                className="min-h-24 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-text placeholder:text-muted-foreground"
-              />
-            </label>
           </div>
 
           {slotConflicts.length > 0 && (
