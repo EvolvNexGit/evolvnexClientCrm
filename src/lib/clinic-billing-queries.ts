@@ -185,7 +185,12 @@ function mapCreateBillError(error: unknown): string {
   const message = typeof record.message === "string" ? record.message : "";
 
   if (code === "23505") {
-    return CLINIC_ALREADY_BILLED_MESSAGE;
+    // Only the one-bill-per-consultation collision means "already billed"; any other unique clash is retryable.
+    if (message.toLowerCase().includes("already billed") || message.includes("bills_consultation_id_uniq")) {
+      return CLINIC_ALREADY_BILLED_MESSAGE;
+    }
+
+    return "Unable to create the bill. Try again.";
   }
 
   if (code === "42501") {
