@@ -59,7 +59,8 @@ type CreatedPanelProps = {
 
 /** Mounted only once a bill exists, so print settings are fetched after creation, not on open. */
 function CreatedPanel({ clientId, bill, onClose }: CreatedPanelProps) {
-  const { printPayload, margins, ready, printingId, printError, printBill } = useClinicReceiptPrint(clientId);
+  const { printPayload, margins, ready, hasSavedSettings, printingId, printError, printBill } =
+    useClinicReceiptPrint(clientId);
   const paymentLabel = describeClinicPayment(bill.paymentStatus, bill.paymentMode);
 
   return (
@@ -70,6 +71,12 @@ function CreatedPanel({ clientId, bill, onClose }: CreatedPanelProps) {
         <p className="text-sm text-text">Total: {formatRupees(bill.finalAmount)}</p>
         {paymentLabel ? <p className="text-sm text-text">{paymentLabel}</p> : null}
       </div>
+      {ready && !hasSavedSettings ? (
+        <p className="rounded-xl border border-border bg-background p-3 text-sm text-muted-foreground">
+          Print settings are not saved yet, so this receipt prints with 0 mm margins. Close this dialog and set them
+          under Print settings in Consultations first.
+        </p>
+      ) : null}
       {printError ? (
         <p role="alert" className="text-sm text-primary">
           {printError}
