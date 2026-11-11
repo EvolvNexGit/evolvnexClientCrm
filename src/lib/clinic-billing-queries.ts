@@ -11,7 +11,7 @@ import {
   type CreatedClinicBill,
 } from "@/lib/clinic-billing-types";
 import { buildListRange, type ListPageParams, type ListPageResult } from "@/lib/list-pagination";
-import { formatSupabaseError, getSupabaseClient } from "@/lib/supabase";
+import { formatSupabaseError, getSupabaseClient, isNetworkAuthError } from "@/lib/supabase";
 
 // Own select string: the shared cafe select must not depend on the clinic payment columns (D-12).
 const CLINIC_BILL_SELECT =
@@ -26,8 +26,13 @@ function getClient() {
   return supabase;
 }
 
+/** Fixed user message for a failed query; raw database text (details, failing row, constraint names) is never shown. */
+function toSafeErrorMessage(error: unknown, fallback: string): string {
+  return isNetworkAuthError(error) ? formatSupabaseError(error, fallback) : fallback;
+}
+
 function raiseQueryError(error: unknown, fallback: string): never {
-  throw new Error(formatSupabaseError(error, fallback));
+  throw new Error(toSafeErrorMessage(error, fallback));
 }
 
 function asNumber(value: unknown) {
@@ -215,7 +220,7 @@ function mapCreateBillError(error: unknown): string {
     }
   }
 
-  return formatSupabaseError(error, "Unable to create the bill.");
+  return toSafeErrorMessage(error, "Unable to create the bill. Try again.");
 }
 
 /**
