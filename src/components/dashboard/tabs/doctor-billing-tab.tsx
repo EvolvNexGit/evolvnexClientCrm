@@ -137,7 +137,8 @@ export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
   } = useClinicBills(clientId, filter);
   const {
     printPayload,
-    margins,
+    printMargins,
+    printHeader,
     ready,
     hasSavedSettings,
     settingsError,
@@ -347,8 +348,8 @@ export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
       </section>
 
       {printPayload ? (
-        <PrintSheet margins={margins}>
-          <ClinicReceiptPrint bill={printPayload} />
+        <PrintSheet margins={printMargins}>
+          <ClinicReceiptPrint bill={printPayload} header={printHeader} />
         </PrintSheet>
       ) : null}
     </div>

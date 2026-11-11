@@ -1,10 +1,13 @@
 "use client";
 
 import { describeClinicPayment, type ClinicBillRecord } from "@/lib/clinic-billing-types";
+import type { StandardPrintHeader } from "@/lib/doctor-print-profile-types";
 import { formatUtcToIst } from "@/lib/time-utils";
 
 type ClinicReceiptPrintProps = {
   bill: ClinicBillRecord;
+  /** Printed clinic/doctor header for plain paper; null or absent keeps the body-only letterhead layout. */
+  header?: StandardPrintHeader | null;
 };
 
 const currencyFormatter = new Intl.NumberFormat("en-IN", {
@@ -28,12 +31,37 @@ function nonBlank(value: string | null | undefined) {
   return value?.trim() ? value.trim() : null;
 }
 
+function ReceiptHeader({ header }: { header: StandardPrintHeader }) {
+  const doctorLine = [nonBlank(header.doctorName), nonBlank(header.qualification)].filter(Boolean).join(", ");
+  const idLine = [
+    nonBlank(header.phone) ? `Phone: ${nonBlank(header.phone)}` : null,
+    nonBlank(header.regNo) ? `Reg. No.: ${nonBlank(header.regNo)}` : null,
+    nonBlank(header.gstNo) ? `GST: ${nonBlank(header.gstNo)}` : null,
+  ]
+    .filter(Boolean)
+    .join("  |  ");
+
+  if (!nonBlank(header.clinicName) && !doctorLine && !nonBlank(header.address) && !idLine) {
+    return null;
+  }
+
+  return (
+    <div className="break-inside-avoid border-b border-black pb-2 text-center text-[10pt] leading-snug text-black">
+      {nonBlank(header.clinicName) ? <p className="text-[14pt] font-bold">{nonBlank(header.clinicName)}</p> : null}
+      {doctorLine ? <p>{doctorLine}</p> : null}
+      {nonBlank(header.address) ? <p className="whitespace-pre-line">{nonBlank(header.address)}</p> : null}
+      {idLine ? <p>{idLine}</p> : null}
+    </div>
+  );
+}
+
 /**
- * Body-only receipt for pre-printed letterhead: receipt number, date, patient, items, totals and
- * one payment line. No clinic header, doctor block, footer or consultation field. Explicit black
- * on white because the app theme is dark and this goes to paper.
+ * Receipt: receipt number, date, patient, items, totals and one payment line. Body-only for
+ * pre-printed letterhead by default; when a standard-template header is passed it is printed above
+ * the body. No footer or consultation field. Explicit black on white because the app theme is dark
+ * and this goes to paper.
  */
-export function ClinicReceiptPrint({ bill }: ClinicReceiptPrintProps) {
+export function ClinicReceiptPrint({ bill, header }: ClinicReceiptPrintProps) {
   const patientName = nonBlank(bill.customerName) ?? "Patient";
   const receiptNumber = nonBlank(bill.order_id) ?? "-";
   const billDate = formatDateOnly(formatUtcToIst(bill.created_at).slice(0, 10));
@@ -41,6 +69,7 @@ export function ClinicReceiptPrint({ bill }: ClinicReceiptPrintProps) {
 
   return (
     <div className="space-y-4 text-[11pt] leading-snug text-black">
+      {header ? <ReceiptHeader header={header} /> : null}
       <div className="flex flex-wrap justify-between gap-x-6 gap-y-1">
         <span className="font-semibold">Receipt {receiptNumber}</span>
         <span>{billDate}</span>

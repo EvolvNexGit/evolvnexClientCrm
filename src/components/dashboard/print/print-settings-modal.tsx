@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { DoctorPrintProfilesSection } from "@/components/dashboard/print/doctor-print-profiles-section";
 import { PrintSheet } from "@/components/dashboard/print/print-sheet";
 import { TestPrintBody } from "@/components/dashboard/print/test-print-body";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,9 @@ type PrintSettingsModalProps = {
   saving: boolean;
   saveError: string | null;
   onSave: (payload: PrintSettingsPayload) => Promise<void>;
+  clientId: string;
+  /** Doctor-summary tenants only: shows the per-doctor profile section below the margins. */
+  showDoctorProfiles: boolean;
 };
 
 export function PrintSettingsModal({
@@ -43,6 +47,8 @@ export function PrintSettingsModal({
   saving,
   saveError,
   onSave,
+  clientId,
+  showDoctorProfiles,
 }: PrintSettingsModalProps) {
   const [form, setForm] = useState<Record<PrintMarginKey, string>>(() => marginsToForm(margins));
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<PrintMarginKey, string>>>({});
@@ -98,7 +104,12 @@ export function PrintSettingsModal({
 
   return (
     <>
-      <EntityModal open={open} title="Print settings" onClose={onClose}>
+      <EntityModal
+        open={open}
+        title="Print settings"
+        onClose={onClose}
+        contentClassName={showDoctorProfiles ? "sm:max-w-xl" : undefined}
+      >
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             Distance in millimetres kept clear for your pre-printed letterhead. Adjust after a test print on your
@@ -169,6 +180,12 @@ export function PrintSettingsModal({
               {saving ? "Saving..." : "Save"}
             </Button>
           </div>
+
+          {showDoctorProfiles ? (
+            <div className="border-t border-border pt-4">
+              <DoctorPrintProfilesSection clientId={clientId} />
+            </div>
+          ) : null}
         </div>
       </EntityModal>
       {/* Outside the modal so the sheet stays mounted if the modal closes during the print dialog. */}

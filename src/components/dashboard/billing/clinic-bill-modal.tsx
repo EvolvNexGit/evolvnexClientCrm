@@ -114,7 +114,7 @@ type CreatedPanelProps = {
 
 /** Mounted only once a bill exists, so print settings are fetched after creation, not on open. */
 function CreatedPanel({ clientId, bill, onClose }: CreatedPanelProps) {
-  const { printPayload, margins, ready, hasSavedSettings, printingId, printError, printBill } =
+  const { printPayload, printMargins, printHeader, ready, hasSavedSettings, printingId, printError, printBill } =
     useClinicReceiptPrint(clientId);
   const paymentLabel = describeClinicPayment(bill.paymentStatus, bill.paymentMode);
 
@@ -151,8 +151,8 @@ function CreatedPanel({ clientId, bill, onClose }: CreatedPanelProps) {
         <Button onClick={onClose}>Done</Button>
       </div>
       {printPayload ? (
-        <PrintSheet margins={margins}>
-          <ClinicReceiptPrint bill={printPayload} />
+        <PrintSheet margins={printMargins}>
+          <ClinicReceiptPrint bill={printPayload} header={printHeader} />
         </PrintSheet>
       ) : null}
     </div>

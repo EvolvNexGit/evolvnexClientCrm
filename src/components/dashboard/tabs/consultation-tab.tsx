@@ -1008,6 +1008,8 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
       saving={printSettings.saving}
       saveError={printSettings.saveError}
       onSave={printSettings.save}
+      clientId={clientId}
+      showDoctorProfiles={tabs.some((tab) => tab.key === "doctor-summary")}
     />
   );
 
