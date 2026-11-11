@@ -42,7 +42,8 @@ const currencyFormatter = new Intl.NumberFormat("en-IN", {
 
 function StatusPill({ bill }: { bill: ClinicBillRecord }) {
   const paid = bill.payment_status === "paid";
-  const label = paid ? (bill.payment_mode ? `Paid · ${bill.payment_mode}` : "Paid") : "Unpaid";
+  const unknown = bill.payment_status === null;
+  const label = paid ? (bill.payment_mode ? `Paid · ${bill.payment_mode}` : "Paid") : unknown ? "Unknown" : "Unpaid";
 
   return (
     <span
@@ -50,7 +51,9 @@ function StatusPill({ bill }: { bill: ClinicBillRecord }) {
         "inline-flex shrink-0 items-center rounded-full border px-3 py-1 text-xs font-semibold",
         paid
           ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-          : "border-amber-500/40 bg-amber-500/10 text-amber-300",
+          : unknown
+            ? "border-border bg-muted text-muted-foreground"
+            : "border-amber-500/40 bg-amber-500/10 text-amber-300",
       )}
     >
       {label}
@@ -252,7 +255,7 @@ export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
                   <article key={bill.id} className="space-y-3 rounded-2xl border border-border bg-background p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate font-semibold text-text">{bill.customerName ?? "Walk-in"}</p>
+                        <p className="truncate font-semibold text-text">{bill.customerName ?? "Patient unavailable"}</p>
                         <p className="text-sm text-muted-foreground">Receipt {bill.order_id ?? "-"}</p>
                         <p className="text-sm text-muted-foreground">{formatUtcToIst(bill.created_at)}</p>
                       </div>
@@ -288,7 +291,7 @@ export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
                     {items.map((bill) => (
                       <tr key={bill.id} className="border-b border-border/60 align-top text-sm text-text">
                         <td className="px-4 py-3">{bill.order_id ?? "-"}</td>
-                        <td className="px-4 py-3">{bill.customerName ?? "Walk-in"}</td>
+                        <td className="px-4 py-3">{bill.customerName ?? "Patient unavailable"}</td>
                         <td className="px-4 py-3">{formatUtcToIst(bill.created_at)}</td>
                         <td className="px-4 py-3 font-medium">{currencyFormatter.format(bill.final_amount)}</td>
                         <td className="px-4 py-3">
