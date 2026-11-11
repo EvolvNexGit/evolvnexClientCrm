@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useApp } from "@/contexts/app-context";
+import { useAppointmentReminders, type AppointmentReminder } from "@/hooks/use-appointment-reminders";
 import { useOrderAlerts } from "@/hooks/use-order-alerts";
 import {
   persistOrderAlertsEnabled,
@@ -28,6 +29,10 @@ type OrderAlertContextValue = {
   statusLabel: string;
   setEnabled: (enabled: boolean) => Promise<void>;
   testAlert: () => Promise<void>;
+  reminders: AppointmentReminder[];
+  dueSoonCount: number;
+  remindersLoading: boolean;
+  remindersError: string | null;
 };
 
 const OrderAlertContext = createContext<OrderAlertContextValue | null>(null);
@@ -79,7 +84,7 @@ function buildStatusLabel(input: {
 }
 
 export function OrderAlertProvider({ children }: { children: ReactNode }) {
-  const { clientId, user } = useApp();
+  const { clientId, user, tabs } = useApp();
   const [enabled, setEnabledState] = useState(false);
   const [busy, setBusy] = useState(false);
   const [permission, setPermission] = useState<NotificationPermissionState>("unsupported");
@@ -247,6 +252,15 @@ export function OrderAlertProvider({ children }: { children: ReactNode }) {
 
   useOrderAlerts(clientId, enabled && Boolean(user));
 
+  // Only doctor tenants scan appointments; cafe tenants never hit the appointments table from here.
+  const reminderClientId = user && tabs.some((tab) => tab.key === "doctor-summary") ? clientId : null;
+  const {
+    reminders,
+    dueSoonCount,
+    loading: remindersLoading,
+    error: remindersError,
+  } = useAppointmentReminders(reminderClientId, enabled && Boolean(user));
+
   const statusLabel = useMemo(
     () =>
       buildStatusLabel({
@@ -270,8 +284,26 @@ export function OrderAlertProvider({ children }: { children: ReactNode }) {
       statusLabel,
       setEnabled,
       testAlert,
+      reminders,
+      dueSoonCount,
+      remindersLoading,
+      remindersError,
     }),
-    [busy, enabled, error, permission, pushConfigured, pushReady, setEnabled, statusLabel, testAlert],
+    [
+      busy,
+      dueSoonCount,
+      enabled,
+      error,
+      permission,
+      pushConfigured,
+      pushReady,
+      reminders,
+      remindersError,
+      remindersLoading,
+      setEnabled,
+      statusLabel,
+      testAlert,
+    ],
   );
 
   return <OrderAlertContext.Provider value={value}>{children}</OrderAlertContext.Provider>;

@@ -20,7 +20,6 @@ import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
-  Bell,
   CalendarDays,
   ChevronDown,
   Clock3,
@@ -32,6 +31,7 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
+import { AppointmentRemindersBell } from "@/components/dashboard/appointment-reminders-bell";
 import { Button } from "@/components/ui/button";
 import { useDoctorSummary } from "@/hooks/use-doctor-summary";
 import { usePersistentState } from "@/hooks/use-persistent-state";
@@ -124,7 +124,7 @@ function KpiCard({
   className?: string;
 }) {
   return (
-    <article className={`rounded-2xl border border-border bg-card p-3 shadow-soft sm:p-4 ${className}`}>
+    <article className={`rounded-2xl border border-border bg-card p-3 dark:shadow-soft sm:p-4 ${className}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-xs text-muted-foreground sm:text-sm">{title}</p>
@@ -177,15 +177,8 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
 
   return (
     <div className="-mx-1 space-y-4 sm:mx-0 sm:space-y-6">
-      <div className="hidden flex-wrap items-center justify-end gap-4 lg:flex">
-        {analytics && analytics.alerts.length > 0 && (
-          <div className="relative rounded-xl border border-border bg-card p-2">
-            <Bell className="h-5 w-5 text-text" />
-            <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold text-white">
-              {analytics.alerts.length}
-            </span>
-          </div>
-        )}
+      <div className="flex flex-wrap items-center justify-end gap-4">
+        <AppointmentRemindersBell />
       </div>
 
       <div className="relative lg:hidden">
