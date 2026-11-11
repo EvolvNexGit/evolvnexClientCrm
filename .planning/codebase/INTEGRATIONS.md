@@ -27,19 +27,25 @@
 - PostgreSQL via Supabase
   - Connection: `NEXT_PUBLIC_SUPABASE_URL` + anon or service-role key (PostgREST / Auth HTTP, not a direct `DATABASE_URL` in app code)
   - Client: `@supabase/supabase-js` `.from(...)` in query modules; RLS expected (migrations enable RLS on communication tables)
-  - Schema SQL in-repo: `supabase/migrations/20260814_whatsapp_auto_replies.sql`, `supabase/migrations/20260817_customer_status_whatsapp_credentials.sql`, `supabase/migrations/20260817_customer_contact_fields.sql`
+  - Schema SQL in-repo: `supabase/migrations/20260814_whatsapp_auto_replies.sql`, `supabase/migrations/20260817_customer_status_whatsapp_credentials.sql`, `supabase/migrations/20260817_customer_contact_fields.sql`, `supabase/migrations/20261111_consultations_vitals.sql`, `supabase/migrations/20261111_print_settings.sql`, `supabase/migrations/20261111_consultation_files_storage.sql`, `supabase/migrations/20261112_bills_order_source_clinic.sql`, `supabase/migrations/20261112_clinic_billing_schema.sql`, `supabase/migrations/20261112_doctor_billing_tab.sql`
   - Tables touched by app code:
     - Tenancy / nav: `clients`, `client_tab_access`, `people` (`src/lib/client-cache.ts`, `src/lib/tabs.ts`, `src/components/dashboard/tabs/summary-tab.tsx`)
-    - Clinic: `appointments`, `consultations`, `consultation_medications`, `consultation_exercises`, `consultation_attachments` (`src/lib/appointment-queries.ts`, `src/lib/consultation-queries.ts`)
+    - Clinic: `appointments`, `consultations`, `consultation_medications`, `consultation_exercises`, `consultation_attachments`, `print_settings` (one letterhead-margin row per client; `src/lib/print-settings-queries.ts`) (`src/lib/appointment-queries.ts`, `src/lib/consultation-queries.ts`)
     - Billing / cafe: `customers`, `products`, `bills` (`src/lib/billing-queries.ts`)
+    - Clinic billing (Phase 3): `bills` rows with `order_source = 'Clinic'` (enum label added by migration A), `payment_status` (lowercase `paid` / `unpaid`), `payment_mode` (`CASH`, `UPI`, `CARD`, `OTHER`), `consultation_id` (unique per bill through `bills_consultation_id_uniq`) and `appointment_id`; scoped CHECK `bills_clinic_payment_chk` applies to Clinic rows only (`src/lib/clinic-billing-queries.ts`, `src/lib/clinic-billing-types.ts`). Clinic bills are created only through the invoker RPC `public.create_clinic_bill` (SECURITY INVOKER, `search_path public`, execute for `authenticated` only, tenant check through `crm_can_access_client`); the browser sends product ids, quantities, flat discount and payment choice, never a price or total. Mark paid is a direct scoped `bills` update (own-client RLS). The cafe flow still uses `create_order_with_inventory`, unchanged. Tab access for the clinic billing tab is data: `client_tab_access` / `tabs_info` key `015`, seeded by migration C (applied last).
     - Inventory: `ingredients`, `recipes` (`src/lib/inventory-queries.ts`, `src/lib/orderService.ts`)
     - Promos: `promotions`, `promotion_targets`, `promotion_usages` (`src/lib/promotion-queries.ts`)
     - Tasks: `tasks` (`src/components/dashboard/tabs/summary-tab.tsx`)
     - WhatsApp: `communication_provider_accounts`, `communication_auto_replies`, `communication_message_events`, `communication_whatsapp_credentials` (`src/lib/communication-queries.ts`, `src/lib/communication-credentials.ts`, `src/lib/providers/whatsapp/webhook.ts`)
 
 **File Storage:**
-- Local static assets only (`public/` if used; no `supabase.storage` usage detected)
-- Consultation attachments stored as rows in `consultation_attachments`, not object storage (`src/lib/consultation-queries.ts`)
+- Supabase Storage private bucket `consultation-files` for consultation attachments (`src/lib/consultation-files.ts`, `src/lib/consultation-queries.ts`)
+  - Object path: `{client_id}/{consultation_id}/{uuid}-{safe-name}`; the first path segment is the tenant and drives the `storage.objects` select, insert and delete policies (`crm_can_access_client`). There is no update policy.
+  - Limits: 10 MB per file; pdf, jpeg, png and webp only (no HEIC). Enforced in the browser validator and by the bucket config.
+  - Access: browser anon key plus the user's JWT only, no service role. Files open through short-lived signed URLs (300 seconds) created at click time by `AttachmentOpenButton`; the bucket is not public.
+  - Legacy rows: older name+URL rows in `consultation_attachments` (`file_url` set, `storage_path` null) stay readable and are linked only when the URL is http or https.
+  - Migration: `supabase/migrations/20261111_consultation_files_storage.sql`. Must be live before the code is deployed.
+- Local static assets (`public/`) and the separate `menu` bucket are unrelated to consultations
 
 **Caching:**
 - In-memory `Map` for auth-user → client id in `src/lib/client-cache.ts`
@@ -98,6 +104,7 @@
 - `GET /api/communication/whatsapp/webhook` - Meta subscription challenge (`hub.mode`, `hub.verify_token`, `hub.challenge`); verify token hashed-lookup (`src/lib/providers/whatsapp/webhook.ts`)
 - `POST /api/communication/whatsapp/webhook` - Inbound WhatsApp events; `x-hub-signature-256` HMAC-SHA256 with tenant `appSecret`; Node runtime (`src/app/api/communication/whatsapp/webhook/route.ts`)
   - Handler loads auto-replies, sends Cloud API text, writes `communication_message_events`
+- `POST /api/notifications/new-order` - Supabase bills INSERT webhook for closed-browser push (`src/app/api/notifications/new-order/route.ts`, `src/lib/web-push-server.ts`); skips POS and Clinic bills (a Clinic row answers `{ ok: true, skipped: "clinic_order" }`). Verified by static review only in Phase 3 (the `web-push` package is missing from local `node_modules`, so the route cannot be imported locally).
 
 **Outgoing:**
 - `POST https://graph.facebook.com/{WHATSAPP_API_VERSION}/{phoneNumberId}/messages` - Text messages (`src/lib/providers/whatsapp/cloud-api.ts`)

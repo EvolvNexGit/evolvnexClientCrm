@@ -6,6 +6,7 @@ import {
   isTimestampInRange,
   type CafeSummaryDateRange,
 } from "@/lib/cafe-summary-time";
+import { isClinicOrderSource } from "@/lib/order-alert-policy";
 import { formatAppointmentTimeRange, parseDbTimestamp } from "@/lib/time-utils";
 
 export type DoctorAppointmentStatus = "tentative" | "booked" | "cancelled" | "completed";
@@ -143,6 +144,11 @@ function filterTransactions(transactions: TransactionRecord[], range: CafeSummar
   return transactions.filter((transaction) => isTimestampInRange(transaction.created_at, range));
 }
 
+/** Clinic bills count as revenue only once paid; every other bill counts as before. */
+function countsAsRevenue(transaction: TransactionRecord) {
+  return !isClinicOrderSource(transaction.order_source) || transaction.payment_status === "paid";
+}
+
 function getAppointmentHour(appointment: DoctorAppointmentRecord): number | null {
   if (!appointment.start_time) {
     return null;
@@ -263,6 +269,8 @@ export function buildDoctorSummaryAnalytics(input: {
   const previousAppointments = filterAppointments(input.appointments, input.previousRange, input.location);
   const currentTransactions = filterTransactions(input.transactions, input.currentRange);
   const previousTransactions = filterTransactions(input.transactions, input.previousRange);
+  const currentRevenueTransactions = currentTransactions.filter(countsAsRevenue);
+  const previousRevenueTransactions = previousTransactions.filter(countsAsRevenue);
 
   const firstSeen = firstSeenDateByPatient(input.appointments);
 
@@ -290,10 +298,10 @@ export function buildDoctorSummaryAnalytics(input: {
   }
 
   const currentReturning = Math.max(0, currentPatients.size - currentNew);
-  const currentRevenue = currentTransactions.reduce((sum, transaction) => sum + transaction.final_amount, 0);
-  const previousRevenue = previousTransactions.reduce((sum, transaction) => sum + transaction.final_amount, 0);
-  const currentOrders = currentTransactions.length;
-  const previousOrders = previousTransactions.length;
+  const currentRevenue = currentRevenueTransactions.reduce((sum, transaction) => sum + transaction.final_amount, 0);
+  const previousRevenue = previousRevenueTransactions.reduce((sum, transaction) => sum + transaction.final_amount, 0);
+  const currentOrders = currentRevenueTransactions.length;
+  const previousOrders = previousRevenueTransactions.length;
 
   const cancelled = currentAppointments.filter((appointment) => appointment.status === "cancelled").length;
   const completed = currentCompleted.length;
@@ -362,7 +370,9 @@ export function buildDoctorSummaryAnalytics(input: {
     });
   }
 
-  const pendingPayments = currentTransactions.filter((transaction) => transaction.status === "pending");
+  const pendingPayments = currentTransactions.filter(
+    (transaction) => transaction.status === "pending" || transaction.payment_status === "unpaid",
+  );
   if (pendingPayments.length > 0) {
     const pendingTotal = pendingPayments.reduce((sum, transaction) => sum + transaction.final_amount, 0);
     alerts.push({
@@ -395,7 +405,7 @@ export function buildDoctorSummaryAnalytics(input: {
         previousOrders === 0 ? 0 : previousRevenue / previousOrders,
       ),
     },
-    revenueHourly: buildRevenueHourly(currentTransactions),
+    revenueHourly: buildRevenueHourly(currentRevenueTransactions),
     appointmentsHourly: buildAppointmentHourly(currentAppointments),
     statusOverview: [
       { key: "completed", label: "Completed", value: completed, color: "#22c55e" },

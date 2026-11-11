@@ -7,6 +7,8 @@ import {
   type ListPageResult,
 } from "@/lib/list-pagination";
 
+export type AppointmentStatus = "tentative" | "booked" | "cancelled" | "completed";
+
 export type AppointmentRow = {
   id: string;
   name: string | null;
@@ -18,7 +20,21 @@ export type AppointmentRow = {
   date: string | null;
   start_time: string | null;
   end_time: string | null;
-  status: "tentative" | "booked" | "cancelled" | "completed" | null;
+  status: AppointmentStatus | null;
+  remark: string | null;
+};
+
+export type AppointmentPayload = {
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  service: string | null;
+  staff_name: string | null;
+  location: string | null;
+  date: string;
+  start_time: string | null;
+  end_time: string | null;
+  status: AppointmentStatus;
   remark: string | null;
 };
 
@@ -153,17 +169,113 @@ export async function fetchAppointmentFilterOptions(clientId: string) {
   };
 }
 
-/** Soft delete: stamps deleted_at; every read filters it out. */
-export async function softDeleteAppointment(clientId: string, appointmentId: string): Promise<void> {
+/** client_id is written after the payload spread so payload contents can never override the tenant. */
+export async function createAppointment(clientId: string, payload: AppointmentPayload): Promise<void> {
   const supabase = getClient();
-  const { error } = await supabase
-    .from("appointments")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("client_id", clientId)
-    .eq("id", appointmentId);
+  const { error } = await supabase.from("appointments").insert({ ...payload, client_id: clientId });
 
   if (error) {
     throw error;
+  }
+}
+
+/** Filters by client_id AND id; zero matched rows (stale or foreign id) fails loudly instead of silently succeeding. */
+export async function updateAppointment(
+  clientId: string,
+  appointmentId: string,
+  payload: AppointmentPayload,
+): Promise<void> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("appointments")
+    .update(payload)
+    .eq("client_id", clientId)
+    .eq("id", appointmentId)
+    .is("deleted_at", null)
+    .select("id");
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error("Appointment not found.");
+  }
+}
+
+export async function setAppointmentStatus(
+  clientId: string,
+  appointmentId: string,
+  status: AppointmentStatus,
+): Promise<void> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("appointments")
+    .update({ status })
+    .eq("client_id", clientId)
+    .eq("id", appointmentId)
+    .is("deleted_at", null)
+    .select("id");
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error("Appointment not found.");
+  }
+}
+
+export const APPOINTMENT_RANGE_MAX = 1000;
+
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Calendar read: one tenant's non-deleted rows with date in the inclusive range, capped at APPOINTMENT_RANGE_MAX. */
+export async function fetchAppointmentsRange(
+  clientId: string,
+  fromDate: string,
+  toDate: string,
+): Promise<AppointmentRow[]> {
+  if (!ISO_DATE_PATTERN.test(fromDate) || !ISO_DATE_PATTERN.test(toDate) || fromDate > toDate) {
+    throw new Error("Invalid date range.");
+  }
+
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("appointments")
+    .select(APPOINTMENT_SELECT)
+    .eq("client_id", clientId)
+    .is("deleted_at", null)
+    .gte("date", fromDate)
+    .lte("date", toDate)
+    .order("date", { ascending: true })
+    .order("start_time", { ascending: true, nullsFirst: false })
+    .range(0, APPOINTMENT_RANGE_MAX - 1);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as AppointmentRow[];
+}
+
+/** Soft delete: stamps deleted_at; every read filters it out. */
+export async function softDeleteAppointment(clientId: string, appointmentId: string): Promise<void> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("appointments")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("client_id", clientId)
+    .eq("id", appointmentId)
+    .is("deleted_at", null)
+    .select("id");
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error("Appointment not found.");
   }
 }
 

@@ -85,6 +85,7 @@ export const MODULES: ModuleConfig[] = [
     label: "POS",
     items: [
       { id: "billing", label: "Billing", kind: "existing-tab", tabKey: "billing", icon: ShoppingBag },
+      { id: "doctor-billing", label: "Billing", kind: "existing-tab", tabKey: "doctor-billing", icon: Receipt },
       { id: "orders", label: "Orders", kind: "existing-tab", tabKey: "orders", icon: ConciergeBell },
       { id: "products", label: "Products", kind: "existing-tab", tabKey: "product", icon: Package },
       { id: "inventory", label: "Inventory", kind: "existing-tab", tabKey: "ingredients", icon: ClipboardList },

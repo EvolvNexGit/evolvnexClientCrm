@@ -72,6 +72,10 @@ const BillingTab = dynamic(() => import("./tabs/billing-tab"), {
   loading: () => <TabLoading />,
 });
 
+const DoctorBillingTab = dynamic(() => import("./tabs/doctor-billing-tab"), {
+  loading: () => <TabLoading />,
+});
+
 const IngredientTab = dynamic(() => import("./tabs/ingredient-tab"), {
   loading: () => <TabLoading />,
 });
@@ -576,6 +580,7 @@ function DashboardPageContent() {
               {displayTabKey === "consultation" && <ConsultationTab clientId={clientId} />}
               {displayTabKey === "subscription" && <SubscriptionTab clientId={clientId} />}
               {displayTabKey === "billing" && <BillingTab clientId={clientId} />}
+              {displayTabKey === "doctor-billing" && <DoctorBillingTab clientId={clientId} />}
               {displayTabKey === "orders" && <OrdersTab clientId={clientId} />}
               {displayTabKey === "promos" && <PromosTab clientId={clientId} />}
               {displayTabKey === "ingredients" && <IngredientTab clientId={clientId} />}

@@ -10,6 +10,7 @@ export const DEFAULT_TAB_ORDER = [
   "doctor-summary",
   "appointments",
   "billing",
+  "doctor-billing",
   "transaction",
   "orders",
   "customer",
@@ -165,6 +166,7 @@ const DB_KEY_TO_CODE_KEY: Record<string, string> = {
   "012": "cafe-summary",
   "013": "doctor-summary",
   "014": "consultation",
+  "015": "doctor-billing",
 };
 
 function toPermissions(value: unknown): string[] {

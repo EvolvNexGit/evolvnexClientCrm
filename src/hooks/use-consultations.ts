@@ -6,16 +6,19 @@ import {
   addConsultationAttachment,
   buildConsultationQueueStats,
   createConsultation,
-  deleteConsultationAttachment,
+  deleteConsultationFile,
+  fetchConsultationAttachments,
   fetchConsultationById,
   fetchConsultationQueue,
   fetchPatientConsultationHistory,
   setConsultationStatus,
   startConsultationFromAppointment,
   updateConsultation,
+  uploadConsultationFile,
 } from "@/lib/consultation-queries";
 import type {
   ConsultationAttachmentInput,
+  ConsultationAttachmentRecord,
   ConsultationDetail,
   ConsultationHistoryItem,
   ConsultationPayload,
@@ -105,7 +108,9 @@ export function useConsultations(clientId: string) {
           return loadConsultation(consultationId);
         }
 
-        if (row.status !== "In Progress" && row.status !== "Completed") {
+        // The queue row can be stale (completed in another tab): decide from the stored status.
+        const current = await fetchConsultationById(clientId, row.id);
+        if (current && current.status !== "IN_PROGRESS" && current.status !== "COMPLETED") {
           await setConsultationStatus(clientId, row.id, "IN_PROGRESS");
           await refreshQueue();
         }
@@ -201,6 +206,7 @@ export function useConsultations(clientId: string) {
           followup_date: payload.followupDate ?? null,
           followup_duration_days: payload.followupDurationDays ?? null,
           followup_notes: payload.followupNotes ?? null,
+          vitals: payload.vitals ?? null,
           created_by: null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -238,13 +244,41 @@ export function useConsultations(clientId: string) {
     [clientId, loadConsultation],
   );
 
-  const removeAttachment = useCallback(
-    async (consultationId: string, attachmentId: string) => {
+  /** Replaces only `attachments` so unsaved editor fields and the loading state are untouched. */
+  const patchActiveAttachments = useCallback(
+    async (consultationId: string) => {
+      const attachments = await fetchConsultationAttachments(clientId, consultationId);
+      setActiveConsultation((previous) =>
+        previous && previous.id === consultationId ? { ...previous, attachments } : previous,
+      );
+    },
+    [clientId],
+  );
+
+  const uploadFile = useCallback(
+    async (consultationId: string, file: File) => {
       setSaving(true);
       try {
         setError(null);
-        await deleteConsultationAttachment(clientId, attachmentId);
-        await loadConsultation(consultationId);
+        await uploadConsultationFile(clientId, consultationId, file);
+        await patchActiveAttachments(consultationId);
+      } catch (saveError) {
+        setError(formatSupabaseError(saveError, "Unable to upload file."));
+        throw saveError;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [clientId, patchActiveAttachments],
+  );
+
+  const removeAttachment = useCallback(
+    async (consultationId: string, attachment: ConsultationAttachmentRecord) => {
+      setSaving(true);
+      try {
+        setError(null);
+        await deleteConsultationFile(clientId, attachment);
+        await patchActiveAttachments(consultationId);
       } catch (saveError) {
         setError(formatSupabaseError(saveError, "Unable to remove attachment."));
         throw saveError;
@@ -252,7 +286,7 @@ export function useConsultations(clientId: string) {
         setSaving(false);
       }
     },
-    [clientId, loadConsultation],
+    [clientId, patchActiveAttachments],
   );
 
   const clearActiveConsultation = useCallback(() => {
@@ -277,6 +311,7 @@ export function useConsultations(clientId: string) {
     cancelConsultation,
     addConsultation,
     attachFile,
+    uploadFile,
     removeAttachment,
     clearActiveConsultation,
   };

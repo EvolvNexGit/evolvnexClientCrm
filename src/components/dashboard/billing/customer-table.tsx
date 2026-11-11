@@ -1,13 +1,17 @@
 "use client";
 
+import { useState } from "react";
+import { PatientProfileDrawer } from "@/components/dashboard/patient/patient-profile-drawer";
 import { ListPaginationControls } from "@/components/ui/list-pagination-controls";
 import { Button } from "@/components/ui/button";
 import { RecordCard, ResponsivePageToolbar, ResponsiveRecordList, ResponsiveTableScroll } from "@/components/ui/responsive";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { useApp } from "@/contexts/app-context";
 import { usePersistentState } from "@/hooks/use-persistent-state";
-import type { CustomerPayload, CustomerRecord } from "@/lib/billing-types";
+import { BLOOD_GROUP_OPTIONS, GENDER_OPTIONS, type CustomerPayload, type CustomerRecord } from "@/lib/billing-types";
 import { formatUtcToIst } from "@/lib/time-utils";
+import { cn } from "@/lib/utils";
 
 function formatDateOnly(value: string | null) {
   if (!value) return "-";
@@ -16,6 +20,7 @@ function formatDateOnly(value: string | null) {
 }
 
 type CustomerTableProps = {
+  clientId: string;
   customers: CustomerRecord[];
   loading: boolean;
   error: string | null;
@@ -40,6 +45,10 @@ type CustomerFormState = {
   email: string;
   dob: string;
   outreachStatus: string;
+  gender: string;
+  bloodGroup: string;
+  allergies: string;
+  chronicConditions: string;
 };
 
 const initialForm: CustomerFormState = {
@@ -48,7 +57,21 @@ const initialForm: CustomerFormState = {
   email: "",
   dob: "",
   outreachStatus: "",
+  gender: "",
+  bloodGroup: "",
+  allergies: "",
+  chronicConditions: "",
 };
+
+/** Clinical payload fields; old persisted form state may lack these keys, hence the `?? ""` reads. */
+function buildClinicalPayload(form: CustomerFormState): Partial<CustomerPayload> {
+  return {
+    gender: (form.gender ?? "").trim() || null,
+    bloodGroup: (form.bloodGroup ?? "").trim() || null,
+    allergies: (form.allergies ?? "").trim() || null,
+    chronicConditions: (form.chronicConditions ?? "").trim() || null,
+  };
+}
 
 
 
@@ -61,6 +84,7 @@ function formatCurrency(amount: number) {
 }
 
 export function CustomerTable({
+  clientId,
   customers,
   loading,
   error,
@@ -72,23 +96,33 @@ export function CustomerTable({
   onDelete,
   pagination,
 }: CustomerTableProps) {
-  const [isAddOpen, setIsAddOpen] = usePersistentState("customer-table-is-add-open", false);
+  const { tabs } = useApp();
+  // Clinical fields are collected only for clinic clients (those with the consultation tab).
+  const hasClinicalFields = tabs.some((tab) => tab.key === "consultation");
+  // Plain state on purpose: the open patient is clinical data and must never reach localStorage.
+  const [profilePatient, setProfilePatient] = useState<CustomerRecord | null>(null);
+  const [isAddOpen, setIsAddOpen] = usePersistentState(`customer-table-is-add-open:${clientId}`, false);
   const [editingCustomer, setEditingCustomer] = usePersistentState<CustomerRecord | null>(
-    "customer-table-editing-customer",
+    `customer-table-editing-customer:${clientId}`,
     null,
   );
-  const [form, setForm] = usePersistentState<CustomerFormState>("customer-table-form", initialForm);
-  const [actionError, setActionError] = usePersistentState<string | null>("customer-table-action-error", null);
+  const [form, setForm] = usePersistentState<CustomerFormState>(`customer-table-form:${clientId}`, initialForm);
+  const [actionError, setActionError] = usePersistentState<string | null>(`customer-table-action-error:${clientId}`, null);
   const [pendingDeleteCustomer, setPendingDeleteCustomer] = usePersistentState<CustomerRecord | null>(
-    "customer-table-pending-delete",
+    `customer-table-pending-delete:${clientId}`,
     null,
   );
 
   const hasRows = customers.length > 0;
 
   function downloadCsv(filename: string, rows: string[][]) {
+    // Prefix a quote so cells starting with = + - @ (or tab/CR) open as text, not as spreadsheet formulas.
+    const safeCell = (cell: string) => {
+      const text = String(cell ?? "");
+      return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+    };
     const csv = rows
-      .map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
+      .map((row) => row.map((cell) => `"${safeCell(cell).replace(/"/g, '""')}"`).join(","))
       .join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -96,7 +130,8 @@ export function CustomerTable({
     link.href = url;
     link.download = filename;
     link.click();
-    URL.revokeObjectURL(url);
+    // Revoke after the click is handled so the download is not cancelled in some browsers.
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   function exportCustomersCsv() {
@@ -135,6 +170,10 @@ export function CustomerTable({
       email: customer.email ?? "",
       dob: customer.dob ?? "",
       outreachStatus: customer.outreach_status ?? "",
+      gender: customer.gender ?? "",
+      bloodGroup: customer.blood_group ?? "",
+      allergies: customer.allergies ?? "",
+      chronicConditions: customer.chronic_conditions ?? "",
     });
   }
 
@@ -149,6 +188,7 @@ export function CustomerTable({
         email: form.email.trim() || null,
         dob: form.dob || null,
         outreachStatus: form.outreachStatus.trim() || null,
+        ...(hasClinicalFields ? buildClinicalPayload(form) : {}),
       });
       setIsAddOpen(false);
       resetForm();
@@ -173,6 +213,7 @@ export function CustomerTable({
         email: form.email.trim() || null,
         dob: form.dob || null,
         outreachStatus: form.outreachStatus.trim() || null,
+        ...(hasClinicalFields ? buildClinicalPayload(form) : {}),
       });
       setEditingCustomer(null);
       resetForm();
@@ -236,14 +277,30 @@ export function CustomerTable({
           cards={customers.map((customer) => (
             <RecordCard key={customer.id}>
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate font-semibold text-text">{customer.name}</p>
-                  <p className="mt-1 truncate text-sm text-muted-foreground">{customer.phone ?? "-"}</p>
-                  <p className="truncate text-sm text-muted-foreground">{customer.email ?? "-"}</p>
-                  <p className="mt-1 truncate text-sm text-muted-foreground">
-                    Status: {customer.outreach_status || "-"}
-                  </p>
-                </div>
+                {(() => {
+                  const details = (
+                    <>
+                      <p className="truncate font-semibold text-text">{customer.name}</p>
+                      <p className="mt-1 truncate text-sm text-muted-foreground">{customer.phone ?? "-"}</p>
+                      <p className="truncate text-sm text-muted-foreground">{customer.email ?? "-"}</p>
+                      <p className="mt-1 truncate text-sm text-muted-foreground">
+                        Status: {customer.outreach_status || "-"}
+                      </p>
+                    </>
+                  );
+                  return hasClinicalFields ? (
+                    <button
+                      type="button"
+                      onClick={() => setProfilePatient(customer)}
+                      aria-label={`Open patient profile for ${customer.name}`}
+                      className="min-w-0 text-left"
+                    >
+                      {details}
+                    </button>
+                  ) : (
+                    <div className="min-w-0">{details}</div>
+                  );
+                })()}
                 <div className="shrink-0 text-right">
                   <p className="text-sm text-muted-foreground">{customer.totalOrders} orders</p>
                   <p className="mt-1 font-semibold text-text">{formatCurrency(customer.totalSpent)}</p>
@@ -277,8 +334,24 @@ export function CustomerTable({
                 </thead>
                 <tbody className="divide-y divide-border">
                   {customers.map((customer) => (
-                    <tr key={customer.id} className="hover:bg-muted/40">
-                      <td className="px-3 py-3 text-text">{customer.name}</td>
+                    <tr
+                      key={customer.id}
+                      className={cn("hover:bg-muted/40", hasClinicalFields && "cursor-pointer")}
+                      onClick={hasClinicalFields ? () => setProfilePatient(customer) : undefined}
+                    >
+                      <td className="px-3 py-3 text-text">
+                        {hasClinicalFields ? (
+                          <button
+                            type="button"
+                            aria-label={`Open patient profile for ${customer.name}`}
+                            className="text-left"
+                          >
+                            {customer.name}
+                          </button>
+                        ) : (
+                          customer.name
+                        )}
+                      </td>
                       <td className="px-3 py-3 text-muted-foreground">{customer.phone ?? "-"}</td>
                       <td className="px-3 py-3 text-muted-foreground">{customer.email ?? "-"}</td>
                       <td className="px-3 py-3 text-muted-foreground">{customer.outreach_status || "-"}</td>
@@ -286,7 +359,7 @@ export function CustomerTable({
                       <td className="px-3 py-3 text-muted-foreground">{formatUtcToIst(customer.created_at).slice(0, 10)}</td>
                       <td className="px-3 py-3 text-muted-foreground">{customer.totalOrders}</td>
                       <td className="px-3 py-3 text-muted-foreground">{formatCurrency(customer.totalSpent)}</td>
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-3" onClick={(event) => event.stopPropagation()}>
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
@@ -325,12 +398,22 @@ export function CustomerTable({
         itemLabel="customers"
       />
 
+      {hasClinicalFields && (
+        <PatientProfileDrawer
+          open={profilePatient !== null}
+          clientId={clientId}
+          patient={profilePatient}
+          onClose={() => setProfilePatient(null)}
+        />
+      )}
+
       <EntityModal open={isAddOpen} title="Add Customer" onClose={() => setIsAddOpen(false)}>
         <CustomerForm
           form={form}
           onChange={setForm}
           onSubmit={submitAdd}
           saving={saving}
+          showClinicalFields={hasClinicalFields}
           submitLabel="Create Customer"
         />
       </EntityModal>
@@ -345,6 +428,7 @@ export function CustomerTable({
           onChange={setForm}
           onSubmit={submitEdit}
           saving={saving}
+          showClinicalFields={hasClinicalFields}
           submitLabel="Save Changes"
         />
       </EntityModal>
@@ -373,17 +457,25 @@ export function CustomerTable({
   );
 }
 
+/** Keeps a stored value that is not in the preset list selectable so saving never silently blanks it. */
+function withStoredOption(options: readonly string[], current: string | undefined): string[] {
+  const value = (current ?? "").trim();
+  return value && !options.includes(value) ? [...options, value] : [...options];
+}
+
 function CustomerForm({
   form,
   onChange,
   onSubmit,
   saving,
+  showClinicalFields,
   submitLabel,
 }: {
   form: CustomerFormState;
   onChange: (next: CustomerFormState) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
   saving: boolean;
+  showClinicalFields: boolean;
   submitLabel: string;
 }) {
   return (
@@ -436,6 +528,66 @@ function CustomerForm({
           className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
         />
       </label>
+
+      {showClinicalFields && (
+        <>
+          <label className="block text-base text-muted-foreground">
+            <span className="mb-1 block">Gender</span>
+            <select
+              value={form.gender ?? ""}
+              onChange={(event) => onChange({ ...form, gender: event.target.value })}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
+            >
+              <option value="">Not set</option>
+              {withStoredOption(GENDER_OPTIONS, form.gender).map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block text-base text-muted-foreground">
+            <span className="mb-1 block">Blood group</span>
+            <select
+              value={form.bloodGroup ?? ""}
+              onChange={(event) => onChange({ ...form, bloodGroup: event.target.value })}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
+            >
+              <option value="">Not set</option>
+              {withStoredOption(BLOOD_GROUP_OPTIONS, form.bloodGroup).map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block text-base text-muted-foreground">
+            <span className="mb-1 block">Allergies</span>
+            <textarea
+              value={form.allergies ?? ""}
+              onChange={(event) => onChange({ ...form, allergies: event.target.value })}
+              placeholder="e.g. Penicillin, peanuts"
+              maxLength={500}
+              rows={2}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
+            />
+          </label>
+
+          <label className="block text-base text-muted-foreground">
+            <span className="mb-1 block">Chronic conditions</span>
+            <textarea
+              value={form.chronicConditions ?? ""}
+              onChange={(event) => onChange({ ...form, chronicConditions: event.target.value })}
+              placeholder="e.g. Diabetes, hypertension"
+              maxLength={500}
+              rows={2}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
+            />
+          </label>
+        </>
+      )}
 
       <Button type="submit" className="w-full" disabled={saving}>
         {saving ? "Saving..." : submitLabel}

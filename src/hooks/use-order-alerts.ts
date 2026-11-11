@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { fetchActiveOrders } from "@/lib/billing-queries";
 import type { TransactionRecord } from "@/lib/billing-types";
-import { isLocalPosOrderId } from "@/lib/order-alert-policy";
+import { isClinicOrderSource, isLocalPosOrderId } from "@/lib/order-alert-policy";
 import {
   loadKnownOrderIds,
   saveKnownOrderIds,
@@ -160,6 +160,11 @@ export function useOrderAlerts(clientId: string | null, enabled: boolean) {
         },
         (payload) => {
           const inserted = asInsertedBill(payload.new);
+          // Clinic bills never alert, whatever their final status.
+          if (isClinicOrderSource(inserted?.order_source)) {
+            return;
+          }
+
           const orderId = inserted?.id != null ? String(inserted.id) : "";
           if (!orderId) {
             return;

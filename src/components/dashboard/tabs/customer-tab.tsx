@@ -39,6 +39,7 @@ export default function CustomerTab({ clientId }: { clientId: string }) {
   return (
     <section className="space-y-4">
       <CustomerTable
+        clientId={clientId}
         customers={pagedCustomers.items}
         loading={pagedCustomers.loading}
         saving={customerState.saving}

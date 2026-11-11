@@ -1,3 +1,5 @@
+import type { ConsultationVitals } from "@/lib/consultation-vitals";
+
 export const CONSULT_STATUSES = ["DRAFT", "IN_PROGRESS", "COMPLETED", "CANCELLED"] as const;
 export type ConsultStatus = (typeof CONSULT_STATUSES)[number];
 
@@ -27,6 +29,7 @@ export type ConsultationRecord = {
   followup_date: string | null;
   followup_duration_days: number | null;
   followup_notes: string | null;
+  vitals: ConsultationVitals | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -58,7 +61,9 @@ export type ConsultationAttachmentRecord = {
   client_id: string;
   consultation_id: string;
   file_name: string;
+  /** Empty for bucket files; legacy rows hold a plain URL. */
   file_url: string;
+  storage_path: string | null;
   mime_type: string | null;
   file_size: number | null;
   uploaded_by: string | null;
@@ -70,6 +75,7 @@ export type ConsultationPatientSummary = {
   name: string;
   phone: string | null;
   dob: string | null;
+  allergies: string | null;
 };
 
 export type ConsultationAppointmentSummary = {
@@ -149,6 +155,7 @@ export type ConsultationPayload = {
   followupDate?: string | null;
   followupDurationDays?: number | null;
   followupNotes?: string | null;
+  vitals?: ConsultationVitals | null;
   medications?: ConsultationMedicationInput[];
   exercises?: ConsultationExerciseInput[];
 };

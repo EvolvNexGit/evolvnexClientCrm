@@ -1,117 +1,117 @@
 # Requirements: EvolvNex Business Growth OS
 
-**Defined:** 2026-08-20
-**Core Value:** A tenant's people and conversations live in one isolated system — CRM context plus a working inbox — without mixing tenants, leaking secrets, or baking WhatsApp into the rest of the product.
+**Defined:** 2026-11-10
+**Core Value:** A tenant's people and records live in one isolated system — each client gets only the tabs and workflows it needs — without mixing tenants or leaking secrets.
 
 ## v1 Requirements
 
-Requirements for the inbox milestone. Existing CRM/WhatsApp plumbing is treated as a baseline to preserve, not a rebuild.
+Requirements for the doctor/clinic milestone. Existing CRM, WhatsApp and POS code is a baseline to preserve, not a rebuild.
 
-### Inbox
+### Appointments
 
-- [ ] **INBX-01**: Authenticated staff can open a Conversations view listing this tenant’s threads (preview, time, unread or equivalent signal)
-- [ ] **INBX-02**: Staff can open a thread and read messages in chronological order
-- [ ] **INBX-03**: Conversations UI shows loading, empty, and error states and remains usable on a mobile viewport
-- [ ] **INBX-04**: While a thread is open, newly persisted messages for that tenant appear without a full page reload (Realtime or equivalent)
+- [x] **APPT-01**: Staff can view appointments on a day and week calendar with staff columns, and create or edit from an empty slot or a card; the list view remains
+- [x] **APPT-02**: Booking or moving an appointment onto an overlapping slot for the same staff shows a conflict warning
+- [x] **APPT-03**: Appointment create, update and status changes live in `appointment-queries.ts`, scoped by `client_id`
 
-### Webhook ingest
+### Patients
 
-- [ ] **WHHK-01**: Inbound WhatsApp webhooks are authenticated with `X-Hub-Signature-256` over the raw body using the app secret for that payload’s `phone_number_id` only
-- [ ] **WHHK-02**: A verified inbound customer message is stored once; Meta retries with the same provider message id do not create duplicate visible messages
-- [ ] **WHHK-03**: Delivery/status callbacks for this tenant’s number return success to Meta and update the corresponding outbound message state (at least sent vs failed)
-- [ ] **WHHK-04**: Webhook processing never authorizes a tenant from a client-supplied tenant id; mapping is WABA `phone_number_id` → provider account → `client_id`
+- [x] **PAT-01**: A patient (customer row) stores gender, blood group, allergies and chronic conditions as nullable fields
+- [x] **PAT-02**: Staff can open a patient profile with Overview, Visits and Files; allergies are prominent
 
-### Send
+### Consultation and print
 
-- [ ] **SEND-01**: Staff can send a reply in an open thread; the Cloud API token never ships to the browser
-- [ ] **SEND-02**: If Graph rejects the send, staff see a safe failure (no stack traces or tokens); the message is not shown as successfully delivered
-- [ ] **SEND-03**: If the WhatsApp customer-care window is closed, staff cannot send a free-form session message as if it succeeded (composer blocked or explicit “template required” — templates as a product are v2)
+- [x] **CONS-01**: A consultation stores vitals (BP, pulse, temperature, weight, SpO2)
+- [x] **CONS-02**: A pinned patient strip (name, age, allergies) stays visible on the consult form
+- [x] **CONS-03**: Attachments upload to a private, client-scoped Storage bucket and open through signed URLs
+- [x] **PRNT-01**: A client saves letterhead margins (header, footer, left, right in mm) once
+- [x] **PRNT-02**: A completed consult prints body-only (medications, advice, follow-up) using those margins
 
-### Model and tenancy
+### Doctor billing
 
-- [ ] **MODEL-01**: Threads and messages use provider-independent records; WhatsApp ids live in the provider layer, not as the CRM customer primary model
-- [ ] **TENANT-01**: New conversation/message tables have RLS so tenant A cannot read tenant B’s inbox
-- [ ] **CRED-01**: Provider secrets and the service-role key remain server-only (credentials route and webhook stay that way)
+- [ ] **BILL-01**: A `doctor-billing` tab (DB key 015) is assignable per client; the doctor client has it instead of Billing
+- [ ] **BILL-02**: `bills` records payment mode, paid/unpaid status and links to a consultation and appointment; order source `Clinic` exists
+- [ ] **BILL-03**: A `SECURITY INVOKER` function creates a clinic bill and verifies customer, products and consultation belong to the caller's client
+- [ ] **BILL-04**: A receipt prints through the same print mechanism; an unpaid list is available
+- [ ] **BILL-05**: Clinic bills are excluded from cafe summary analytics, active-order lists and order alerts
 
-### CRM
+### Security
 
-- [ ] **CONT-01**: When an inbound WhatsApp number matches a tenant customer (normalized phone), the thread is linked to that contact
-- [ ] **CRM-01**: Existing contacts, appointments, consultations, and promotions tabs still load and mutate for the signed-in tenant after inbox work
-
-### Navigation
-
-- [ ] **NAV-01**: Staff can reach Conversations from Communication-style navigation without implying Campaigns, Segments, or Automation are shipped
+- [x] **SEC-01**: The live RLS hardening (products, counters, clients, appointments, bill_items, tasks, function grants) exists as a migration in `supabase/migrations/`
 
 ## v2 Requirements
 
-Deferred to later OS milestones. Tracked, not in this roadmap.
+Deferred. Tracked, not in this roadmap.
 
-### Communication product
+### Communication (paused 2026-11-10)
 
-- **CAMP-01**: Tenant can run WhatsApp campaigns / broadcasts
-- **SEGM-01**: Tenant can target segments of contacts
-- **AUTO-01**: Step-based automation (not drag-and-drop unless separately approved)
-- **TMPL-01**: Template gallery as a product (beyond window-closed UX)
-- **MEDA-01**: Image/document/voice as a first-class inbox surface
-- **ASGN-01**: Multi-agent assignment and SLAs
-- **PROV-01**: Instagram, email, SMS, or Telegram as additional providers
+- **INBX-01**: Conversations inbox (threads, messages, live updates)
+- **WHHK-01**: Hardened, tenant-safe, idempotent WhatsApp webhook ingest
+- **SEND-01**: Server-side replies with 24-hour window handling
+- **REMD-01**: Appointment and follow-up reminders over WhatsApp
+- **CAMP-01**: Campaigns / broadcasts
+- **SEGM-01**: Segments
+- **AUTO-01**: Step-based automation
+- **PROV-01**: Additional providers
+
+### Clinical depth
+
+- **CLIN-01**: Printable e-prescription with drug database and interaction checks
+- **CLIN-02**: Audit log and consent tracking for record access
+- **CLIN-03**: Online booking link, patient portal, telemedicine
+- **CLIN-04**: GST invoices, insurance claims, treatment packages
 
 ### Other OS modules
 
-- **POS-01**: POS as a first-class ship slice (partial exists)
+- **POS-01**: POS as a first-class slice (partial exists)
 - **LEAD-01**: LEADS module complete
 - **HRM-01**: HRM module complete
-- **AIR-01**: AirMenu / QR ordering (separate from Communication)
-- **PAY-01**: Payment provider completion (Razorpay etc.)
+- **AIR-01**: AirMenu / QR ordering
+- **PAY-01**: Payment provider completion
 
 ## Out of Scope
-
-Explicitly excluded. Documented to prevent scope creep.
 
 | Feature | Reason |
 |---------|--------|
 | Drag-and-drop automation builder | Constitution unless explicitly approved |
 | Disable RLS / expose service role / trust client tenant id | Security non-negotiable |
 | Replace Next.js, React, TypeScript, or Supabase | Existing OS stack |
-| Rebuild CRM tabs for v1 | User decision: keep current tabs |
-| Mix ordering or payments into Communication services | Constitution module boundaries |
+| Rebuild CRM tabs | Extend existing tabs and tables only |
+| Separate invoice table | Reuse `bills` / `bill_items` / `products` |
+| Modifying `create_order_with_inventory` | Cafe flow stays as is; clinic uses its own function |
 
 ## User Stories & Acceptance Criteria
 
-- Staff signs in, opens Conversations, sees only their tenant’s threads, opens one, reads history, replies; CRM contact appears when the phone matches; other CRM tabs still work.
-- A forged or mixed-WABA webhook does not write another tenant’s messages.
-- Duplicate Meta deliveries do not duplicate the thread.
-- Failed Graph sends are visible as failures.
+- Receptionist opens the week calendar, books a patient into a free slot, gets warned on a clash, and moves the visit by clicking the card.
+- Doctor opens a patient, sees allergies at the top, records vitals and notes, attaches a report privately, and prints the prescription on pre-printed letterhead.
+- Receptionist bills the consult from the consult screen, takes payment, and prints a receipt; unpaid bills show in one list.
+- Another tenant, or an anonymous caller, cannot read any of this data.
 
 ## Traceability
 
-Which phases cover which requirements. Filled during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MODEL-01 | Phase 1 | Pending |
-| TENANT-01 | Phase 1 | Pending |
-| CRED-01 | Phase 1 | Pending |
-| WHHK-01 | Phase 2 | Pending |
-| WHHK-02 | Phase 2 | Pending |
-| WHHK-03 | Phase 2 | Pending |
-| WHHK-04 | Phase 2 | Pending |
-| SEND-01 | Phase 3 | Pending |
-| SEND-02 | Phase 3 | Pending |
-| SEND-03 | Phase 3 | Pending |
-| INBX-01 | Phase 4 | Pending |
-| INBX-02 | Phase 4 | Pending |
-| INBX-03 | Phase 4 | Pending |
-| INBX-04 | Phase 4 | Pending |
-| CONT-01 | Phase 5 | Pending |
-| CRM-01 | Phase 5 | Pending |
-| NAV-01 | Phase 6 | Pending |
+| APPT-01 | Phase 1 | Complete |
+| APPT-02 | Phase 1 | Complete |
+| APPT-03 | Phase 1 | Complete |
+| PAT-01 | Phase 1 | Complete |
+| PAT-02 | Phase 1 | Complete |
+| SEC-01 | Phase 1 | Complete |
+| CONS-01 | Phase 2 | Complete |
+| CONS-02 | Phase 2 | Complete |
+| CONS-03 | Phase 2 | Complete |
+| PRNT-01 | Phase 2 | Complete |
+| PRNT-02 | Phase 2 | Complete |
+| BILL-01 | Phase 3 | Pending |
+| BILL-02 | Phase 3 | Pending |
+| BILL-03 | Phase 3 | Pending |
+| BILL-04 | Phase 3 | Pending |
+| BILL-05 | Phase 3 | Pending |
 
 **Coverage:**
-- v1 requirements: 17 total
-- Mapped to phases: 17
+- v1 requirements: 16 total
+- Mapped to phases: 16
 - Unmapped: 0
 
 ---
-*Requirements defined: 2026-08-20*
-*Last updated: 2026-08-20 after roadmap*
+*Requirements defined: 2026-11-10*
+*Last updated: 2026-11-10 after roadmap restructure (WhatsApp inbox phases dropped)*

@@ -147,3 +147,20 @@ a {
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--primary));
 }
+
+/* Print isolation: only the portal print sheet is printed (shared by prescriptions and receipts).
+   Scoped with :has so a normal Ctrl+P on a page with no print sheet mounted is not blanked. */
+@media print {
+  body:has(> [data-print-root]) > *:not([data-print-root]) {
+    display: none !important;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+}

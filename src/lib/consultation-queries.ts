@@ -1,5 +1,12 @@
 import { formatSupabaseError, getSupabaseClient } from "@/lib/supabase";
 import { formatUtcToIst, formatUtcToIstTimeLabel } from "@/lib/time-utils";
+import { parseVitals } from "@/lib/consultation-vitals";
+import {
+  buildStoragePath,
+  CONSULTATION_FILES_BUCKET,
+  SIGNED_URL_TTL_SECONDS,
+  validateConsultationFile,
+} from "@/lib/consultation-files";
 import {
   formatPatientAge,
   getPatientCode,
@@ -7,6 +14,7 @@ import {
   toDisplayStatus,
   toDisplayVisitType,
   type ConsultationAttachmentInput,
+  type ConsultationAttachmentRecord,
   type ConsultationDetail,
   type ConsultationExerciseInput,
   type ConsultationHistoryItem,
@@ -36,10 +44,11 @@ const CONSULTATION_SELECT = `
   followup_date,
   followup_duration_days,
   followup_notes,
+  vitals,
   created_by,
   created_at,
   updated_at,
-  customers:patient_id (id, name, phone, dob),
+  customers:patient_id (id, name, phone, dob, allergies),
   appointments:appointment_id (id, date, start_time, remark, service)
 `;
 
@@ -75,11 +84,14 @@ function mapPatient(raw: unknown) {
   }
 
   const patient = row as Record<string, unknown>;
+  // Blank allergies means "not recorded", never "none".
+  const allergies = typeof patient.allergies === "string" ? patient.allergies.trim() : "";
   return {
     id: String(patient.id ?? ""),
     name: String(patient.name ?? "Unknown patient"),
     phone: (patient.phone as string | null) ?? null,
     dob: (patient.dob as string | null) ?? null,
+    allergies: allergies || null,
   };
 }
 
@@ -119,6 +131,7 @@ function mapConsultationRecord(row: Record<string, unknown>): ConsultationRecord
     followup_duration_days:
       row.followup_duration_days == null ? null : Number(row.followup_duration_days),
     followup_notes: (row.followup_notes as string | null) ?? null,
+    vitals: parseVitals(row.vitals),
     created_by: row.created_by ? String(row.created_by) : null,
     created_at: String(row.created_at ?? ""),
     updated_at: String(row.updated_at ?? ""),
@@ -178,6 +191,7 @@ function buildConsultationRow(clientId: string, payload: ConsultationPayload) {
     followup_date: payload.followupDate ?? null,
     followup_duration_days: payload.followupDurationDays ?? null,
     followup_notes: payload.followupNotes ?? null,
+    vitals: payload.vitals ?? null,
     updated_at: new Date().toISOString(),
   };
 }
@@ -281,6 +295,21 @@ export async function fetchConsultationQueueStats(
   return buildConsultationQueueStats(rows);
 }
 
+function mapAttachmentRow(item: Record<string, unknown>): ConsultationAttachmentRecord {
+  return {
+    id: String(item.id),
+    client_id: String(item.client_id),
+    consultation_id: String(item.consultation_id),
+    file_name: String(item.file_name ?? ""),
+    file_url: String(item.file_url ?? ""),
+    storage_path: item.storage_path ? String(item.storage_path) : null,
+    mime_type: item.mime_type == null ? null : String(item.mime_type),
+    file_size: item.file_size == null ? null : Number(item.file_size),
+    uploaded_by: item.uploaded_by ? String(item.uploaded_by) : null,
+    uploaded_at: String(item.uploaded_at ?? ""),
+  };
+}
+
 export async function fetchConsultationById(
   clientId: string,
   consultationId: string,
@@ -361,18 +390,64 @@ export async function fetchConsultationById(
       instructions: item.instructions ?? null,
       created_at: String(item.created_at ?? ""),
     })),
-    attachments: (attachmentsResult.data ?? []).map((item) => ({
-      id: String(item.id),
-      client_id: String(item.client_id),
-      consultation_id: String(item.consultation_id),
-      file_name: String(item.file_name ?? ""),
-      file_url: String(item.file_url ?? ""),
-      mime_type: item.mime_type ?? null,
-      file_size: item.file_size == null ? null : Number(item.file_size),
-      uploaded_by: item.uploaded_by ? String(item.uploaded_by) : null,
-      uploaded_at: String(item.uploaded_at ?? ""),
-    })),
+    attachments: (attachmentsResult.data ?? []).map((item) => mapAttachmentRow(item)),
   };
+}
+
+/** Caps how many of a patient's consultations are searched for attachments. */
+const PATIENT_ATTACHMENT_CONSULTATION_LIMIT = 200;
+const PATIENT_ATTACHMENT_ID_CHUNK_SIZE = 50;
+
+export async function fetchPatientAttachments(
+  clientId: string,
+  patientId: string,
+): Promise<ConsultationAttachmentRecord[]> {
+  const supabase = getClient();
+
+  const { data: consultationRows, error: consultationError } = await supabase
+    .from("consultations")
+    .select("id")
+    .eq("client_id", clientId)
+    .eq("patient_id", patientId)
+    .neq("status", "CANCELLED")
+    .order("created_at", { ascending: false })
+    .limit(PATIENT_ATTACHMENT_CONSULTATION_LIMIT);
+
+  if (consultationError) {
+    raiseQueryError(consultationError, "Unable to load patient files.");
+  }
+
+  const consultationIds = (consultationRows ?? []).map((row) => String(row.id));
+  if (consultationIds.length === 0) {
+    return [];
+  }
+
+  // Chunk the id list so the PostgREST `in.(...)` URL stays well under common request-line limits.
+  const chunks: string[][] = [];
+  for (let index = 0; index < consultationIds.length; index += PATIENT_ATTACHMENT_ID_CHUNK_SIZE) {
+    chunks.push(consultationIds.slice(index, index + PATIENT_ATTACHMENT_ID_CHUNK_SIZE));
+  }
+
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      supabase
+        .from("consultation_attachments")
+        .select("*")
+        .eq("client_id", clientId)
+        .in("consultation_id", chunk)
+        .order("uploaded_at", { ascending: false }),
+    ),
+  );
+
+  const attachments: ConsultationAttachmentRecord[] = [];
+  for (const { data, error } of results) {
+    if (error) {
+      raiseQueryError(error, "Unable to load patient files.");
+    }
+    attachments.push(...(data ?? []).map((item) => mapAttachmentRow(item)));
+  }
+
+  return attachments.sort((left, right) => right.uploaded_at.localeCompare(left.uploaded_at));
 }
 
 export async function fetchPatientConsultationHistory(
@@ -598,6 +673,84 @@ export async function addConsultationAttachment(
   }
 }
 
+export async function fetchConsultationAttachments(
+  clientId: string,
+  consultationId: string,
+): Promise<ConsultationAttachmentRecord[]> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("consultation_attachments")
+    .select("*")
+    .eq("client_id", clientId)
+    .eq("consultation_id", consultationId)
+    .order("uploaded_at", { ascending: false });
+
+  if (error) {
+    raiseQueryError(error, "Unable to load consultation attachments.");
+  }
+
+  return (data ?? []).map((item) => mapAttachmentRow(item));
+}
+
+/** Uploads to the private bucket under the signed-in user's JWT, then records the row. */
+export async function uploadConsultationFile(
+  clientId: string,
+  consultationId: string,
+  file: File,
+): Promise<void> {
+  const invalidMessage = validateConsultationFile(file);
+  if (invalidMessage) {
+    throw new Error(invalidMessage);
+  }
+
+  const supabase = getClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const storagePath = buildStoragePath(clientId, consultationId, crypto.randomUUID(), file.name);
+  const bucket = supabase.storage.from(CONSULTATION_FILES_BUCKET);
+
+  const { error: uploadError } = await bucket.upload(storagePath, file, {
+    contentType: file.type,
+    upsert: false,
+  });
+  if (uploadError) {
+    raiseQueryError(uploadError, "Unable to upload file.");
+  }
+
+  const { error: insertError } = await supabase.from("consultation_attachments").insert({
+    client_id: clientId,
+    consultation_id: consultationId,
+    file_name: file.name.trim().slice(0, 255) || "file",
+    file_url: null,
+    storage_path: storagePath,
+    mime_type: file.type,
+    file_size: file.size,
+    uploaded_by: user?.id ?? null,
+  });
+
+  if (insertError) {
+    // Best effort: do not leave an orphaned object behind a failed row insert.
+    await bucket.remove([storagePath]);
+    raiseQueryError(insertError, "Unable to save file record.");
+  }
+}
+
+/** Creates a short-lived signed URL at click time. Never store or log the result. */
+export async function getConsultationFileUrl(storagePath: string): Promise<string> {
+  const supabase = getClient();
+  const { data, error } = await supabase.storage
+    .from(CONSULTATION_FILES_BUCKET)
+    .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+
+  if (error || !data?.signedUrl) {
+    raiseQueryError(error, "Unable to open file.");
+  }
+
+  return data.signedUrl;
+}
+
 export async function deleteConsultationAttachment(
   clientId: string,
   attachmentId: string,
@@ -613,6 +766,24 @@ export async function deleteConsultationAttachment(
     raiseQueryError(error, "Unable to remove consultation attachment.");
   }
 }
+
+/**
+ * Removes the row first, then the bucket object (best effort). A failed object removal leaves an
+ * orphan object instead of an undeletable row. Legacy rows (no storage_path) delete only the row.
+ */
+export async function deleteConsultationFile(
+  clientId: string,
+  attachment: ConsultationAttachmentRecord,
+): Promise<void> {
+  await deleteConsultationAttachment(clientId, attachment.id);
+
+  if (attachment.storage_path) {
+    // Result intentionally ignored: the row is already gone and the user cannot retry a missing row.
+    await getClient().storage.from(CONSULTATION_FILES_BUCKET).remove([attachment.storage_path]);
+  }
+}
+
+const CONSULTATION_ALREADY_COMPLETED_MESSAGE = "Consultation is already completed.";
 
 export async function updateConsultation(
   clientId: string,
@@ -641,23 +812,54 @@ export async function updateConsultation(
     updateRow.followup_duration_days = payload.followupDurationDays;
   }
   if (payload.followupNotes !== undefined) updateRow.followup_notes = payload.followupNotes;
+  // Only written when provided, so status-only updates never wipe stored vitals.
+  if (payload.vitals !== undefined) updateRow.vitals = payload.vitals;
 
-  const { error } = await supabase
+  // A Completed consult is final (D-11): refuse before any child rows are touched.
+  const { data: current, error: readError } = await supabase
     .from("consultations")
-    .update(updateRow)
+    .select("status")
     .eq("id", consultationId)
-    .eq("client_id", clientId);
+    .eq("client_id", clientId)
+    .maybeSingle();
 
-  if (error) {
-    raiseQueryError(error, "Unable to update consultation.");
+  if (readError) {
+    raiseQueryError(readError, "Unable to update consultation.");
   }
 
+  if (!current) {
+    throw new Error("Consultation not found.");
+  }
+
+  if (current.status === "COMPLETED") {
+    throw new Error(CONSULTATION_ALREADY_COMPLETED_MESSAGE);
+  }
+
+  // Children first, the consultation row (and so COMPLETED) last: if a child write fails
+  // the consult stays editable instead of becoming a Completed visit with no medications.
   if (payload.medications) {
     await replaceConsultationMedications(clientId, consultationId, payload.medications);
   }
 
   if (payload.exercises) {
     await replaceConsultationExercises(clientId, consultationId, payload.exercises);
+  }
+
+  // The status guard also closes the race with another tab completing the visit after the read above.
+  const { data: updated, error } = await supabase
+    .from("consultations")
+    .update(updateRow)
+    .eq("id", consultationId)
+    .eq("client_id", clientId)
+    .or("status.is.null,status.neq.COMPLETED")
+    .select("id");
+
+  if (error) {
+    raiseQueryError(error, "Unable to update consultation.");
+  }
+
+  if (!updated || updated.length === 0) {
+    throw new Error(CONSULTATION_ALREADY_COMPLETED_MESSAGE);
   }
 }
 

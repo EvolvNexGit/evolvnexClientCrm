@@ -10,6 +10,7 @@ import {
   getSupabaseConfigError,
   isNetworkAuthError,
 } from "@/lib/supabase";
+import { clearPersistentStateByPrefix } from "@/hooks/use-persistent-state";
 import { getClientIdForAuthUser } from "@/lib/client-cache";
 import { getTabs } from "@/lib/tabs";
 import type { TabDefinition } from "@/lib/types";
@@ -256,6 +257,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
+    // Patient/appointment form state is persisted in localStorage; drop it so the next sign-in starts clean.
+    clearPersistentStateByPrefix(["customer-table-", "appointments-tab-"]);
     const supabase = getSupabaseClient();
 
     if (!supabase) {

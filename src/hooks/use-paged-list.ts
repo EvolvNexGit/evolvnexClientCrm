@@ -18,13 +18,20 @@ type UsePagedListOptions<T> = {
   resetKey: string;
   fetchPage: (args: FetchPageArgs) => Promise<ListPageResult<T>>;
   enabled?: boolean;
+  /** Drop the previous key's rows (and show loading) as soon as the key changes; refreshes of the same key still keep rows. */
+  clearOnKeyChange?: boolean;
 };
 
 /**
  * Paginated list loader. `fetchPage` may be an inline lambda — it is stored in a ref so
  * identity changes do not retrigger loads (that previously caused infinite flicker).
  */
-export function usePagedList<T>({ resetKey, fetchPage, enabled = true }: UsePagedListOptions<T>) {
+export function usePagedList<T>({
+  resetKey,
+  fetchPage,
+  enabled = true,
+  clearOnKeyChange = false,
+}: UsePagedListOptions<T>) {
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -35,6 +42,7 @@ export function usePagedList<T>({ resetKey, fetchPage, enabled = true }: UsePage
   const requestIdRef = useRef(0);
   const fetchPageRef = useRef(fetchPage);
   const enabledRef = useRef(enabled);
+  const clearOnKeyChangeRef = useRef(clearOnKeyChange);
   const resetKeyRef = useRef(resetKey);
   const itemsLengthRef = useRef(0);
   const loadedKeyRef = useRef<string | null>(null);
@@ -42,6 +50,7 @@ export function usePagedList<T>({ resetKey, fetchPage, enabled = true }: UsePage
 
   fetchPageRef.current = fetchPage;
   enabledRef.current = enabled;
+  clearOnKeyChangeRef.current = clearOnKeyChange;
   resetKeyRef.current = resetKey;
   itemsLengthRef.current = items.length;
 
@@ -74,6 +83,14 @@ export function usePagedList<T>({ resetKey, fetchPage, enabled = true }: UsePage
 
     const requestId = ++requestIdRef.current;
     inFlightKeyRef.current = key;
+
+    // A different filter must not show (or paginate from) the previous filter's rows while it loads.
+    if (clearOnKeyChangeRef.current && loadedKeyRef.current !== key) {
+      itemsLengthRef.current = 0;
+      setItems([]);
+      setHasMore(false);
+      setTotalCount(null);
+    }
 
     // Only blank the UI on the first load for a key — never hide existing rows on refresh.
     if (itemsLengthRef.current === 0) {

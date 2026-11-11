@@ -6,6 +6,7 @@ import {
   sendNewOrderPush,
   shouldSendOrderPush,
 } from "@/lib/web-push-server";
+import { isClinicOrderSource } from "@/lib/order-alert-policy";
 
 export const runtime = "nodejs";
 
@@ -60,6 +61,10 @@ export async function POST(request: NextRequest) {
     const bill = extractInsertedBill(payload);
     if (!bill) {
       return NextResponse.json({ ok: true, skipped: "missing_record" });
+    }
+
+    if (isClinicOrderSource(bill.order_source)) {
+      return NextResponse.json({ ok: true, skipped: "clinic_order" });
     }
 
     if (!shouldSendOrderPush(bill)) {
