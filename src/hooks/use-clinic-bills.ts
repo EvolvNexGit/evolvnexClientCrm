@@ -12,6 +12,7 @@ export function useClinicBills(clientId: string, filter: ClinicBillFilter) {
   const { items, loading, loadingMore, error, hasMore, totalCount, refresh, showMore, showAll } =
     usePagedList<ClinicBillRecord>({
       resetKey: `${clientId}:${filter}`,
+      clearOnKeyChange: true,
       fetchPage: ({ limit, offset }) => fetchClinicBillsPage(clientId, { limit, offset, filter }),
     });
 
