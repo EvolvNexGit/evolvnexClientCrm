@@ -8,6 +8,8 @@ Newest first. Each entry: what changed, files, contracts. Structural changes are
 
 **Status at time of writing:** migrations A and B are applied to live (2026-11-11, probes V1-V10 in the 03-01 SUMMARY) and the code is committed on `feature/doctor-crm-phase1`. Migration C (`20261112_doctor_billing_tab.sql`) is authored but NOT applied; plan 03-06 applies it last. Until then no client can see the new tab.
 
+**Update 2026-11-11 (after review):** migration C is applied (doctor client has 015 "Billing", 004 disabled; other clients unchanged). Code review `03-REVIEW.md` found CR-01 (direct writes could tamper with Clinic bills); migration D (`20261113_clinic_bills_write_guard.sql`, applied by the user) adds `bills_clinic_guard` and `bill_items_clinic_guard` triggers and re-creates `create_clinic_bill` with the `app.clinic_rpc` flag. Fixes for WR-01..WR-05, IN-02, IN-05 and a Billing-tab empty-state hint are in `03-REVIEW-FIX.md`. Deploy order is now A, B, code, C, D.
+
 **Contracts introduced**
 - `order_source` enum gains the label `Clinic` (migration A, alone).
 - `bills` columns `payment_status` (lowercase `paid` / `unpaid`), `payment_mode` (`CASH`, `UPI`, `CARD`, `OTHER`), `consultation_id` and `appointment_id` (columns and FKs were already live; recorded with guards). Scoped CHECK `bills_clinic_payment_chk`: the mode rule applies to `Clinic` rows only (`coalesce(order_source::text, '') <> 'Clinic'` short-circuits), so the 597 legacy paid/NULL-mode rows stay valid. Clinic rows: paid needs a mode, unpaid has none.
