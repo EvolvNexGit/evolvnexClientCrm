@@ -99,5 +99,5 @@ Quick smoke path, about 15 minutes:
 - Code review run for Phase 3; 9 review findings fixed, the rest recorded in `03-REVIEW.md`.
 - Type check clean apart from a missing `web-push` package on the dev machine (affects only the push route locally).
 - Live database checks (tenant isolation, function privileges, tab access) done read-only or with rolled-back probes.
-- The write guards from migration D were checked for presence only; confirm Create bill and Mark paid still work in the browser.
+- The write guards from migration D passed a rolled-back probe as the doctor on 2026-11-11: Create bill and Mark paid work; direct edit, insert, delete, flip-back and item edits are blocked; a second bill for the same consult is refused; a cafe insert works. Not probed: updating an existing cafe bill and re-tagging a cafe bill as Clinic (no cafe bills in the test tenants), so do one cafe order and status change in the browser.
 - Browser UAT for Phases 1, 2 and 3 is pending; phase status stays open until it passes.
