@@ -32,7 +32,6 @@ const EMPTY_STATS: ConsultationQueueStats = {
   waiting: 0,
   inProgress: 0,
   completedToday: 0,
-  walkIns: 0,
 };
 
 export function useConsultations(clientId: string) {

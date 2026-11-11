@@ -283,7 +283,6 @@ export function buildConsultationQueueStats(rows: ConsultationQueueRow[]): Consu
     waiting: rows.filter((row) => row.status === "Waiting").length,
     inProgress: rows.filter((row) => row.status === "In Progress").length,
     completedToday: rows.filter((row) => row.status === "Completed").length,
-    walkIns: rows.filter((row) => row.type === "Walk-in").length,
   };
 }
 

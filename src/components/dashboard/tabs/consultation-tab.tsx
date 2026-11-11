@@ -22,7 +22,6 @@ import {
   Settings,
   Stethoscope,
   Trash2,
-  UserCircle2,
   X,
 } from "lucide-react";
 import { DataState } from "@/components/dashboard/billing/data-state";
@@ -81,7 +80,7 @@ type QueueView = "All" | ConsultDisplayStatus;
 
 const planTabs = ["Advice", "Medication", "Exercises", "Treatment Plan", "Others"] as const;
 const historyFilters = ["All", "Consults", "Bills", "Reports", "Notes", "Docs"] as const;
-const visitTypeOptions: ConsultDisplayType[] = ["New", "Follow-up", "Walk-in"];
+const visitTypeOptions: ConsultDisplayType[] = ["New", "Follow-up"];
 
 type PlanTab = (typeof planTabs)[number];
 
@@ -191,13 +190,11 @@ function StatCard({
   value,
   subtext,
   icon: Icon,
-  ring,
 }: {
   label: string;
   value: string;
   subtext: string;
   icon: typeof CalendarClock;
-  ring: string;
 }) {
   return (
     <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -207,7 +204,7 @@ function StatCard({
           <p className="mt-2 text-3xl font-semibold text-text">{value}</p>
           <p className="mt-1 text-xs text-muted-foreground">{subtext}</p>
         </div>
-        <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${ring}`}>
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -514,35 +511,24 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
         value: String(stats.todaysConsults),
         subtext: "Total scheduled",
         icon: CalendarClock,
-        ring: "bg-violet-500/20 text-violet-300",
       },
       {
         label: "Waiting",
         value: String(stats.waiting),
         subtext: "Patients waiting",
         icon: Clock3,
-        ring: "bg-amber-500/20 text-amber-300",
       },
       {
         label: "In Progress",
         value: String(stats.inProgress),
         subtext: "Currently in consult",
         icon: Stethoscope,
-        ring: "bg-emerald-500/20 text-emerald-300",
       },
       {
         label: "Completed Today",
         value: String(stats.completedToday),
         subtext: "Consults completed",
         icon: Check,
-        ring: "bg-sky-500/20 text-sky-300",
-      },
-      {
-        label: "Walk-ins",
-        value: String(stats.walkIns),
-        subtext: "Today",
-        icon: UserCircle2,
-        ring: "bg-slate-500/20 text-slate-300",
       },
     ],
     [stats],
@@ -1061,7 +1047,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {queueStats.map((item) => (
             <StatCard key={item.label} {...item} />
           ))}
@@ -1491,76 +1477,98 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                   ) : (
                     medications.map((medication, index) => (
                       <div key={medication.key} className="grid gap-3 rounded-2xl border border-border bg-background p-4 sm:grid-cols-2">
-                        <input
-                          value={medication.medicineName}
-                          onChange={(event) =>
-                            setMedications((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, medicineName: event.target.value } : item,
-                              ),
-                            )
-                          }
-                          placeholder="Medicine name"
-                          className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none sm:col-span-2"
-                        />
-                        <input
-                          value={medication.dosage ?? ""}
-                          onChange={(event) =>
-                            setMedications((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, dosage: event.target.value } : item,
-                              ),
-                            )
-                          }
-                          placeholder="Dosage"
-                          className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
-                        />
-                        <input
-                          value={medication.frequency ?? ""}
-                          onChange={(event) =>
-                            setMedications((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, frequency: event.target.value } : item,
-                              ),
-                            )
-                          }
-                          placeholder="Frequency"
-                          className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
-                        />
-                        <input
-                          value={medication.duration ?? ""}
-                          onChange={(event) =>
-                            setMedications((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, duration: event.target.value } : item,
-                              ),
-                            )
-                          }
-                          placeholder="Duration"
-                          className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
-                        />
-                        <div className="flex gap-2">
+                        <label className="grid gap-1 sm:col-span-2">
+                          <span className="text-xs font-medium text-muted-foreground">Medicine name</span>
                           <input
-                            value={medication.instructions ?? ""}
+                            value={medication.medicineName}
                             onChange={(event) =>
                               setMedications((current) =>
                                 current.map((item, itemIndex) =>
-                                  itemIndex === index ? { ...item, instructions: event.target.value } : item,
+                                  itemIndex === index ? { ...item, medicineName: event.target.value } : item,
                                 ),
                               )
                             }
-                            placeholder="Instructions"
-                            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
+                            placeholder="Medicine name"
+                            className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
                           />
-                          <Button
-                            variant="secondary"
-                            className="h-10 w-10 p-0"
-                            onClick={() =>
-                              setMedications((current) => current.filter((_, itemIndex) => itemIndex !== index))
+                        </label>
+                        <label className="grid gap-1">
+                          <span className="text-xs font-medium text-muted-foreground">Dosage</span>
+                          <input
+                            value={medication.dosage ?? ""}
+                            onChange={(event) =>
+                              setMedications((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, dosage: event.target.value } : item,
+                                ),
+                              )
                             }
+                            placeholder="Dosage"
+                            className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
+                          />
+                        </label>
+                        <label className="grid gap-1">
+                          <span className="text-xs font-medium text-muted-foreground">Frequency</span>
+                          <input
+                            value={medication.frequency ?? ""}
+                            onChange={(event) =>
+                              setMedications((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, frequency: event.target.value } : item,
+                                ),
+                              )
+                            }
+                            placeholder="Frequency"
+                            className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
+                          />
+                        </label>
+                        <label className="grid gap-1">
+                          <span className="text-xs font-medium text-muted-foreground">Duration</span>
+                          <input
+                            value={medication.duration ?? ""}
+                            onChange={(event) =>
+                              setMedications((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, duration: event.target.value } : item,
+                                ),
+                              )
+                            }
+                            placeholder="Duration"
+                            className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
+                          />
+                        </label>
+                        <div className="grid gap-1">
+                          <label
+                            htmlFor={`medication-instructions-${medication.key}`}
+                            className="text-xs font-medium text-muted-foreground"
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                            Instructions
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              id={`medication-instructions-${medication.key}`}
+                              value={medication.instructions ?? ""}
+                              onChange={(event) =>
+                                setMedications((current) =>
+                                  current.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, instructions: event.target.value } : item,
+                                  ),
+                                )
+                              }
+                              placeholder="Instructions"
+                              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
+                            />
+                            <Button
+                              variant="secondary"
+                              aria-label="Remove medicine"
+                              className="h-11 w-11 shrink-0 p-0"
+                              onClick={() =>
+                                setMedications((current) => current.filter((_, itemIndex) => itemIndex !== index))
+                              }
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))

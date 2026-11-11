@@ -119,7 +119,7 @@ function MarkPaidPanel({ saving, error, onConfirm, onCancel }: MarkPaidPanelProp
 }
 
 export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
-  const [filter, setFilter] = useState<ClinicBillFilter>("unpaid");
+  const [filter, setFilter] = useState<ClinicBillFilter>("all");
   const [markingId, setMarkingId] = useState<string | null>(null);
   const {
     items,

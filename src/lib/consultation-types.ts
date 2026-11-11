@@ -117,7 +117,6 @@ export type ConsultationQueueStats = {
   waiting: number;
   inProgress: number;
   completedToday: number;
-  walkIns: number;
 };
 
 export type ConsultationMedicationInput = {
