@@ -97,10 +97,20 @@ function CreatedPanel({ clientId, bill, onClose }: CreatedPanelProps) {
   );
 }
 
-type ClinicBillBodyProps = Omit<ClinicBillModalProps, "open">;
+type ClinicBillBodyProps = Omit<ClinicBillModalProps, "open"> & {
+  onSavingChange: (saving: boolean) => void;
+};
 
 /** Mounted only while the modal is open, so its state and product fetch never outlive the dialog. */
-function ClinicBillBody({ clientId, patientId, patientName, consultationId, onClose, onCreated }: ClinicBillBodyProps) {
+function ClinicBillBody({
+  clientId,
+  patientId,
+  patientName,
+  consultationId,
+  onClose,
+  onCreated,
+  onSavingChange,
+}: ClinicBillBodyProps) {
   const idPrefix = useId();
   const nextKey = useRef(1);
   const savingRef = useRef(false);
@@ -114,6 +124,11 @@ function ClinicBillBody({ clientId, patientId, patientName, consultationId, onCl
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreatedClinicBill | null>(null);
+
+  // The modal shell blocks backdrop/Close dismissal while the create request is in flight (WR-03).
+  useEffect(() => {
+    onSavingChange(saving);
+  }, [saving, onSavingChange]);
 
   useEffect(() => {
     let cancelled = false;
@@ -442,8 +457,19 @@ export function ClinicBillModal({
   onClose,
   onCreated,
 }: ClinicBillModalProps) {
+  const [saving, setSaving] = useState(false);
+
   return (
-    <EntityModal open={open} title="Create bill" onClose={onClose} contentClassName="sm:max-w-xl">
+    <EntityModal
+      open={open}
+      title="Create bill"
+      onClose={() => {
+        if (!saving) {
+          onClose();
+        }
+      }}
+      contentClassName="sm:max-w-xl"
+    >
       <ClinicBillBody
         clientId={clientId}
         patientId={patientId}
@@ -451,6 +477,7 @@ export function ClinicBillModal({
         consultationId={consultationId}
         onClose={onClose}
         onCreated={onCreated}
+        onSavingChange={setSaving}
       />
     </EntityModal>
   );
