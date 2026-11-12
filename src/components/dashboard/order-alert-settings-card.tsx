@@ -27,7 +27,7 @@ export function OrderAlertSettingsCard() {
         >
           <button
             type="button"
-            className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium ${
+            className={`inline-flex min-h-11 items-center rounded-full px-3 py-1.5 text-sm font-medium xl:min-h-0 ${
               !enabled ? "bg-primary text-white" : "text-muted-foreground"
             }`}
             aria-pressed={!enabled}
@@ -38,7 +38,7 @@ export function OrderAlertSettingsCard() {
           </button>
           <button
             type="button"
-            className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium ${
+            className={`inline-flex min-h-11 items-center rounded-full px-3 py-1.5 text-sm font-medium xl:min-h-0 ${
               enabled ? "bg-primary text-white" : "text-muted-foreground"
             }`}
             aria-pressed={enabled}
@@ -52,7 +52,7 @@ export function OrderAlertSettingsCard() {
       <div className="mt-4">
         <button
           type="button"
-          className="text-sm font-medium text-primary underline-offset-4 hover:underline disabled:opacity-50"
+          className="inline-flex min-h-11 items-center text-sm font-medium text-primary underline-offset-4 hover:underline disabled:opacity-50 xl:min-h-0"
           disabled={busy}
           onClick={() => void testAlert()}
         >

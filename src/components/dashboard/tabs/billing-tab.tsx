@@ -777,7 +777,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                     setProductSearchTerm(`${product.name}${product.type ? ` (${product.type})` : ""}`);
                     setIsProductListOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 hover:bg-muted text-base text-text border-b border-border last:border-b-0"
+                  className="min-h-11 w-full text-left px-3 py-2 hover:bg-muted text-base text-text border-b border-border last:border-b-0 xl:min-h-0"
                 >
                   {product.name} {product.type ? `(${product.type})` : ""}
                 </button>
@@ -923,8 +923,8 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                 onClick={() => handleBillingModeChange("customer")}
                 className={
                   billingMode === "customer"
-                    ? "rounded-xl border border-primary bg-primary/10 px-3 py-2 text-base font-medium text-primary"
-                    : "rounded-xl border border-border bg-background px-3 py-2 text-base text-text hover:bg-muted"
+                    ? "min-h-11 rounded-xl border border-primary bg-primary/10 px-3 py-2 text-base font-medium text-primary xl:min-h-0"
+                    : "min-h-11 rounded-xl border border-border bg-background px-3 py-2 text-base text-text hover:bg-muted xl:min-h-0"
                 }
               >
                 Customer
@@ -934,8 +934,8 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                 onClick={() => handleBillingModeChange("walk-in")}
                 className={
                   billingMode === "walk-in"
-                    ? "rounded-xl border border-primary bg-primary/10 px-3 py-2 text-base font-medium text-primary"
-                    : "rounded-xl border border-border bg-background px-3 py-2 text-base text-text hover:bg-muted"
+                    ? "min-h-11 rounded-xl border border-primary bg-primary/10 px-3 py-2 text-base font-medium text-primary xl:min-h-0"
+                    : "min-h-11 rounded-xl border border-border bg-background px-3 py-2 text-base text-text hover:bg-muted xl:min-h-0"
                 }
               >
                 Walk-in
@@ -1059,7 +1059,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                         setIsCustomerListOpen(true);
                         customerInputRef.current?.focus();
                       }}
-                      className="font-medium text-primary hover:underline"
+                      className="inline-flex min-h-11 items-center px-2 font-medium text-primary hover:underline xl:min-h-0 xl:px-0"
                     >
                       Clear
                     </button>

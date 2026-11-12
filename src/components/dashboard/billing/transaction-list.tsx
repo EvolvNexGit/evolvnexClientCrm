@@ -67,7 +67,7 @@ function TransactionField({
 }) {
   return (
     <div className={`min-w-0 ${className}`}>
-      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-xs xl:text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="truncate text-sm text-text">{children}</div>
     </div>
   );
@@ -235,7 +235,7 @@ export function TransactionList({
                 <div className="flex items-start gap-2 border-b border-border/60 pb-2">
                   {orderId ? (
                     <div className="min-w-0 flex-1">
-                      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Order id</div>
+                      <div className="text-xs xl:text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Order id</div>
                       <p className="mt-0.5 truncate font-mono text-sm font-semibold text-text" title={orderId}>
                         {orderId}
                       </p>
@@ -253,7 +253,7 @@ export function TransactionList({
                   <button
                     type="button"
                     onClick={() => toggle(transaction.id)}
-                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-text"
+                    className="relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md before:absolute before:-inset-2 before:content-[''] xl:before:hidden border border-border text-muted-foreground hover:bg-muted hover:text-text"
                     aria-expanded={isExpanded}
                     aria-label={isExpanded ? "Collapse items" : "Expand items"}
                   >
@@ -277,14 +277,14 @@ export function TransactionList({
                 {isExpanded && (
                   <div className="mt-2 space-y-2">
                     <div className="rounded-md border border-border bg-muted/30 px-2 py-1.5">
-                      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Bill id</div>
-                      <p className="mt-0.5 break-all font-mono text-[10px] leading-relaxed text-muted-foreground">
+                      <div className="text-xs xl:text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Bill id</div>
+                      <p className="mt-0.5 break-all font-mono text-xs xl:text-[10px] leading-relaxed text-muted-foreground">
                         {transaction.id}
                       </p>
                     </div>
                     <div className="overflow-x-auto rounded-md border border-border">
                     <table className="min-w-full text-sm">
-                      <thead className="bg-muted/60 text-left text-[10px] uppercase tracking-wide text-muted-foreground">
+                      <thead className="bg-muted/60 text-left text-xs xl:text-[10px] uppercase tracking-wide text-muted-foreground">
                         <tr>
                           <th className="px-2 py-1.5 font-medium">Product</th>
                           <th className="px-2 py-1.5 font-medium">Qty</th>
