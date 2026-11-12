@@ -244,8 +244,8 @@ export default function SubscriptionTab({ clientId }: { clientId: string }) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-soft sm:p-6">
+    <div className="space-y-4 md:space-y-6">
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-soft sm:p-6">
         <div className="flex flex-wrap items-center justify-end gap-3">
           <Button
             onClick={() => {
@@ -294,7 +294,7 @@ export default function SubscriptionTab({ clientId }: { clientId: string }) {
         />
       )}
 
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-soft sm:p-6">
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-soft sm:p-6">
         {subscriptions.length === 0 ? (
           <p className="text-base text-muted-foreground">No subscriptions added yet.</p>
         ) : (
@@ -419,7 +419,7 @@ function SubscriptionForm({
   onChange: (state: SubscriptionFormState) => void;
 }) {
   return (
-    <form onSubmit={onSubmit} className="rounded-2xl border border-border bg-card p-5 shadow-soft sm:p-6">
+    <form onSubmit={onSubmit} className="rounded-2xl border border-border bg-card p-4 shadow-soft sm:p-6">
       <h3 className="text-xl font-semibold text-text">{title}</h3>
       <p className="mt-1 text-base text-muted-foreground">{description}</p>
 

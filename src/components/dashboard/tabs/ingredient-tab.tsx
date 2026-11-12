@@ -118,7 +118,7 @@ function ActionsMenu({
         aria-expanded={open}
         disabled={disabled}
         onClick={() => setOpen((current) => !current)}
-        className={`inline-flex h-9 w-9 items-center justify-center rounded-full border border-transparent text-muted-foreground transition hover:border-border hover:bg-muted/60 hover:text-text disabled:cursor-not-allowed disabled:opacity-40 ${
+        className={`inline-flex h-9 w-9 max-xl:h-11 max-xl:w-11 items-center justify-center rounded-full border border-transparent text-muted-foreground transition hover:border-border hover:bg-muted/60 hover:text-text disabled:cursor-not-allowed disabled:opacity-40 ${
           open ? "border-border bg-muted/70 text-text" : ""
         }`}
       >
@@ -128,7 +128,7 @@ function ActionsMenu({
       {open && (
         <div
           role="menu"
-          className={`absolute top-full z-30 mt-2 min-w-[220px] overflow-hidden rounded-2xl border border-border/80 bg-card/95 p-1.5 shadow-[0_18px_40px_rgba(0,0,0,0.35)] backdrop-blur-md ${
+          className={`absolute top-full z-30 mt-2 min-w-[220px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-border/80 bg-card/95 p-1.5 shadow-[0_18px_40px_rgba(0,0,0,0.35)] backdrop-blur-md ${
             align === "right" ? "right-0" : "left-0"
           }`}
         >
@@ -146,7 +146,7 @@ function ActionsMenu({
                   setOpen(false);
                   item.onClick();
                 }}
-                className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                className={`flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm transition xl:min-h-0 disabled:cursor-not-allowed disabled:opacity-40 ${
                   item.tone === "danger"
                     ? "text-primary hover:bg-primary/10"
                     : item.tone === "accent"
@@ -432,7 +432,7 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
           className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text sm:max-w-xl"
         />
         <div className="flex flex-wrap items-center gap-2">
-          <label className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm text-muted-foreground">
+          <label className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm text-muted-foreground xl:min-h-0">
             <input
               type="checkbox"
               checked={showLowStockOnly}
@@ -441,7 +441,7 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
             />
             Low stock only
           </label>
-          <label className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm text-muted-foreground">
+          <label className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm text-muted-foreground xl:min-h-0">
             <input
               type="checkbox"
               checked={showStockTools}

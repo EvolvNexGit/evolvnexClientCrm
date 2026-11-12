@@ -385,7 +385,7 @@ export default function RecipeTab({ clientId }: { clientId: string }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <label className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm text-muted-foreground">
+        <label className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm text-muted-foreground xl:min-h-0">
           <input
             type="checkbox"
             checked={showLowStockOnly}
@@ -638,7 +638,7 @@ function RecipeForm({
       <div>
         <label className="block text-base text-muted-foreground">
           <span className="mb-1 block">Add Ingredient</span>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <select
               value={form.ingredient_id}
               onChange={(event) => handleIngredientChange(event.target.value)}
@@ -659,13 +659,13 @@ function RecipeForm({
               value={form.quantity}
               onChange={(event) => onChange({ ...form, quantity: event.target.value })}
               placeholder="Quantity"
-              className="w-28 rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
+              className="w-full sm:w-28 rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
             />
 
             <select
               value={form.quantity_unit}
               onChange={(event) => onChange({ ...form, quantity_unit: event.target.value as InventoryUnit })}
-              className="w-28 rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
+              className="w-full sm:w-28 rounded-xl border border-border bg-background px-3 py-2 text-base text-text"
             >
               {unitOptions.map((unit) => (
                 <option key={unit} value={unit}>
@@ -689,7 +689,7 @@ function RecipeForm({
                 });
                 onChange({ ...form, items: nextItems, ingredient_id: "", quantity: "1" });
               }}
-              className="ml-2 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
+              className="min-h-11 w-full rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 sm:ml-2 sm:w-auto xl:min-h-0"
             >
               Add Ingredient to recipe
             </button>
@@ -707,26 +707,26 @@ function RecipeForm({
             <table className="min-w-full divide-y divide-border text-sm">
               <thead className="bg-muted text-left uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3">Ingredient</th>
-                  <th className="px-4 py-3">Quantity</th>
-                  <th className="px-4 py-3">Unit</th>
-                  <th className="px-4 py-3" />
+                  <th className="px-2 py-3 sm:px-4">Ingredient</th>
+                  <th className="px-2 py-3 sm:px-4">Quantity</th>
+                  <th className="px-2 py-3 sm:px-4">Unit</th>
+                  <th className="px-2 py-3 sm:px-4" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {form.items!.map((it, idx) => (
                   <tr key={`${it.ingredient_id}-${idx}`} className="bg-background">
-                    <td className="px-4 py-4">{it.name ?? ingredients.find((i) => i.id === it.ingredient_id)?.name}</td>
-                    <td className="px-4 py-4">{it.quantity}</td>
-                    <td className="px-4 py-4">{it.quantity_unit}</td>
-                    <td className="px-4 py-4 text-right">
+                    <td className="px-2 py-2 sm:px-4 sm:py-4">{it.name ?? ingredients.find((i) => i.id === it.ingredient_id)?.name}</td>
+                    <td className="px-2 py-2 sm:px-4 sm:py-4">{it.quantity}</td>
+                    <td className="px-2 py-2 sm:px-4 sm:py-4">{it.quantity_unit}</td>
+                    <td className="px-2 py-2 text-right sm:px-4 sm:py-4">
                       <button
                         type="button"
                         onClick={() => {
                           const next = (form.items ?? []).filter((_, i) => i !== idx);
                           onChange({ ...form, items: next });
                         }}
-                        className="rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-primary"
+                        className="min-h-11 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-primary xl:min-h-0"
                       >
                         Remove
                       </button>
