@@ -1449,7 +1449,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
               {activePlanTab === "Medication" ? (
                 <div className="space-y-4 p-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Structured medications saved to consultation_medications.</p>
+                    <p className="text-sm text-muted-foreground">Add each medicine the patient should take.</p>
                     <Button
                       variant="secondary"
                       className="gap-2"
@@ -1490,7 +1490,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                                 ),
                               )
                             }
-                            placeholder="Medicine name"
+                            placeholder="e.g. Paracetamol"
                             className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
                           />
                         </label>
@@ -1505,7 +1505,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                                 ),
                               )
                             }
-                            placeholder="Dosage"
+                            placeholder="e.g. 500 mg"
                             className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
                           />
                         </label>
@@ -1520,7 +1520,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                                 ),
                               )
                             }
-                            placeholder="Frequency"
+                            placeholder="e.g. 1-0-1 (morning, noon, night)"
                             className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
                           />
                         </label>
@@ -1535,7 +1535,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                                 ),
                               )
                             }
-                            placeholder="Duration"
+                            placeholder="e.g. 5 days"
                             className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
                           />
                         </label>
@@ -1557,7 +1557,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                                   ),
                                 )
                               }
-                              placeholder="Instructions"
+                              placeholder="e.g. After food"
                               className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
                             />
                             <Button
@@ -1589,7 +1589,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
               ) : activePlanTab === "Exercises" ? (
                 <div className="space-y-4 p-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Structured exercises saved to consultation_exercises.</p>
+                    <p className="text-sm text-muted-foreground">Add each exercise the patient should do.</p>
                     <Button
                       variant="secondary"
                       className="gap-2"
@@ -1622,7 +1622,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                                 ),
                               )
                             }
-                            placeholder="Exercise name"
+                            placeholder="e.g. Wall squats"
                             className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
                           />
                           <Button
@@ -1645,7 +1645,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                               ),
                             )
                           }
-                          placeholder="Instructions"
+                          placeholder="e.g. 10 repetitions, twice a day"
                           className="w-full resize-none rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
                         />
                       </div>
