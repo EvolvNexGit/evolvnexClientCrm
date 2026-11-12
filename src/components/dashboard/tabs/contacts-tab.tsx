@@ -6,6 +6,12 @@ import { Button } from "@/components/ui/button";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
 import { ListPaginationControls } from "@/components/ui/list-pagination-controls";
+import {
+  RecordCard,
+  ResponsiveRecordList,
+  ResponsiveScrollStrip,
+  ResponsiveTableScroll,
+} from "@/components/ui/responsive";
 import { useCustomers } from "@/hooks/use-customers";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { usePagedList } from "@/hooks/use-paged-list";
@@ -292,8 +298,8 @@ export default function ContactsTab({ clientId }: { clientId: string }) {
   const groups = view === "tags" ? audience.tags : view === "lists" ? audience.lists : audience.segments;
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+    <div className="space-y-4 md:space-y-6">
+      <section className="rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-sm font-medium uppercase tracking-wider text-primary">LEADS</p>
@@ -331,7 +337,7 @@ export default function ContactsTab({ clientId }: { clientId: string }) {
         </div>
       </section>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <StatCard
           label="Total Contacts"
           value={stats?.total ?? 0}
@@ -377,13 +383,13 @@ export default function ContactsTab({ clientId }: { clientId: string }) {
         />
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <ResponsiveScrollStrip className="xl:flex-wrap xl:overflow-visible">
         {(["all", "lists", "tags", "segments"] as const).map((item) => (
           <button
             key={item}
             type="button"
             onClick={() => setView(item)}
-            className={`rounded-full border px-4 py-2 text-sm font-medium ${
+            className={`min-h-11 shrink-0 rounded-full border px-4 py-2 text-sm font-medium xl:min-h-0 ${
               view === item
                 ? "border-primary bg-primary/10 text-primary"
                 : "border-border bg-card text-muted-foreground hover:text-text"
@@ -392,7 +398,7 @@ export default function ContactsTab({ clientId }: { clientId: string }) {
             {item === "all" ? "All Contacts" : item[0].toUpperCase() + item.slice(1)}
           </button>
         ))}
-      </div>
+      </ResponsiveScrollStrip>
 
       {actionError && (
         <div className="rounded-xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-primary">
@@ -431,80 +437,146 @@ export default function ContactsTab({ clientId }: { clientId: string }) {
           />
 
           {hasRows && !pagedContacts.error && (
-            <div className="overflow-x-auto rounded-xl border border-border">
-              <table className="min-w-full divide-y divide-border text-base">
-                <thead className="bg-muted text-left text-sm uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-3">Name</th>
-                    <th className="px-3 py-3">Phone</th>
-                    <th className="px-3 py-3">Tags</th>
-                    <th className="px-3 py-3">Last Activity</th>
-                    <th className="px-3 py-3">Source</th>
-                    <th className="px-3 py-3">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
+            <ResponsiveRecordList
+              cards={
+                <>
                   {pagedContacts.items.map((contact) => (
-                    <tr key={contact.id} className="hover:bg-muted/40">
-                      <td className="px-3 py-3 text-text">
-                        <div>{contact.name}</div>
-                        {contact.is_blocked && (
-                          <span className="text-xs text-primary">Blocked</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 text-muted-foreground">{contact.phone ?? "-"}</td>
-                      <td className="px-3 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {contact.contact_tags.length === 0 ? (
-                            <span className="text-muted-foreground">-</span>
-                          ) : (
-                            contact.contact_tags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="rounded-full border border-border px-2 py-0.5 text-xs text-text"
+                    <RecordCard key={contact.id}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-text">{contact.name}</p>
+                          {contact.is_blocked && <span className="text-xs text-primary">Blocked</span>}
+                        </div>
+                        <div className="relative shrink-0">
+                          <button
+                            type="button"
+                            aria-label={`Actions for ${contact.name}`}
+                            aria-expanded={menuId === contact.id}
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border text-muted-foreground hover:text-text"
+                            onClick={() => setMenuId((current) => (current === contact.id ? null : contact.id))}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                          {menuId === contact.id && (
+                            <div className="absolute right-0 top-full z-10 mt-1 w-40 rounded-xl border border-border bg-card p-1 shadow-sm">
+                              <button
+                                type="button"
+                                className="block min-h-11 w-full rounded-lg px-3 text-left text-sm text-text hover:bg-muted"
+                                onClick={() => openEdit(contact)}
                               >
-                                {tag}
-                              </span>
-                            ))
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="block min-h-11 w-full rounded-lg px-3 text-left text-sm text-text hover:bg-muted"
+                                onClick={() => void toggleBlocked(contact)}
+                              >
+                                {contact.is_blocked ? "Unblock" : "Block"}
+                              </button>
+                            </div>
                           )}
                         </div>
-                      </td>
-                      <td className="px-3 py-3 text-muted-foreground">
-                        {formatLastActivity(contact.last_activity_at)}
-                      </td>
-                      <td className="px-3 py-3 text-muted-foreground">{contact.contact_source || "-"}</td>
-                      <td className="relative px-3 py-3">
-                        <button
-                          type="button"
-                          className="rounded-md border border-border p-1.5 text-muted-foreground hover:text-text"
-                          onClick={() => setMenuId((current) => (current === contact.id ? null : contact.id))}
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </button>
-                        {menuId === contact.id && (
-                          <div className="absolute right-3 z-10 mt-1 w-36 rounded-xl border border-border bg-card p-1 shadow-sm">
-                            <button
-                              type="button"
-                              className="block w-full rounded-lg px-3 py-2 text-left text-sm text-text hover:bg-muted"
-                              onClick={() => openEdit(contact)}
+                      </div>
+                      <p className="mt-1 text-sm text-muted-foreground">{contact.phone ?? "-"}</p>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {contact.contact_tags.length === 0 ? (
+                          <span className="text-muted-foreground">-</span>
+                        ) : (
+                          contact.contact_tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded-full border border-border px-2 py-0.5 text-xs text-text"
                             >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              className="block w-full rounded-lg px-3 py-2 text-left text-sm text-text hover:bg-muted"
-                              onClick={() => void toggleBlocked(contact)}
-                            >
-                              {contact.is_blocked ? "Unblock" : "Block"}
-                            </button>
-                          </div>
+                              {tag}
+                            </span>
+                          ))
                         )}
-                      </td>
-                    </tr>
+                      </div>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Last activity: {formatLastActivity(contact.last_activity_at)} · Source:{" "}
+                        {contact.contact_source || "-"}
+                      </p>
+                    </RecordCard>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </>
+              }
+              table={
+                <ResponsiveTableScroll>
+                  <table className="min-w-full divide-y divide-border text-base">
+                    <thead className="bg-muted text-left text-sm uppercase tracking-wide text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-3">Name</th>
+                        <th className="px-3 py-3">Phone</th>
+                        <th className="px-3 py-3">Tags</th>
+                        <th className="px-3 py-3">Last Activity</th>
+                        <th className="px-3 py-3">Source</th>
+                        <th className="px-3 py-3">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {pagedContacts.items.map((contact) => (
+                        <tr key={contact.id} className="hover:bg-muted/40">
+                          <td className="px-3 py-3 text-text">
+                            <div>{contact.name}</div>
+                            {contact.is_blocked && (
+                              <span className="text-xs text-primary">Blocked</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 text-muted-foreground">{contact.phone ?? "-"}</td>
+                          <td className="px-3 py-3">
+                            <div className="flex flex-wrap gap-1">
+                              {contact.contact_tags.length === 0 ? (
+                                <span className="text-muted-foreground">-</span>
+                              ) : (
+                                contact.contact_tags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="rounded-full border border-border px-2 py-0.5 text-xs text-text"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-muted-foreground">
+                            {formatLastActivity(contact.last_activity_at)}
+                          </td>
+                          <td className="px-3 py-3 text-muted-foreground">{contact.contact_source || "-"}</td>
+                          <td className="relative px-3 py-3">
+                            <button
+                              type="button"
+                              className="rounded-md border border-border p-1.5 text-muted-foreground hover:text-text"
+                              onClick={() => setMenuId((current) => (current === contact.id ? null : contact.id))}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
+                            {menuId === contact.id && (
+                              <div className="absolute right-3 z-10 mt-1 w-36 rounded-xl border border-border bg-card p-1 shadow-sm">
+                                <button
+                                  type="button"
+                                  className="block w-full rounded-lg px-3 py-2 text-left text-sm text-text hover:bg-muted"
+                                  onClick={() => openEdit(contact)}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="block w-full rounded-lg px-3 py-2 text-left text-sm text-text hover:bg-muted"
+                                  onClick={() => void toggleBlocked(contact)}
+                                >
+                                  {contact.is_blocked ? "Unblock" : "Block"}
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </ResponsiveTableScroll>
+              }
+            />
           )}
 
           <ListPaginationControls
@@ -652,7 +724,7 @@ function StatCard({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-2xl border px-4 py-4 text-left ${
+      className={`rounded-2xl border px-3 py-3 text-left sm:px-4 sm:py-4 ${
         active ? "border-primary bg-primary/10" : "border-border bg-card"
       }`}
     >
@@ -667,7 +739,7 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
     <button
       type="button"
       onClick={onClear}
-      className="rounded-full border border-border px-3 py-1 text-muted-foreground hover:text-text"
+      className="inline-flex min-h-11 items-center rounded-full border border-border px-3 py-1 text-muted-foreground hover:text-text xl:min-h-0"
     >
       {label} ×
     </button>
