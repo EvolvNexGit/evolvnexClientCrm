@@ -525,6 +525,9 @@ function DashboardPageContent() {
         onOpenProfile={handleOpenProfile}
         onLogout={signOut}
         userLabel={userLabel}
+        sectionItems={sidebarItems}
+        activeNavKey={displayTabKey === "summary" ? null : activeNavKey}
+        onSectionSelect={handleSidebarItemSelect}
       />
 
       <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
