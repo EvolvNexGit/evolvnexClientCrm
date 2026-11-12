@@ -393,6 +393,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
     saveConsultation,
     completeConsultation,
     cancelConsultation,
+    deleteQueueRow,
     clearActiveConsultation,
     addConsultation,
     uploadFile,
@@ -436,6 +437,9 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
   const [selectedPatient, setSelectedPatient] = useState<CustomerRecord | null>(null);
   const [patientsLoading, setPatientsLoading] = useState(false);
   const [newConsultError, setNewConsultError] = useState<string | null>(null);
+  const [actionRow, setActionRow] = useState<ConsultationQueueRow | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
   const debouncedPatientSearch = useDebouncedValue(patientSearch, 250);
@@ -860,6 +864,68 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
     }
   }
 
+  function closeRowActions() {
+    setActionRow(null);
+    setConfirmingDelete(false);
+    setDeleteError(null);
+  }
+
+  async function handleDeleteRow() {
+    if (!actionRow) {
+      return;
+    }
+
+    try {
+      setDeleteError(null);
+      await deleteQueueRow(actionRow);
+      closeRowActions();
+    } catch (deleteFailure) {
+      setDeleteError(deleteFailure instanceof Error ? deleteFailure.message : "Unable to delete this visit.");
+    }
+  }
+
+  const rowActionsModal = (
+    <EntityModal open={Boolean(actionRow)} title={actionRow?.name ?? "Visit"} onClose={closeRowActions}>
+      {actionRow && actionRow.status === "Completed" ? (
+        <div className="space-y-3">
+          <Button type="button" variant="secondary" disabled className="w-full gap-2">
+            <Trash2 className="h-4 w-4" />
+            Delete visit
+          </Button>
+          <p className="text-sm text-muted-foreground">
+            Completed visits are medical records (and may be billed), so they cannot be deleted.
+          </p>
+        </div>
+      ) : actionRow && !confirmingDelete ? (
+        <Button type="button" variant="secondary" className="w-full gap-2" onClick={() => setConfirmingDelete(true)}>
+          <Trash2 className="h-4 w-4" />
+          Delete visit
+        </Button>
+      ) : actionRow ? (
+        <div className="space-y-4">
+          <p className="text-base text-muted-foreground">
+            Delete the {actionRow.time} visit for <span className="font-semibold text-text">{actionRow.name}</span>? It
+            will be removed from the queue
+            {actionRow.appointmentId ? " together with its appointment" : ""}.
+          </p>
+          {deleteError ? (
+            <p className="text-sm text-primary" role="alert">
+              {deleteError}
+            </p>
+          ) : null}
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={closeRowActions} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => void handleDeleteRow()} disabled={saving}>
+              {saving ? "Deleting..." : "Delete"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </EntityModal>
+  );
+
   const newConsultModal = (
     <EntityModal
       open={isNewConsultOpen}
@@ -1100,6 +1166,14 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                           <p className="mt-1 truncate text-sm text-muted-foreground">{row.reason}</p>
                         </div>
                         <StatusPill status={row.status} />
+                        <button
+                          type="button"
+                          aria-label={`More actions for ${row.name}`}
+                          onClick={() => setActionRow(row)}
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-text"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
                       </div>
                       <div className="mt-3 flex gap-2">
                         <Button
@@ -1197,7 +1271,14 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                           </div>
                         </td>
                         <td className="px-4 py-4 text-right text-muted-foreground">
-                          <MoreHorizontal className="inline h-4 w-4" />
+                          <button
+                            type="button"
+                            aria-label={`More actions for ${row.name}`}
+                            onClick={() => setActionRow(row)}
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-xl hover:bg-muted hover:text-text"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -1217,6 +1298,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
         </section>
 
         {newConsultModal}
+        {rowActionsModal}
         {printSettingsModal}
         {clinicBillModal}
       </div>
