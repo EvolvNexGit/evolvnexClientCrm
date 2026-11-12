@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchTransactionsSince } from "@/lib/billing-queries";
+import { fetchNonPaidBillStatusesSince } from "@/lib/clinic-billing-queries";
 import {
   buildDoctorSummaryAnalytics,
   type DoctorAppointmentRecord,
@@ -13,6 +14,7 @@ import {
   type CafeSummaryRangePreset,
 } from "@/lib/cafe-summary-time";
 import { fetchIngredients } from "@/lib/inventory-queries";
+import { isClinicOrderSource } from "@/lib/order-alert-policy";
 import { getSupabaseClient } from "@/lib/supabase";
 
 type CustomRange = {
@@ -74,14 +76,15 @@ export function useDoctorSummary(
       }
 
       const sinceIso = new Date(ranges.previous.startMs).toISOString();
-      const [{ data: appointmentRows, error: appointmentError }, transactions, ingredients] = await Promise.all([
+      const [{ data: appointmentRows, error: appointmentError }, fetchedTransactions, nonPaidStatuses, ingredients] = await Promise.all([
         supabase
           .from("appointments")
           .select(APPOINTMENT_COLUMNS)
           .eq("client_id", clientId)
           .is("deleted_at", null)
           .order("date", { ascending: true }),
-        fetchTransactionsSince(clientId, sinceIso),
+        fetchTransactionsSince(clientId, sinceIso, { includeClinic: true }),
+        fetchNonPaidBillStatusesSince(clientId, sinceIso),
         fetchIngredients(clientId),
       ]);
 
@@ -89,6 +92,12 @@ export function useDoctorSummary(
         throw appointmentError;
       }
 
+      // Clinic bills absent from the non-paid map are paid; other bills pass through unchanged.
+      const transactions = fetchedTransactions.map((transaction) =>
+        isClinicOrderSource(transaction.order_source)
+          ? { ...transaction, payment_status: nonPaidStatuses.get(transaction.id) ?? "paid" }
+          : transaction,
+      );
       const appointments = (appointmentRows ?? []).map((row) => mapAppointment(row as Record<string, unknown>));
 
       setAnalytics(

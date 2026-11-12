@@ -4,17 +4,17 @@
 
 EvolvNex is a multi-tenant SaaS **Business Growth OS** for generic SMBs: one product where operators run CRM, talk to customers, and (later) POS, leads, HR, and ordering — not a pile of isolated tools. This repository is that OS, even though the current executable app is a client-scoped Next.js + Supabase CRM with WhatsApp as the first communication provider.
 
-v1 keeps the existing CRM tabs working and ships a **Conversations / inbox** so staff can message customers on WhatsApp without leaking WhatsApp into the generic Communication architecture. Campaigns, segments, templates-as-a-product, automation, POS, LEADS, HRM, and AirMenu are later phases of the same OS.
+The current milestone makes the CRM a usable **doctor/clinic** product: appointment calendar, patient profile, consultation with printable prescription, and simple clinic billing. Clinic features are switched on per client through `client_tab_access`; cafe/POS clients keep their tabs. The WhatsApp Conversations/inbox work was paused on 2026-11-10 (existing WhatsApp code stays; campaigns, segments, automation, LEADS, HRM, and AirMenu remain later phases of the same OS).
 
 ## Core Value
 
-A tenant's people and conversations live in one isolated system — CRM context plus a working inbox — without mixing tenants, leaking secrets, or baking WhatsApp into the rest of the product.
+A tenant's people and records live in one isolated system — each client sees only the tabs and workflows it needs — without mixing tenants or leaking secrets.
 
 ## Business Context
 
-- **Customer**: Generic SMB operators (not a healthcare-only product, even if some current tabs look clinic-like)
-- **Revenue model**: Multi-tenant SaaS (pricing/subscription persistence is not the v1 inbox slice)
-- **Success metric**: A tenant can operate existing CRM tabs and complete a WhatsApp conversation loop without seeing another tenant's data
+- **Customer**: Generic SMB operators; the first vertical configuration being deepened is small doctor/clinic practices (physio, dental, wellness)
+- **Revenue model**: Multi-tenant SaaS (pricing/subscription persistence is not in this milestone)
+- **Success metric**: One real clinic runs a week (book, consult, print, bill) without support calls and without seeing another tenant's data
 - **Strategy notes**: Binding engineering law is `AGENTS.md.docx` and `EvolvNex Engineering Constitution.docx` in this repo. Numbered architecture specs live **outside** this repository and must be provided when a change needs them — do not invent a second architecture.
 
 ## Requirements
@@ -38,8 +38,9 @@ A tenant's people and conversations live in one isolated system — CRM context 
 
 ### Active
 
-- [ ] Conversations / inbox as the v1 Communication surface (WhatsApp as first provider only)
-- [ ] Keep existing CRM tabs working; do not rebuild CRM for v1; generalize industry-specific labels over time
+- [ ] Appointment calendar, patient profile, consultation vitals/uploads, letterhead print, and doctor billing (ROADMAP Phases 1-3)
+- [ ] Keep existing CRM tabs working; extend existing tables and tabs, do not rebuild; per-client labels come from `client_tab_access.display_name`
+- [ ] Live RLS hardening (applied 2026-11-08) tracked as a migration in the repo
 - [ ] Provider-independent Communication boundaries (WhatsApp stays in `providers/whatsapp`, not in generic CRM/comms UI contracts)
 - [ ] Constitution-grade tenant isolation: never trust client-provided tenant id; RLS on all tenant-owned tables; no service-role or provider secrets in the client
 - [ ] Preferred layers: UI → API/route → validation → service → provider/repository → database / external API (move logic out of UI where the current app still inlines queries)
@@ -50,8 +51,10 @@ A tenant's people and conversations live in one isolated system — CRM context 
 ### Out of Scope
 
 - Drag-and-drop automation builder — Constitution forbids unless explicitly requested and architecturally approved
-- Campaigns, segments, and step-based automation product — deferred after inbox
-- Additional providers (Instagram, email, SMS, Telegram) — after WhatsApp inbox proves the provider boundary
+- WhatsApp Conversations inbox, webhook hardening, and appointment reminders — paused 2026-11-10 (code in `src/` stays untouched)
+- Campaigns, segments, and step-based automation product — deferred
+- Additional providers (Instagram, email, SMS, Telegram) — after a WhatsApp inbox exists
+- Telemedicine, lab integrations, insurance claims, ICD coding, patient portal, ABDM — only when a paying clinic asks
 - POS as a first-class v1 ship slice — exists in part; not the v1 goal
 - LEADS / HRM / AI Analytics as complete modules — nav may exist; not v1
 - AirMenu / QR ordering — separate workflow; do not mix into Communication
@@ -96,8 +99,11 @@ A tenant's people and conversations live in one isolated system — CRM context 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | This repo is the full Growth OS, not a throwaway CRM demo | AGENTS.md states the repo *is* the Business Growth OS; nav already names POS/LEADS/HRM | — Pending |
-| v1 ship slice = keep current CRM tabs + Conversations/inbox | Full OS is the destination; inbox is the Communication wedge | — Pending |
-| Campaigns, segments, automation wait | User chose inbox-only for Communication v1 | — Pending |
+| Current slice = doctor/clinic workflow on existing tabs (replaces inbox slice, 2026-11-10) | A usable clinic product needs calendar, profile, print, billing before communication | — Pending |
+| Clinic billing = new `doctor-billing` tab on existing bills tables | Per-client tab access separates it from cafe POS without a parallel table | — Pending |
+| Prescription print = body-only on pre-printed letterhead, margins in mm per client | Simplest print path, no PDF library | — Pending |
+| Campaigns, segments, automation wait | Deferred behind the clinic slice | — Pending |
+| RLS hardening applied directly to live Supabase (2026-11-08), synced to repo | Open policies exposed tenant data; fix could not wait for a phase | ✓ Applied |
 | WhatsApp is first provider, not the Communication model | Constitution: provider-independent comms | — Pending |
 | Customers are generic SMBs | Industry-agnostic OS; clinic-like tabs are current UI, not the product identity | — Pending |
 | Do not rebuild CRM in v1 | Existing contacts/appointments/consultations/promotions stay; generalize labels later | — Pending |
@@ -122,4 +128,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-19 after initialization*
+*Last updated: 2026-11-10 after roadmap restructure to the doctor/clinic milestone*

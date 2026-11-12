@@ -20,7 +20,6 @@ import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
-  Bell,
   CalendarDays,
   ChevronDown,
   Clock3,
@@ -32,8 +31,10 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
+import { AppointmentRemindersBell } from "@/components/dashboard/appointment-reminders-bell";
 import { Button } from "@/components/ui/button";
 import { useDoctorSummary } from "@/hooks/use-doctor-summary";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import {
   formatCount,
@@ -54,6 +55,10 @@ const RANGE_OPTIONS: { key: CafeSummaryRangePreset; label: string; shortLabel: s
 ];
 
 const MOBILE_HOUR_TICKS = [0, 6, 12, 18, 23];
+
+// Non-negative left margin + wider YAxis so 4–5 digit ticks (e.g. 1500) are not clipped;
+// right margin leaves room for the last "11 PM" x tick.
+const CHART_MARGIN = { top: 8, right: 16, left: 0, bottom: 0 };
 
 function getTrendLabel(preset: CafeSummaryRangePreset) {
   switch (preset) {
@@ -88,7 +93,7 @@ function TrendBadge({
   return (
     <div
       className={`inline-flex items-center gap-0.5 ${compact ? "text-xs" : "text-sm"} ${
-        isPositive ? "text-emerald-400" : "text-rose-400"
+        isPositive ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"
       }`}
     >
       {isPositive ? (
@@ -124,7 +129,7 @@ function KpiCard({
   className?: string;
 }) {
   return (
-    <article className={`rounded-2xl border border-border bg-card p-3 shadow-soft sm:p-4 ${className}`}>
+    <article className={`rounded-2xl border border-border bg-card p-3 dark:shadow-soft sm:p-4 ${className}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-xs text-muted-foreground sm:text-sm">{title}</p>
@@ -164,6 +169,9 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
   );
 
   const trendLabel = getTrendLabel(rangePreset);
+  // 12px axis ticks below xl for phone legibility; desktop keeps 10px.
+  const isBelowXl = useMediaQuery("(max-width: 1279px)");
+  const axisTick = { fill: "#9ca3af", fontSize: isBelowXl ? 12 : 10 };
 
   const statusPieData = useMemo(
     () => (analytics?.statusOverview ?? []).filter((slice) => slice.value > 0),
@@ -177,18 +185,9 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
 
   return (
     <div className="-mx-1 space-y-4 sm:mx-0 sm:space-y-6">
-      <div className="hidden flex-wrap items-center justify-end gap-4 lg:flex">
-        {analytics && analytics.alerts.length > 0 && (
-          <div className="relative rounded-xl border border-border bg-card p-2">
-            <Bell className="h-5 w-5 text-text" />
-            <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold text-white">
-              {analytics.alerts.length}
-            </span>
-          </div>
-        )}
-      </div>
-
-      <div className="relative lg:hidden">
+      {/* Below lg the bell shares the location row (no standalone row); lg+ keeps it right-aligned alone. */}
+      <div className="flex items-center gap-3 lg:flex-wrap lg:justify-end lg:gap-4">
+      <div className="relative min-w-0 flex-1 lg:hidden">
         <div className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-primary">
             <Stethoscope className="h-5 w-5" />
@@ -214,6 +213,8 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
             </option>
           ))}
         </select>
+      </div>
+        <AppointmentRemindersBell />
       </div>
 
       <div className="space-y-3">
@@ -241,7 +242,7 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
                 key={option.key}
                 type="button"
                 onClick={() => setRangePreset(option.key)}
-                className={`shrink-0 rounded-full px-3 py-2 text-xs font-medium transition sm:px-4 sm:text-sm ${
+                className={`min-h-11 shrink-0 rounded-full px-3 py-2 text-xs font-medium transition xl:min-h-0 sm:px-4 sm:text-sm ${
                   rangePreset === option.key
                     ? "bg-primary text-white"
                     : "border border-border bg-card text-muted-foreground hover:text-text"
@@ -254,7 +255,7 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
             <button
               type="button"
               onClick={() => setRangePreset("custom")}
-              className={`flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-medium transition sm:px-4 sm:text-sm ${
+              className={`flex min-h-11 shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-medium transition xl:min-h-0 sm:px-4 sm:text-sm ${
                 rangePreset === "custom"
                   ? "bg-primary text-white"
                   : "border border-border bg-card text-muted-foreground hover:text-text"
@@ -274,7 +275,7 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
             type="button"
             onClick={() => void refresh()}
             disabled={loading}
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-text disabled:opacity-50"
+            className="inline-flex h-8 w-8 max-xl:h-11 max-xl:w-11 shrink-0 items-center justify-center rounded-full border border-border bg-card text-text disabled:opacity-50"
             aria-label="Refresh data"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -326,32 +327,32 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
               value={formatInr(analytics.kpis.revenue.value)}
               trend={analytics.kpis.revenue.changePercent}
               trendLabel={trendLabel}
-              icon={<IndianRupee className="h-4 w-4 text-white sm:h-5 sm:w-5" />}
-              iconClassName="bg-primary"
+              icon={<IndianRupee className="h-4 w-4 text-muted-foreground dark:text-white sm:h-5 sm:w-5" />}
+              iconClassName="bg-muted dark:bg-primary"
             />
             <KpiCard
               title="Total Appointments"
               value={formatCount(analytics.kpis.appointments.value)}
               trend={analytics.kpis.appointments.changePercent}
               trendLabel={trendLabel}
-              icon={<CalendarDays className="h-4 w-4 text-white sm:h-5 sm:w-5" />}
-              iconClassName="bg-orange-500"
+              icon={<CalendarDays className="h-4 w-4 text-muted-foreground dark:text-white sm:h-5 sm:w-5" />}
+              iconClassName="bg-muted dark:bg-orange-500"
             />
             <KpiCard
               title="Patients Served"
               value={formatCount(analytics.kpis.patientsServed.value)}
               trend={analytics.kpis.patientsServed.changePercent}
               trendLabel={trendLabel}
-              icon={<Users className="h-4 w-4 text-white sm:h-5 sm:w-5" />}
-              iconClassName="bg-violet-500"
+              icon={<Users className="h-4 w-4 text-muted-foreground dark:text-white sm:h-5 sm:w-5" />}
+              iconClassName="bg-muted dark:bg-violet-500"
             />
             <KpiCard
               title="New Patients"
               value={formatCount(analytics.kpis.newPatients.value)}
               trend={analytics.kpis.newPatients.changePercent}
               trendLabel={trendLabel}
-              icon={<UserPlus className="h-4 w-4 text-white sm:h-5 sm:w-5" />}
-              iconClassName="bg-emerald-500"
+              icon={<UserPlus className="h-4 w-4 text-muted-foreground dark:text-white sm:h-5 sm:w-5" />}
+              iconClassName="bg-muted dark:bg-emerald-500"
             />
             <KpiCard
               className="col-span-2 xl:col-span-1"
@@ -359,9 +360,9 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
               value={formatInr(analytics.kpis.avgBill.value)}
               trend={analytics.kpis.avgBill.changePercent}
               trendLabel={trendLabel}
-              note="From POS bills (no consultation-fee field)"
-              icon={<IndianRupee className="h-4 w-4 text-white sm:h-5 sm:w-5" />}
-              iconClassName="bg-sky-500"
+              note="From POS bills and paid clinic bills"
+              icon={<IndianRupee className="h-4 w-4 text-muted-foreground dark:text-white sm:h-5 sm:w-5" />}
+              iconClassName="bg-muted dark:bg-sky-500"
             />
           </div>
 
@@ -370,7 +371,7 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
               <div className="h-48 sm:h-72">
                 {analytics.revenueHourly.some((point) => point.revenue > 0) ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={analytics.revenueHourly} margin={{ top: 8, right: 4, left: -18, bottom: 0 }}>
+                    <AreaChart data={analytics.revenueHourly} margin={CHART_MARGIN}>
                       <defs>
                         <linearGradient id="doctorRevenueFill" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#ef4444" stopOpacity={0.35} />
@@ -384,9 +385,9 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
                         domain={[0, 23]}
                         ticks={MOBILE_HOUR_TICKS}
                         tickFormatter={(hour) => analytics.revenueHourly[Number(hour)]?.label ?? String(hour)}
-                        tick={{ fill: "#9ca3af", fontSize: 10 }}
+                        tick={axisTick}
                       />
-                      <YAxis tick={{ fill: "#9ca3af", fontSize: 10 }} width={40} />
+                      <YAxis tick={axisTick} width={48} />
                       <Tooltip
                         contentStyle={{ background: "#111827", border: "1px solid #374151", borderRadius: 12 }}
                         formatter={(value) => formatInr(Number(value ?? 0))}
@@ -440,7 +441,7 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
               <div className="h-48">
                 {analytics.appointmentsHourly.some((point) => point.appointments > 0) ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={analytics.appointmentsHourly} margin={{ top: 8, right: 4, left: -18, bottom: 0 }}>
+                    <BarChart data={analytics.appointmentsHourly} margin={CHART_MARGIN}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
                       <XAxis
                         dataKey="hour"
@@ -448,9 +449,9 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
                         domain={[0, 23]}
                         ticks={MOBILE_HOUR_TICKS}
                         tickFormatter={(hour) => analytics.appointmentsHourly[Number(hour)]?.label ?? String(hour)}
-                        tick={{ fill: "#9ca3af", fontSize: 10 }}
+                        tick={axisTick}
                       />
-                      <YAxis allowDecimals={false} tick={{ fill: "#9ca3af", fontSize: 10 }} width={28} />
+                      <YAxis allowDecimals={false} tick={axisTick} width={32} />
                       <Tooltip contentStyle={{ background: "#111827", border: "1px solid #374151", borderRadius: 12 }} />
                       <Bar dataKey="appointments" fill="#ef4444" radius={[4, 4, 0, 0]} />
                     </BarChart>
@@ -516,7 +517,10 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
 
           <section className="rounded-2xl border border-border bg-card p-3 sm:p-4">
             <div className="mb-3 flex items-center justify-end gap-3">
-              <Link href={"/dashboard/appointments" as never} className="text-sm font-medium text-primary hover:underline">
+              <Link
+                href={"/dashboard/appointments" as never}
+                className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline xl:min-h-0"
+              >
                 View all
               </Link>
             </div>
@@ -545,7 +549,7 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
               {analytics.alerts.map((alert) => (
                 <article key={alert.id} className="rounded-2xl border border-border bg-card p-3 sm:p-4">
                   <div className="mb-2 flex items-center gap-2 text-text">
-                    {alert.id === "low-stock" && <Package className="h-4 w-4 text-amber-400" />}
+                    {alert.id === "low-stock" && <Package className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
                     {alert.id === "pending-payments" && <IndianRupee className="h-4 w-4 text-primary" />}
                     {alert.id === "upcoming-appointments" && <Clock3 className="h-4 w-4 text-primary" />}
                     {!["low-stock", "pending-payments", "upcoming-appointments"].includes(alert.id) && (
@@ -555,7 +559,10 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
                   </div>
                   <p className="text-sm text-muted-foreground">{alert.message}</p>
                   {alert.href && alert.hrefLabel && (
-                    <Link href={alert.href as never} className="mt-3 inline-block text-sm font-medium text-primary hover:underline">
+                    <Link
+                      href={alert.href as never}
+                      className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline xl:inline-block xl:min-h-0"
+                    >
                       {alert.hrefLabel}
                     </Link>
                   )}

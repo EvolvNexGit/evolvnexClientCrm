@@ -777,7 +777,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                     setProductSearchTerm(`${product.name}${product.type ? ` (${product.type})` : ""}`);
                     setIsProductListOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 hover:bg-muted text-base text-text border-b border-border last:border-b-0"
+                  className="min-h-11 w-full text-left px-3 py-2 hover:bg-muted text-base text-text border-b border-border last:border-b-0 xl:min-h-0"
                 >
                   {product.name} {product.type ? `(${product.type})` : ""}
                 </button>
@@ -923,8 +923,8 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                 onClick={() => handleBillingModeChange("customer")}
                 className={
                   billingMode === "customer"
-                    ? "rounded-xl border border-primary bg-primary/10 px-3 py-2 text-base font-medium text-primary"
-                    : "rounded-xl border border-border bg-background px-3 py-2 text-base text-text hover:bg-muted"
+                    ? "min-h-11 rounded-xl border border-primary bg-primary/10 px-3 py-2 text-base font-medium text-primary xl:min-h-0"
+                    : "min-h-11 rounded-xl border border-border bg-background px-3 py-2 text-base text-text hover:bg-muted xl:min-h-0"
                 }
               >
                 Customer
@@ -934,8 +934,8 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                 onClick={() => handleBillingModeChange("walk-in")}
                 className={
                   billingMode === "walk-in"
-                    ? "rounded-xl border border-primary bg-primary/10 px-3 py-2 text-base font-medium text-primary"
-                    : "rounded-xl border border-border bg-background px-3 py-2 text-base text-text hover:bg-muted"
+                    ? "min-h-11 rounded-xl border border-primary bg-primary/10 px-3 py-2 text-base font-medium text-primary xl:min-h-0"
+                    : "min-h-11 rounded-xl border border-border bg-background px-3 py-2 text-base text-text hover:bg-muted xl:min-h-0"
                 }
               >
                 Walk-in
@@ -1059,7 +1059,7 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                         setIsCustomerListOpen(true);
                         customerInputRef.current?.focus();
                       }}
-                      className="font-medium text-primary hover:underline"
+                      className="inline-flex min-h-11 items-center px-2 font-medium text-primary hover:underline xl:min-h-0 xl:px-0"
                     >
                       Clear
                     </button>
@@ -1081,22 +1081,25 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                 onClick={() => setDiscountMode("manual")}
                 className={
                   discountMode === "manual"
-                    ? "rounded-full border border-primary bg-primary/10 px-3 py-1 text-sm font-medium text-primary"
-                    : "rounded-full border border-border bg-background px-3 py-1 text-sm text-text"
+                    ? "min-h-11 whitespace-nowrap rounded-full border border-primary bg-primary/10 px-3 py-1 text-sm font-medium text-primary xl:min-h-0"
+                    : "min-h-11 whitespace-nowrap rounded-full border border-border bg-background px-3 py-1 text-sm text-text xl:min-h-0"
                 }
               >
-                Manual discount
+                {/* Short label on narrow phones so both pills fit one line (same pattern as 3M/6M range chips). */}
+                <span className="min-[400px]:hidden">Manual</span>
+                <span className="hidden min-[400px]:inline">Manual discount</span>
               </button>
               <button
                 type="button"
                 onClick={() => setDiscountMode("promos")}
                 className={
                   discountMode === "promos"
-                    ? "rounded-full border border-primary bg-primary/10 px-3 py-1 text-sm font-medium text-primary"
-                    : "rounded-full border border-border bg-background px-3 py-1 text-sm text-text"
+                    ? "min-h-11 whitespace-nowrap rounded-full border border-primary bg-primary/10 px-3 py-1 text-sm font-medium text-primary xl:min-h-0"
+                    : "min-h-11 whitespace-nowrap rounded-full border border-border bg-background px-3 py-1 text-sm text-text xl:min-h-0"
                 }
               >
-                Eligible promos
+                <span className="min-[400px]:hidden">Promos</span>
+                <span className="hidden min-[400px]:inline">Eligible promos</span>
               </button>
             </div>
 

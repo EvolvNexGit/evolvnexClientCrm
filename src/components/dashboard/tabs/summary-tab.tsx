@@ -323,7 +323,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
           >
             <button
               type="button"
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ${
+              className={`inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium xl:min-h-0 ${
                 theme === "dark" ? "bg-primary text-white" : "text-muted-foreground"
               }`}
               aria-pressed={theme === "dark"}
@@ -335,7 +335,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
             </button>
             <button
               type="button"
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ${
+              className={`inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium xl:min-h-0 ${
                 theme === "light" ? "bg-primary text-white" : "text-muted-foreground"
               }`}
               aria-pressed={theme === "light"}

@@ -9,7 +9,7 @@ type LeadsTabHeaderProps = {
 
 export function LeadsTabHeader({ title, description, action, aside }: LeadsTabHeaderProps) {
   return (
-    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+    <section className="rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-medium uppercase tracking-wider text-primary">LEADS</p>

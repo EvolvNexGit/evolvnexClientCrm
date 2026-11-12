@@ -64,17 +64,37 @@ evolvnexClientCrm/
 
 **`src/components/dashboard/tabs/`:**
 - Purpose: Feature screens. Default export, `"use client"`, props `{ clientId: string }` (CRM sub-tabs also take `activeSubTab` on `billing-crm-tab.tsx`).
-- Contains: `summary-tab.tsx`, `cafe-summary-tab.tsx`, `doctor-summary-tab.tsx`, `appointments-tab.tsx`, `consultation-tab.tsx`, `subscription-tab.tsx`, `billing-tab.tsx`, `orders-tab.tsx`, `promos-tab.tsx`, `ingredient-tab.tsx`, `recipe-tab.tsx`, `customer-tab.tsx`, `product-tab.tsx`, `transaction-tab.tsx`, `billing-crm-tab.tsx`, `contacts-tab.tsx`, `whatsapp-auto-reply-tab.tsx`
+- Contains: `summary-tab.tsx`, `cafe-summary-tab.tsx`, `doctor-summary-tab.tsx`, `appointments-tab.tsx` (List | Day | Week), `consultation-tab.tsx`, `subscription-tab.tsx`, `billing-tab.tsx`, `doctor-billing-tab.tsx` (clinic bills, DB key 015: Unpaid | All, Mark paid, Print receipt), `orders-tab.tsx`, `promos-tab.tsx`, `ingredient-tab.tsx`, `recipe-tab.tsx`, `customer-tab.tsx`, `product-tab.tsx`, `transaction-tab.tsx`, `billing-crm-tab.tsx`, `contacts-tab.tsx`, `whatsapp-auto-reply-tab.tsx`
 - Key files: `src/components/dashboard/tabs/billing-tab.tsx` (POS), `src/components/dashboard/tabs/consultation-tab.tsx`
+
+**`src/components/dashboard/` (non-tab widgets):**
+- Purpose: Feature widgets used by one tab.
+- Contains: `appointments-calendar.tsx` (Day/Week grid, advisory overlap highlight, `getAppointmentStatusTone`)
+- Key files: `src/components/dashboard/appointments-calendar.tsx`
+
+**`src/components/dashboard/patient/`:**
+- Purpose: Patient profile slide-over opened from the customer list for clients with the consultation tab.
+- Contains: `patient-profile-drawer.tsx`, `patient-overview-panel.tsx`, `patient-visits-panel.tsx`, `patient-files-panel.tsx`, `patient-strip.tsx` (sticky name, age, allergies strip in the consult editor)
+- Key files: `src/components/dashboard/patient/patient-profile-drawer.tsx`, `src/components/dashboard/patient/patient-strip.tsx`
+
+**`src/components/dashboard/consultation/`:**
+- Purpose: Consultation editor pieces and the body-only prescription print content.
+- Contains: `vitals-card.tsx`, `attachment-open-button.tsx` (single guarded Open via 300 s signed URL, shared with the Patient Files panel), `consultation-summary.tsx` (`ConsultationSummaryBody`, shared by history summary and read-only completed view), `prescription-print.tsx`
+- Key files: `src/components/dashboard/consultation/prescription-print.tsx`
+
+**`src/components/dashboard/print/`:**
+- Purpose: Shared print mechanism (prescriptions now, Phase 3 receipts later) and clinic letterhead margin settings.
+- Contains: `print-sheet.tsx` (body portal with margin spacers; pairs with the `@media print` block in `src/app/globals.css`), `print-settings-modal.tsx`, `test-print-body.tsx`, `clinic-receipt-print.tsx` (clinic receipt through `PrintSheet`; body-only, or with a standard printed header), `doctor-print-profiles-section.tsx` (per-doctor template, header fields, margin overrides inside the print settings modal)
+- Key files: `src/components/dashboard/print/print-sheet.tsx`
 
 **`src/components/dashboard/billing/`:**
 - Purpose: Reusable list/modal chrome used by POS and CRM lists (not billing-only despite the folder name).
-- Contains: `data-state.tsx`, `entity-modal.tsx`, `customer-table.tsx`, `product-table.tsx`, `order-list.tsx`, `transaction-list.tsx`, `order-wait-badge.tsx`
+- Contains: `data-state.tsx`, `entity-modal.tsx`, `customer-table.tsx`, `product-table.tsx`, `order-list.tsx`, `transaction-list.tsx`, `order-wait-badge.tsx`, `clinic-bill-modal.tsx` (Create bill from a Completed consultation)
 - Key files: `src/components/dashboard/billing/data-state.tsx`, `src/components/dashboard/billing/entity-modal.tsx`, `src/components/dashboard/billing/stock-alert-toast.tsx` (auto-dismiss POS stock toast)
 
 **`src/components/ui/`:**
 - Purpose: Cross-app primitives.
-- Contains: `button.tsx`, `list-pagination-controls.tsx`
+- Contains: `button.tsx`, `list-pagination-controls.tsx`, `responsive.tsx` (responsive layout helpers incl. `ResponsiveScrollStrip`)
 - Key files: `src/components/ui/button.tsx`
 
 **`src/contexts/`:**
@@ -84,12 +104,12 @@ evolvnexClientCrm/
 
 **`src/hooks/`:**
 - Purpose: Client-side data + UI persistence. One hook per domain aggregate, plus shared list utilities.
-- Contains: `use-customers.ts`, `use-products.ts`, `use-orders.ts`, `use-transactions.ts`, `use-promotions.ts`, `use-ingredients.ts`, `use-recipes.ts`, `use-consultations.ts`, `use-cafe-summary.ts`, `use-doctor-summary.ts`, `use-whatsapp-auto-replies.ts`, `use-paged-list.ts`, `use-persistent-state.ts`, `use-debounced-value.ts`
+- Contains: `use-customers.ts`, `use-products.ts`, `use-orders.ts`, `use-transactions.ts`, `use-promotions.ts`, `use-ingredients.ts`, `use-recipes.ts`, `use-consultations.ts`, `use-print-settings.ts`, `use-print-job.ts`, `use-clinic-bills.ts`, `use-clinic-receipt-print.ts`, `use-doctor-print-profiles.ts`, `use-appointment-reminders.ts`, `use-appointments-range.ts`, `use-cafe-summary.ts`, `use-doctor-summary.ts`, `use-whatsapp-auto-replies.ts`, `use-paged-list.ts`, `use-persistent-state.ts`, `use-debounced-value.ts`, `use-media-query.ts`
 - Key files: `src/hooks/use-paged-list.ts`, `src/hooks/use-whatsapp-auto-replies.ts`
 
 **`src/lib/`:**
 - Purpose: Types, queries, navigation, Supabase clients, analytics, providers.
-- Contains: domain `*-queries.ts` / `*-types.ts`, `tabs.ts`, `module-navigation.ts`, `dashboard-tab-routes.ts`, `supabase.ts`, `supabase-admin.ts`, `orderService.ts`, `inventory-units.ts` (unit families + conversion; single source for ingredient/recipe/POS units), `list-pagination.ts`, `client-cache.ts`, `utils.ts`, `time-utils.ts`
+- Contains: domain `*-queries.ts` / `*-types.ts`, `tabs.ts`, `module-navigation.ts`, `dashboard-tab-routes.ts`, `supabase.ts`, `supabase-admin.ts`, `orderService.ts`, `inventory-units.ts` (unit families + conversion; single source for ingredient/recipe/POS units), `appointment-schedule.ts` (import-free pure scheduling and conflict helpers), `consultation-vitals.ts` (import-free vitals parse and normalize), `consultation-files.ts` (import-free bucket constants, file validation, storage path and http(s) guard), `print-settings-types.ts` (import-free margin bounds and clamp), `print-settings-queries.ts`, `doctor-print-profile-types.ts` (types, standard margins, `resolvePrintProfile`), `doctor-print-profile-queries.ts` (client-scoped profile fetch/save/delete), `clinic-billing-types.ts` (import-free payment constants, guards, receipt payment label, integer-paise money helpers), `clinic-billing-queries.ts` (clinic-only select, list, by-id fetch, Mark paid, `create_clinic_bill` RPC wrapper, non-paid status fetch), `list-pagination.ts`, `client-cache.ts`, `utils.ts`, `time-utils.ts`
 - Key files: `src/lib/tabs.ts`, `src/lib/module-navigation.ts`, `src/lib/billing-queries.ts`, `src/lib/supabase.ts`
 
 **`src/lib/providers/`:**
@@ -109,7 +129,7 @@ evolvnexClientCrm/
 
 **`supabase/migrations/`:**
 - Purpose: SQL applied to the hosted project (also runnable in SQL editor).
-- Contains: `20260814_whatsapp_auto_replies.sql`, `20260817_customer_status_whatsapp_credentials.sql`, `20260817_customer_contact_fields.sql`
+- Contains: `20260814_whatsapp_auto_replies.sql`, `20260817_customer_status_whatsapp_credentials.sql`, `20260817_customer_contact_fields.sql`, `20260826_communication_message_templates.sql`, `20261107_appointments_soft_delete.sql`, `20261108_phase0_tighten_rls.sql` (live RLS hardening record), `20261110_customers_clinical_fields.sql` (patient clinical columns), `20261111_consultations_vitals.sql` (vitals jsonb with shape check), `20261111_print_settings.sql` (per-client letterhead margins, RLS, explicit grants), `20261111_consultation_files_storage.sql` (private `consultation-files` bucket, `storage_path`, storage policies), `20261112_bills_order_source_clinic.sql` (migration A: `Clinic` enum label, applied alone first), `20261112_clinic_billing_schema.sql` (migration B: bills payment CHECK, indexes, `create_clinic_bill` invoker function), `20261112_doctor_billing_tab.sql` (migration C: tab 015 access for the doctor client and 004 disabled, applied last after the code deploy), `20261114_doctor_print_profiles.sql` (per-doctor print profiles, RLS, one default per client; authored, not yet applied to live)
 - Key files: `supabase/migrations/20260814_whatsapp_auto_replies.sql`
 
 **`.planning/`:**

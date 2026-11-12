@@ -6,6 +6,7 @@ import {
   type ListPageParams,
   type ListPageResult,
 } from "@/lib/list-pagination";
+import { isClinicOrderSource } from "@/lib/order-alert-policy";
 import { getSupabaseClient } from "@/lib/supabase";
 import type {
   ContactAudienceGroup,
@@ -77,7 +78,7 @@ function latestTimestamp(values: Array<string | null | undefined>): string | nul
 }
 
 const CUSTOMER_SELECT =
-  "id, name, phone, email, dob, outreach_status, contact_tags, contact_source, last_activity_at, is_blocked, notes, assigned_to, created_at, bills(id, final_amount, created_at)";
+  "id, name, phone, email, dob, outreach_status, contact_tags, contact_source, last_activity_at, is_blocked, notes, assigned_to, gender, blood_group, allergies, chronic_conditions, created_at, bills(id, final_amount, created_at)";
 
 function mapCustomer(row: any): CustomerRecord {
   const bills = Array.isArray(row.bills) ? row.bills : [];
@@ -97,6 +98,10 @@ function mapCustomer(row: any): CustomerRecord {
     is_blocked: Boolean(row.is_blocked),
     notes: row.notes ?? null,
     assigned_to: row.assigned_to ?? null,
+    gender: row.gender ?? null,
+    blood_group: row.blood_group ?? null,
+    allergies: row.allergies ?? null,
+    chronic_conditions: row.chronic_conditions ?? null,
     created_at: row.created_at ?? "",
     totalOrders: bills.length,
     totalSpent,
@@ -226,10 +231,14 @@ export async function createCustomer(clientId: string, payload: CustomerPayload)
       is_blocked: Boolean(payload.isBlocked),
       notes: payload.notes?.trim() || null,
       assigned_to: payload.assignedTo?.trim() || null,
+      gender: payload.gender?.trim() || null,
+      blood_group: payload.bloodGroup?.trim() || null,
+      allergies: payload.allergies?.trim() || null,
+      chronic_conditions: payload.chronicConditions?.trim() || null,
       last_activity_at: new Date().toISOString(),
     })
     .select(
-      "id, name, phone, email, dob, outreach_status, contact_tags, contact_source, last_activity_at, is_blocked, notes, assigned_to, created_at",
+      "id, name, phone, email, dob, outreach_status, contact_tags, contact_source, last_activity_at, is_blocked, notes, assigned_to, gender, blood_group, allergies, chronic_conditions, created_at",
     )
     .single();
 
@@ -261,6 +270,12 @@ export async function updateCustomer(
       ...(payload.isBlocked !== undefined ? { is_blocked: payload.isBlocked } : {}),
       ...(payload.notes !== undefined ? { notes: payload.notes?.trim() || null } : {}),
       ...(payload.assignedTo !== undefined ? { assigned_to: payload.assignedTo?.trim() || null } : {}),
+      ...(payload.gender !== undefined ? { gender: payload.gender?.trim() || null } : {}),
+      ...(payload.bloodGroup !== undefined ? { blood_group: payload.bloodGroup?.trim() || null } : {}),
+      ...(payload.allergies !== undefined ? { allergies: payload.allergies?.trim() || null } : {}),
+      ...(payload.chronicConditions !== undefined
+        ? { chronic_conditions: payload.chronicConditions?.trim() || null }
+        : {}),
       last_activity_at: new Date().toISOString(),
     })
     .eq("id", customerId)
@@ -779,6 +794,7 @@ export async function fetchTransactionsPage(
 export async function fetchTransactionsSince(
   clientId: string,
   sinceIso: string,
+  options?: { includeClinic?: boolean },
 ): Promise<TransactionRecord[]> {
   const supabase = getClient();
   const { data, error } = await supabase
@@ -792,7 +808,13 @@ export async function fetchTransactionsSince(
     throw error;
   }
 
-  return (data ?? []).map((row) => mapBillRowToTransaction(row as Record<string, unknown>));
+  const transactions = (data ?? []).map((row) => mapBillRowToTransaction(row as Record<string, unknown>));
+  if (options?.includeClinic) {
+    return transactions;
+  }
+
+  // Clinic bills stay out of cafe numbers; only the doctor summary opts in.
+  return transactions.filter((transaction) => !isClinicOrderSource(transaction.order_source));
 }
 
 function isDeliveredStatus(status: TransactionRecord["status"]): boolean {
@@ -817,7 +839,8 @@ export async function fetchActiveOrders(clientId: string): Promise<TransactionRe
 
   return (data ?? [])
     .map((row) => mapBillRowToTransaction(row as Record<string, unknown>))
-    .filter((transaction) => !isDeliveredStatus(transaction.status));
+    .filter((transaction) => !isDeliveredStatus(transaction.status))
+    .filter((transaction) => !isClinicOrderSource(transaction.order_source));
 }
 
 export async function updateBillStatus(clientId: string, billId: string, status: "pending" | "accepted" | "delivered") {

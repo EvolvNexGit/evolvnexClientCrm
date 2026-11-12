@@ -118,7 +118,7 @@ export default function TemplatesTab({ clientId }: { clientId: string }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <LeadsTabHeader
         title="Message templates"
         description="Manage reusable plain-text message copy for your team. Inbox and send flows will use these later."
@@ -136,7 +136,7 @@ export default function TemplatesTab({ clientId }: { clientId: string }) {
         </div>
       )}
 
-      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+      <section className="rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-6">
         <p className="mb-4 text-center text-sm font-medium text-muted-foreground">Templates</p>
         <DataState
           loading={loading}

@@ -3,6 +3,7 @@ export type BillingSubTab = "customer" | "product" | "transaction";
 export const BILL_ORDER_TYPES = ["Dine-In", "Take-Away", "Delivery"] as const;
 export type BillOrderType = (typeof BILL_ORDER_TYPES)[number];
 export const BILL_ORDER_SOURCE_POS = "POS" as const;
+export const BILL_ORDER_SOURCE_CLINIC = "Clinic" as const;
 
 export type CustomerRecord = {
   id: string;
@@ -17,6 +18,10 @@ export type CustomerRecord = {
   is_blocked: boolean;
   notes: string | null;
   assigned_to: string | null;
+  gender: string | null;
+  blood_group: string | null;
+  allergies: string | null;
+  chronic_conditions: string | null;
   created_at: string;
   totalOrders: number;
   totalSpent: number;
@@ -33,6 +38,10 @@ export type CustomerPayload = {
   isBlocked?: boolean;
   notes?: string | null;
   assignedTo?: string | null;
+  gender?: string | null;
+  bloodGroup?: string | null;
+  allergies?: string | null;
+  chronicConditions?: string | null;
 };
 
 export type ContactStats = {
@@ -48,6 +57,12 @@ export type ContactAudienceGroup = {
 };
 
 export const CONTACT_SOURCE_OPTIONS = ["Campaign", "Walk-in", "Website", "Referral"] as const;
+
+export const GENDER_OPTIONS = ["Male", "Female", "Other"] as const;
+export type GenderOption = (typeof GENDER_OPTIONS)[number];
+
+export const BLOOD_GROUP_OPTIONS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
+export type BloodGroupOption = (typeof BLOOD_GROUP_OPTIONS)[number];
 
 export type ProductRecord = {
   id: string;
@@ -88,5 +103,7 @@ export type TransactionRecord = {
   order_source?: string | null;
   order_type?: string | null;
   status?: "pending" | "accepted" | "delivered" | null;
+  /** Only the doctor summary hook fills this; the shared mapper never does. */
+  payment_status?: string | null;
   items: TransactionItem[];
 };

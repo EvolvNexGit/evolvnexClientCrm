@@ -2,123 +2,130 @@
 
 ## Overview
 
-This milestone keeps the existing CRM tabs and ships a tenant-safe WhatsApp Conversations inbox on a provider-independent data model. Later OS modules (campaigns, POS, LEADS, HRM, AirMenu) stay off this roadmap.
+This milestone turns the existing client-scoped CRM into a usable **doctor/clinic** product on the same multi-tenant OS: a real appointment calendar, a patient profile, a consultation with printable prescription, and simple clinic billing. Clinic features are enabled per client through `client_tab_access`; cafe/POS clients keep their current tabs. The WhatsApp inbox roadmap was dropped on 2026-11-10 (existing WhatsApp code in `src/` is untouched, only the planned work is paused). Live RLS hardening (Phase 0) was applied directly to Supabase on 2026-11-08 and is synced into the repo as part of Phase 1.
 
 ## Phases
 
 **Phase Numbering:**
 - Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+- Decimal phases (1.1, 2.1): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Conversation model** - Generic threads/messages + RLS in git
-- [ ] **Phase 2: Tenant-safe ingest** - HMAC, idempotent inbound, status callbacks
-- [ ] **Phase 3: Server send** - JWT-scoped reply, Graph errors, 24h window
-- [ ] **Phase 4: Inbox UI** - List, thread, states, mobile, live updates
-- [ ] **Phase 5: CRM loop** - Contact match + existing tabs still work
-- [ ] **Phase 6: Communication nav** - Conversations reachable; campaigns not implied shipped
+- [ ] **Phase 1: Doctor appointments and patients** - Calendar, appointment queries, patient profile, Phase 0 RLS migration in repo
+- [ ] **Phase 2: Consultation and print** - Vitals, private file upload, letterhead print settings, prescription print
+- [ ] **Phase 3: Doctor billing** - doctor-billing tab, clinic bill function, receipt print
 
 ## Phase Details
 
-### Phase 1: Conversation model
-**Goal:** Persist provider-independent conversations and messages with tenant RLS, without putting WhatsApp into the customer row model.
-**Mode:** mvp
+### Phase 1: Doctor appointments and patients
+
+**Goal:** Receptionists book and move appointments on a day/week calendar, and staff see a patient profile with clinical basics, without changing the appointment-to-patient matching (phone) or adding tables beyond nullable columns.
 **Depends on:** Nothing (first phase)
-**Requirements:** MODEL-01, TENANT-01, CRED-01
+**Requirements:** APPT-01, APPT-02, APPT-03, PAT-01, PAT-02, SEC-01
 **Success Criteria** (what must be TRUE):
-  1. New conversation/message tables exist in-repo with RLS enabled for tenant isolation
-  2. WhatsApp identifiers are stored in provider-side records, not as the CRM customer primary key model
-  3. Service-role and provider secrets are still absent from client bundles
-**Plans:** TBD
-**UI hint**: no
+  1. Appointments tab offers a day and week calendar with staff columns; clicking an empty slot opens the add form prefilled; the existing list view still works
+  2. Booking or moving an appointment onto an overlapping slot for the same staff shows a conflict warning
+  3. Appointment create, update and status changes go through `appointment-queries.ts` (no direct Supabase writes left in the tab)
+  4. A patient has gender, blood group, allergies and chronic conditions; allergies show prominently on the patient profile
+  5. Patient profile shows Overview, Visits (consult history) and Files for one patient from the customer list
+  6. `supabase/migrations/20261108_phase0_tighten_rls.sql` in git matches what is live; tenant A cannot read tenant B appointments, bills, products or clients
+
+**Plans:** 7/7 plans executed
+**UI hint**: yes
 
 Plans:
-- [ ] 01-01: TBD during `/gsd-plan-phase 1`
+**Wave 1**
+- [x] 01-01-PLAN.md — Appointment query layer: create/update/status/range, tenant-scoped, tab writes moved (APPT-03) [wave 1]
+- [x] 01-02-PLAN.md — SEC-01 migration file 20261108_phase0_tighten_rls.sql, idempotent, matches live (SEC-01) [wave 1]
+- [x] 01-03-PLAN.md — Customers clinical fields: migration, types, queries, consultation-gated modal inputs (PAT-01) [wave 1]
 
-### Phase 2: Tenant-safe ingest
-**Goal:** Meta can deliver messages and statuses to the correct tenant only, without duplicates.
-**Mode:** mvp
+**Wave 2** *(blocked on Wave 1 completion)*
+- [x] 01-04-PLAN.md — Day/Week calendar with staff columns, click-to-book and click-to-edit (APPT-01) [wave 2]
+- [x] 01-05-PLAN.md — Patient profile drawer: Overview, Visits, Files, allergies in red (PAT-02) [wave 2]
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [x] 01-06-PLAN.md — Advisory conflict warning in the modal and on calendar cards (APPT-02) [wave 3]
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [x] 01-07-PLAN.md — Live apply of clinical migration (user), read-only SEC-01 parity check, docs, phase gates and UAT [wave 4]
+
+### Phase 2: Consultation and print
+
+**Goal:** A doctor records vitals, attaches real files privately, and prints a body-only prescription on pre-printed letterhead using the clinic's own margin settings.
 **Depends on:** Phase 1
-**Requirements:** WHHK-01, WHHK-02, WHHK-03, WHHK-04
+**Requirements:** CONS-01, CONS-02, CONS-03, PRNT-01, PRNT-02
 **Success Criteria** (what must be TRUE):
-  1. A payload signed for tenant A’s number does not persist messages for another number
-  2. Retrying the same inbound WhatsApp message id does not duplicate the thread UI row
-  3. Status callbacks for this number return success to Meta and update outbound state
-  4. Tenant is resolved from WABA `phone_number_id`, not from a client-supplied id
-**Plans:** TBD
-**UI hint**: no
+  1. Consultation form stores and shows vitals (BP, pulse, temperature, weight, SpO2) on `consultations.vitals`
+  2. A pinned patient strip (name, age, allergies) stays visible while the consult form scrolls
+  3. Attachments upload to a private `consultation-files` bucket scoped by `client_id`; viewing uses signed URLs; another tenant cannot fetch the file
+  4. A clinic saves header height, footer height, left and right margins (mm) once; print uses them via CSS `@page`
+  5. Printing a completed consult outputs medications, advice and follow-up in the body area only
+
+**Plans:** 6/6 plans executed
+**UI hint**: yes
 
 Plans:
-- [ ] 02-01: TBD during `/gsd-plan-phase 2`
+**Wave 1**
+- [x] 02-01-PLAN.md — Live read-only probes, three idempotent migrations (vitals, print_settings, private bucket + storage policies) and the approved apply to live with isolation probes (CONS-01, CONS-03, PRNT-01) [wave 1]
 
-### Phase 3: Server send
-**Goal:** Staff can reply from the server with honest success/failure and a closed customer-care window.
-**Mode:** mvp
+**Wave 2** *(blocked on Wave 1 completion)*
+- [x] 02-02-PLAN.md — Pinned patient strip (name, age, allergies) and vitals data layer plus Vitals card (CONS-01, CONS-02) [wave 2]
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [x] 02-03-PLAN.md — Private file upload, signed-URL Open shared by editor and Patient Files, guarded legacy URLs, object-first delete (CONS-03) [wave 3]
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [x] 02-04-PLAN.md — Print settings (mm margins per client) and the shared PrintSheet + usePrintJob + print CSS with a Test print (PRNT-01) [wave 4]
+
+**Wave 5** *(blocked on Wave 4 completion)*
+- [x] 02-05-PLAN.md — Body-only prescription print, queue View / Print, history Print, read-only Completed consult (PRNT-02) [wave 5]
+
+**Wave 6** *(blocked on Wave 5 completion)*
+- [x] 02-06-PLAN.md — Docs, phase gates and consolidated end-of-phase UAT (CONS-01..03, PRNT-01..02) [wave 6]
+
+### Phase 3: Doctor billing
+
+**Goal:** Doctor clients bill consult fees from a dedicated doctor-billing tab that reuses the existing bills tables, prints a receipt, and never pollutes cafe analytics or order alerts.
 **Depends on:** Phase 2
-**Requirements:** SEND-01, SEND-02, SEND-03
+**Requirements:** BILL-01, BILL-02, BILL-03, BILL-04, BILL-05
 **Success Criteria** (what must be TRUE):
-  1. A reply leaves through a Route Handler; the Cloud API token is not visible in the browser
-  2. A Graph rejection shows a safe error and is not treated as delivered
-  3. Outside the 24-hour window, free-form session send cannot appear successful
-**Plans:** TBD
-**UI hint**: no
+  1. Doctor client `eafea940-a6d1-4aa2-95e2-339f614502ea` sees `doctor-billing` (key 015) and no longer sees `004 Billing`; `009 Transaction` stays; cafe clients are unaffected
+  2. A bill can be created from a completed consult with patient and fee prefilled, with payment mode and paid/unpaid status
+  3. Clinic bills use order source `Clinic` and a final status, so they never appear as active orders or trigger alerts and are excluded from cafe summary numbers
+  4. The bill is created by a `SECURITY INVOKER` function that verifies customer, products and consultation belong to the caller's client; a foreign id is rejected
+  5. A receipt prints through the Phase 2 print mechanism; an unpaid list shows outstanding bills
 
-Plans:
-- [ ] 03-01: TBD during `/gsd-plan-phase 3`
-
-### Phase 4: Inbox UI
-**Goal:** Staff can use Conversations as a real inbox (list, thread, empty/error, mobile, live messages).
-**Mode:** mvp
-**Depends on:** Phase 3
-**Requirements:** INBX-01, INBX-02, INBX-03, INBX-04
-**Success Criteria** (what must be TRUE):
-  1. Staff see this tenant’s thread list after sign-in
-  2. Opening a thread shows chronological history
-  3. Empty, loading, and error states work on a mobile viewport
-  4. A newly stored message appears without a full page reload while the thread is open
-**Plans:** TBD
+**Plans:** 6/7 plans executed
 **UI hint**: yes
 
 Plans:
-- [ ] 04-01: TBD during `/gsd-plan-phase 4`
+**Wave 1**
+- [x] 03-01-PLAN.md — Live re-confirmation of LF-1..LF-9, migrations A (enum Clinic, alone), B (payment CHECK, indexes, create_clinic_bill) and C (015 tab access, authored only); A then B applied by the user with rolled-back isolation probes (BILL-01, BILL-02, BILL-03) [wave 1]
 
-### Phase 5: CRM loop
-**Goal:** Inbox sits on CRM people; current CRM tabs do not regress.
-**Mode:** mvp
-**Depends on:** Phase 4
-**Requirements:** CONT-01, CRM-01
-**Success Criteria** (what must be TRUE):
-  1. An inbound number that matches a tenant customer (normalized) links the thread to that contact
-  2. Contacts, appointments, consultations, and promotions still work for the signed-in tenant
-**Plans:** TBD
-**UI hint**: yes
+**Wave 2** *(blocked on Wave 1 completion)*
+- [x] 03-02-PLAN.md — Clinic billing types and queries, doctor-billing tab with Unpaid | All list and Mark paid, and the four-file registration of tab key 015 (BILL-01, BILL-02, BILL-04) [wave 2]
 
-Plans:
-- [ ] 05-01: TBD during `/gsd-plan-phase 5`
+**Wave 3** *(blocked on Wave 2 completion)*
+- [x] 03-03-PLAN.md — Cafe isolation: NULL-safe Clinic predicate and guards E1-E4 (active orders, transactions-since, realtime alert, push) plus doctor summary opt-in with paid-only revenue (BILL-05) [wave 3]
 
-### Phase 6: Communication nav
-**Goal:** Conversations is reachable in Communication navigation without advertising unbuilt campaign/automation product.
-**Mode:** mvp
-**Depends on:** Phase 5
-**Requirements:** NAV-01
-**Success Criteria** (what must be TRUE):
-  1. Staff can navigate to Conversations from the product chrome
-  2. Campaigns / Segments / Automation are not presented as shipped features
-**Plans:** TBD
-**UI hint**: yes
+**Wave 4** *(blocked on Wave 3 completion)*
+- [x] 03-04-PLAN.md — Receipt: ClinicReceiptPrint through the Phase 2 PrintSheet, shared print hook, Print and settings states in the billing tab (BILL-04) [wave 4]
 
-Plans:
-- [ ] 06-01: TBD during `/gsd-plan-phase 6`
+**Wave 5** *(blocked on Wave 4 completion)*
+- [x] 03-05-PLAN.md — Create-bill modal (fee prefill, discount, payment) and Create bill from Completed queue rows and the read-only consult (BILL-02, BILL-03) [wave 5]
+
+**Wave 6** *(blocked on Wave 5 completion)*
+- [ ] 03-06-PLAN.md — Apply migration C last, after the code is deployed: doctor client gets 015 and loses 004 (BILL-01) [wave 6]
+
+**Wave 7** *(blocked on Wave 6 completion)*
+- [x] 03-07-PLAN.md — Docs, phase gates and consolidated end-of-phase UAT (BILL-01..05) [wave 7]
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
+Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Conversation model | 0/1 | Not started | - |
-| 2. Tenant-safe ingest | 0/1 | Not started | - |
-| 3. Server send | 0/1 | Not started | - |
-| 4. Inbox UI | 0/1 | Not started | - |
-| 5. CRM loop | 0/1 | Not started | - |
-| 6. Communication nav | 0/1 | Not started | - |
+| 1. Doctor appointments and patients | 7/7 | In Progress | - |
+| 2. Consultation and print | 6/6 | In Progress | - |
+| 3. Doctor billing | 6/7 | In Progress | - |

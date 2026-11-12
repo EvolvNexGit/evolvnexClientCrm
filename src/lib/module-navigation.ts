@@ -40,6 +40,11 @@ export type ModuleNavItemConfig = {
   tabKey?: string;
   /** Stable path segment / virtual tab key (for kind === "coming-soon"). */
   pathKey?: string;
+  /**
+   * Coming-soon item gated by client_tab_access: shown only when the client has an
+   * enabled tab whose code key equals `pathKey` (tabs_info 016–026, see tabs.ts).
+   */
+  requiresAccess?: boolean;
   icon: LucideIcon;
 };
 
@@ -85,6 +90,7 @@ export const MODULES: ModuleConfig[] = [
     label: "POS",
     items: [
       { id: "billing", label: "Billing", kind: "existing-tab", tabKey: "billing", icon: ShoppingBag },
+      { id: "doctor-billing", label: "Billing", kind: "existing-tab", tabKey: "doctor-billing", icon: Receipt },
       { id: "orders", label: "Orders", kind: "existing-tab", tabKey: "orders", icon: ConciergeBell },
       { id: "products", label: "Products", kind: "existing-tab", tabKey: "product", icon: Package },
       { id: "inventory", label: "Inventory", kind: "existing-tab", tabKey: "ingredients", icon: ClipboardList },
@@ -97,23 +103,23 @@ export const MODULES: ModuleConfig[] = [
     id: "leads",
     label: "LEADS",
     items: [
-      { id: "inbox", label: "Inbox", kind: "coming-soon", pathKey: "leads-inbox", icon: Inbox },
-      { id: "contacts", label: "Contacts", kind: "coming-soon", pathKey: "leads-contacts", icon: Contact },
-      { id: "campaigns", label: "Campaigns", kind: "coming-soon", pathKey: "leads-campaigns", icon: Megaphone },
-      { id: "templates", label: "Templates", kind: "coming-soon", pathKey: "leads-templates", icon: Layers },
-      { id: "whatsapp-settings", label: "WhatsApp Settings", kind: "coming-soon", pathKey: "leads-whatsapp-settings", icon: Settings },
-      { id: "automation", label: "Auto Replies", kind: "coming-soon", pathKey: "leads-automation", icon: Workflow },
-      { id: "segments", label: "Segments", kind: "coming-soon", pathKey: "leads-segments", icon: LayoutDashboard },
+      { id: "inbox", label: "Inbox", kind: "coming-soon", pathKey: "leads-inbox", requiresAccess: true, icon: Inbox },
+      { id: "contacts", label: "Contacts", kind: "coming-soon", pathKey: "leads-contacts", requiresAccess: true, icon: Contact },
+      { id: "campaigns", label: "Campaigns", kind: "coming-soon", pathKey: "leads-campaigns", requiresAccess: true, icon: Megaphone },
+      { id: "templates", label: "Templates", kind: "coming-soon", pathKey: "leads-templates", requiresAccess: true, icon: Layers },
+      { id: "whatsapp-settings", label: "WhatsApp Settings", kind: "coming-soon", pathKey: "leads-whatsapp-settings", requiresAccess: true, icon: Settings },
+      { id: "automation", label: "Auto Replies", kind: "coming-soon", pathKey: "leads-automation", requiresAccess: true, icon: Workflow },
+      { id: "segments", label: "Segments", kind: "coming-soon", pathKey: "leads-segments", requiresAccess: true, icon: LayoutDashboard },
     ],
   },
   {
     id: "hrm",
     label: "HRM",
     items: [
-      { id: "employees", label: "Employees", kind: "coming-soon", pathKey: "hrm-employees", icon: UserRound },
-      { id: "attendance", label: "Attendance", kind: "coming-soon", pathKey: "hrm-attendance", icon: CalendarDays },
-      { id: "leave", label: "Leave", kind: "coming-soon", pathKey: "hrm-leave", icon: Plane },
-      { id: "payroll", label: "Payroll", kind: "coming-soon", pathKey: "hrm-payroll", icon: Wallet },
+      { id: "employees", label: "Employees", kind: "coming-soon", pathKey: "hrm-employees", requiresAccess: true, icon: UserRound },
+      { id: "attendance", label: "Attendance", kind: "coming-soon", pathKey: "hrm-attendance", requiresAccess: true, icon: CalendarDays },
+      { id: "leave", label: "Leave", kind: "coming-soon", pathKey: "hrm-leave", requiresAccess: true, icon: Plane },
+      { id: "payroll", label: "Payroll", kind: "coming-soon", pathKey: "hrm-payroll", requiresAccess: true, icon: Wallet },
     ],
   },
 ];
@@ -138,6 +144,21 @@ export function getComingSoonItem(pathKey: string): ModuleNavItemConfig | undefi
   return undefined;
 }
 
+/**
+ * Whether a coming-soon path may be shown/routed for this client. Ungated items (e.g. Reports)
+ * are always allowed; gated LEADS/HRM items need an enabled client_tab_access row.
+ */
+export function isComingSoonPathPermitted(pathKey: string, tabs: TabDefinition[]): boolean {
+  const item = getComingSoonItem(pathKey);
+  if (!item) {
+    return false;
+  }
+  if (!item.requiresAccess) {
+    return true;
+  }
+  return tabs.some((tab) => tab.key === pathKey);
+}
+
 export function getModuleById(moduleId: ModuleId): ModuleConfig | undefined {
   return MODULES.find((module) => module.id === moduleId);
 }
@@ -157,7 +178,8 @@ export function getDefaultApplicationTab(tabs: TabDefinition[]): TabDefinition |
     return insights[0];
   }
 
-  const applicationTab = tabs.find((tab) => tab.key !== "summary");
+  // LEADS/HRM access rows are nav gates, not tab screens: never land on them as the default tab.
+  const applicationTab = tabs.find((tab) => tab.key !== "summary" && !isComingSoonPathKey(tab.key));
   return applicationTab ?? null;
 }
 
@@ -176,7 +198,8 @@ export type ResolvedSidebarItem = {
  * Build sidebar items for a module, filtering existing tabs by client_tab_access.
  * AI Insights is a single generic nav item; the permitted specialty summary tab
  * from tab-access determines which content implementation is shown.
- * Coming-soon items are always shown (navigation scaffolding).
+ * Ungated coming-soon items are always shown (navigation scaffolding); gated ones
+ * (LEADS/HRM, `requiresAccess`) only when client_tab_access enables them.
  */
 export function getSidebarItemsForModule(
   moduleId: ModuleId,
@@ -231,6 +254,9 @@ export function getSidebarItemsForModule(
     }
 
     if (config.kind === "coming-soon" && config.pathKey) {
+      if (config.requiresAccess && !tabs.some((tab) => tab.key === config.pathKey)) {
+        continue;
+      }
       items.push({
         id: config.id,
         label: config.label,
@@ -265,6 +291,13 @@ export function getModuleIdForNavKey(navKey: string): ModuleId | null {
   }
 
   return null;
+}
+
+/** Modules that have at least one visible sidebar item for this client (empty modules are hidden). */
+export function getVisibleModuleIds(tabs: TabDefinition[]): ModuleId[] {
+  return MODULES.filter((module) => getSidebarItemsForModule(module.id, tabs).length > 0).map(
+    (module) => module.id,
+  );
 }
 
 export function getDefaultModuleId(tabs: TabDefinition[]): ModuleId {

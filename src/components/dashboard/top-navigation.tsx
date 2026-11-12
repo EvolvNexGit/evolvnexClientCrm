@@ -1,8 +1,10 @@
 "use client";
 
-import { Menu } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { ChevronDown, Menu } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
-import { MODULES, type ModuleId } from "@/lib/module-navigation";
+import { ResponsiveScrollStrip } from "@/components/ui/responsive";
+import { MODULES, type ModuleId, type ResolvedSidebarItem } from "@/lib/module-navigation";
 import { UserMenu } from "@/components/dashboard/user-menu";
 
 function ModuleTabs({
@@ -34,14 +36,83 @@ function ModuleTabs({
             onClick={() => onModuleChange(module.id)}
             className={
               isActive
-                ? "shrink-0 rounded-lg border border-primary px-2.5 py-1.5 text-sm font-medium text-primary md:px-3"
-                : "shrink-0 rounded-lg border border-transparent px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition hover:text-text md:px-3"
+                ? "shrink-0 rounded-lg border border-primary px-2.5 py-1.5 text-sm font-medium text-primary md:px-3 max-xl:min-h-11"
+                : "shrink-0 rounded-lg border border-transparent px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition hover:text-text md:px-3 max-xl:min-h-11"
             }
           >
             {module.label}
           </button>
         );
       })}
+    </nav>
+  );
+}
+
+function SectionTabs({
+  items,
+  activeNavKey,
+  moduleLabel,
+  onSelect,
+  onOpenMenu,
+}: {
+  items: ResolvedSidebarItem[];
+  activeNavKey: string | null;
+  moduleLabel: string;
+  onSelect: (item: ResolvedSidebarItem) => void;
+  onOpenMenu: () => void;
+}) {
+  const stripRef = useRef<HTMLDivElement | null>(null);
+  const activeChipRef = useRef<HTMLButtonElement | null>(null);
+
+  // Center the active chip by scrolling the strip only (no ancestor shifts).
+  useEffect(() => {
+    const strip = stripRef.current;
+    const chip = activeChipRef.current;
+    if (!strip || !chip) {
+      return;
+    }
+    strip.scrollTo({
+      left: chip.offsetLeft - (strip.clientWidth - chip.offsetWidth) / 2,
+      behavior: "smooth",
+    });
+  }, [activeNavKey, items]);
+
+  if (items.length < 2) {
+    return null;
+  }
+
+  return (
+    <nav className="min-w-0 px-3 pb-2 xl:hidden" aria-label="Section navigation">
+      <ResponsiveScrollStrip className="relative" containerRef={stripRef}>
+        <button
+          type="button"
+          onClick={onOpenMenu}
+          aria-label={`${moduleLabel} module, open menu`}
+          className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full border border-border bg-card px-3 text-sm font-medium text-text md:hidden"
+        >
+          {moduleLabel}
+          <ChevronDown className="h-4 w-4" />
+        </button>
+        {items.map((item) => {
+          const isActive = item.navKey === activeNavKey;
+          return (
+            <button
+              key={item.id}
+              ref={isActive ? activeChipRef : undefined}
+              type="button"
+              onClick={() => onSelect(item)}
+              aria-current={isActive ? "page" : undefined}
+              className={
+                isActive
+                  ? "min-h-11 shrink-0 rounded-full border border-primary bg-primary/10 px-4 text-sm font-medium text-primary transition"
+                  : "min-h-11 shrink-0 rounded-full border border-border bg-card px-4 text-sm font-medium text-muted-foreground transition hover:text-text"
+              }
+            >
+              {item.label}
+            </button>
+          );
+        })}
+      </ResponsiveScrollStrip>
     </nav>
   );
 }
@@ -54,6 +125,9 @@ export function TopNavigation({
   onOpenProfile,
   onLogout,
   userLabel,
+  sectionItems,
+  activeNavKey,
+  onSectionSelect,
 }: {
   activeModuleId: ModuleId;
   visibleModuleIds: ModuleId[];
@@ -62,11 +136,14 @@ export function TopNavigation({
   onOpenProfile: () => void;
   onLogout: () => Promise<void>;
   userLabel: string;
+  sectionItems: ResolvedSidebarItem[];
+  activeNavKey: string | null;
+  onSectionSelect: (item: ResolvedSidebarItem) => void;
 }) {
   const visibleModules = MODULES.filter((module) => visibleModuleIds.includes(module.id));
 
   return (
-    <header className="sticky top-0 z-20 border-b border-border bg-background/95 pt-safe backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-border bg-background pt-safe">
       {/* Phone (< md): menu + logo + avatar. No module chips. */}
       <div className="flex h-14 min-w-0 items-center gap-2 px-3 md:hidden">
         <button
@@ -128,6 +205,14 @@ export function TopNavigation({
           compact
         />
       </div>
+
+      <SectionTabs
+        items={sectionItems}
+        activeNavKey={activeNavKey}
+        moduleLabel={MODULES.find((module) => module.id === activeModuleId)?.label ?? "Menu"}
+        onSelect={onSectionSelect}
+        onOpenMenu={onOpenMobileSidebar}
+      />
 
       {/* Desktop (xl+): existing logo slot + module tabs + user menu */}
       <div className="hidden h-16 min-w-0 items-center xl:flex">

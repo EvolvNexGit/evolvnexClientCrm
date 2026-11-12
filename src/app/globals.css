@@ -35,17 +35,17 @@
 .light {
   color-scheme: light;
 
-  --background: 0 0% 100%;
+  --background: 0 0% 97%;
   --foreground: 0 0% 0%;
 
-  --card: 0 0% 96%;
+  --card: 0 0% 100%;
   --card-foreground: 0 0% 0%;
 
-  --border: 0 0% 85%;
-  --input: 0 0% 85%;
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
 
-  --muted: 0 0% 92%;
-  --muted-foreground: 0 0% 40%;
+  --muted: 0 0% 95%;
+  --muted-foreground: 0 0% 38%;
 
   --primary: 0 85% 50%;
   --primary-foreground: 0 0% 100%;
@@ -116,6 +116,12 @@ body {
   textarea {
     font-size: 1rem;
   }
+
+  /* Tap-target floor below xl; desktop keeps authored heights. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+  select {
+    min-height: 2.75rem;
+  }
 }
 
 /* RESET */
@@ -146,4 +152,21 @@ a {
 
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--primary));
+}
+
+/* Print isolation: only the portal print sheet is printed (shared by prescriptions and receipts).
+   Scoped with :has so a normal Ctrl+P on a page with no print sheet mounted is not blanked. */
+@media print {
+  body:has(> [data-print-root]) > *:not([data-print-root]) {
+    display: none !important;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
 }

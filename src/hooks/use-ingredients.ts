@@ -25,7 +25,7 @@ export function useIngredients(clientId: string) {
       const next = await fetchIngredients(clientId);
       setIngredients(next);
     } catch (fetchError) {
-      setError(fetchError instanceof Error ? fetchError.message : "Unable to load ingredients.");
+      setError(fetchError instanceof Error ? fetchError.message : "Unable to load inventory.");
     } finally {
       setLoading(false);
     }

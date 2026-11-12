@@ -80,7 +80,7 @@ export default function WhatsAppSettingsTab({ clientId }: { clientId: string }) 
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <LeadsTabHeader
         title="WhatsApp Settings"
         description="Connect your tenant to the official WhatsApp Cloud API. Secrets are encrypted and never shown again after save."
@@ -111,7 +111,7 @@ export default function WhatsAppSettingsTab({ clientId }: { clientId: string }) 
 
       {!loading && (
         <>
-          <section className="mx-auto w-full max-w-2xl rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+          <section className="mx-auto w-full max-w-2xl rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-6">
             <h3 className="enx-section-title">Webhook URL</h3>
             <p className="enx-helper mt-1">
               Paste this callback URL in your Meta app webhook configuration. Use the same verify token
@@ -130,7 +130,7 @@ export default function WhatsAppSettingsTab({ clientId }: { clientId: string }) 
             </div>
           </section>
 
-          <section className="mx-auto w-full max-w-2xl rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+          <section className="mx-auto w-full max-w-2xl rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-6">
             <h3 className="enx-section-title">Cloud API credentials</h3>
             <div className="mt-3 flex flex-wrap gap-2 text-xs">
               <span className="rounded-full border border-border px-3 py-1">

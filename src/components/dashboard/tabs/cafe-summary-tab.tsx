@@ -32,6 +32,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ResponsiveKpiGrid } from "@/components/ui/responsive";
 import { useCafeSummary } from "@/hooks/use-cafe-summary";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import {
   formatCount,
@@ -127,6 +128,10 @@ export default function CafeSummaryTab({ clientId }: { clientId: string }) {
   });
 
   const trendLabel = getTrendLabel(rangePreset);
+  // Phone-only chart axis props; tablet and desktop keep the Recharts defaults.
+  const isPhone = useMediaQuery("(max-width: 639px)");
+  const phoneChartProps = isPhone ? { margin: { top: 8, right: 8, left: -8, bottom: 0 } } : {};
+  const phoneYAxisProps = isPhone ? { width: 40 } : {};
 
   const customerPieData = useMemo(() => {
     if (!analytics) {
@@ -140,7 +145,7 @@ export default function CafeSummaryTab({ clientId }: { clientId: string }) {
   }, [analytics]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="flex min-w-0 gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {RANGE_OPTIONS.map((option) => (
@@ -148,7 +153,7 @@ export default function CafeSummaryTab({ clientId }: { clientId: string }) {
               key={option.key}
               type="button"
               onClick={() => setRangePreset(option.key)}
-              className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition ${
+              className={`min-h-11 shrink-0 rounded-full px-4 py-2 text-sm font-medium transition xl:min-h-0 ${
                 rangePreset === option.key
                   ? "bg-primary text-white"
                   : "border border-border bg-card text-muted-foreground hover:text-text"
@@ -254,7 +259,7 @@ export default function CafeSummaryTab({ clientId }: { clientId: string }) {
                 <h4 className="font-semibold">Peak Hours</h4>
               </div>
               <p className="text-sm text-muted-foreground">{analytics.peakHoursLabel}</p>
-              <Link href={"/dashboard/transaction" as never} className="mt-3 inline-block text-sm font-medium text-primary hover:underline">
+              <Link href={"/dashboard/transaction" as never} className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline xl:inline-block xl:min-h-0">
                 View details
               </Link>
             </section>
@@ -270,7 +275,7 @@ export default function CafeSummaryTab({ clientId }: { clientId: string }) {
               <div className="h-48 min-w-0 md:h-64 xl:h-72">
                 {analytics.hourly.some((point) => point.revenue > 0) ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={analytics.hourly}>
+                    <AreaChart data={analytics.hourly} {...phoneChartProps}>
                       <defs>
                         <linearGradient id="salesTrendFill" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#ef4444" stopOpacity={0.35} />
@@ -278,8 +283,8 @@ export default function CafeSummaryTab({ clientId }: { clientId: string }) {
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
-                      <XAxis dataKey="label" tick={{ fill: "#9ca3af", fontSize: 11 }} interval={2} />
-                      <YAxis tick={{ fill: "#9ca3af", fontSize: 11 }} />
+                      <XAxis dataKey="label" tick={{ fill: "#9ca3af", fontSize: 11 }} interval={isPhone ? 5 : 2} />
+                      <YAxis tick={{ fill: "#9ca3af", fontSize: 11 }} {...phoneYAxisProps} />
                       <Tooltip
                         contentStyle={{ background: "#111827", border: "1px solid #374151", borderRadius: 12 }}
                         formatter={(value) => formatInr(Number(value ?? 0))}
@@ -319,7 +324,7 @@ export default function CafeSummaryTab({ clientId }: { clientId: string }) {
               ) : (
                 <p className="text-sm text-muted-foreground">No item sales in this period.</p>
               )}
-              <Link href={"/dashboard/product" as never} className="mt-4 inline-block text-sm font-medium text-primary hover:underline">
+              <Link href={"/dashboard/product" as never} className="mt-4 inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline xl:inline-block xl:min-h-0">
                 View all items
               </Link>
             </section>
@@ -385,10 +390,10 @@ export default function CafeSummaryTab({ clientId }: { clientId: string }) {
               <div className="h-56">
                 {analytics.hourly.some((point) => point.orders > 0) ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={analytics.hourly}>
+                    <BarChart data={analytics.hourly} {...phoneChartProps}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
-                      <XAxis dataKey="label" tick={{ fill: "#9ca3af", fontSize: 11 }} interval={2} />
-                      <YAxis allowDecimals={false} tick={{ fill: "#9ca3af", fontSize: 11 }} />
+                      <XAxis dataKey="label" tick={{ fill: "#9ca3af", fontSize: 11 }} interval={isPhone ? 5 : 2} />
+                      <YAxis allowDecimals={false} tick={{ fill: "#9ca3af", fontSize: 11 }} {...phoneYAxisProps} />
                       <Tooltip
                         contentStyle={{ background: "#111827", border: "1px solid #374151", borderRadius: 12 }}
                       />
