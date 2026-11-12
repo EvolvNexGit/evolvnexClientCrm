@@ -164,8 +164,9 @@ export function TransactionList({
         </Button>
       </div>
 
-      <div className="grid gap-2 rounded-lg border border-border bg-background p-2 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="text-xs text-muted-foreground">
+      {/* Phones: search + customer full width, From/To share one row (from 390px; 360px stacks to avoid clipped dates). */}
+      <div className="grid grid-cols-1 gap-2 rounded-lg border border-border bg-background p-2 min-[380px]:grid-cols-2 lg:grid-cols-4">
+        <label className="text-xs text-muted-foreground min-[380px]:col-span-2 sm:col-span-1">
           <span className="mb-0.5 block">Search</span>
           <input
             value={searchQuery}
@@ -175,7 +176,7 @@ export function TransactionList({
           />
         </label>
 
-        <label className="text-xs text-muted-foreground">
+        <label className="text-xs text-muted-foreground min-[380px]:col-span-2 sm:col-span-1">
           <span className="mb-0.5 block">Customer</span>
           <select
             value={customerFilter}

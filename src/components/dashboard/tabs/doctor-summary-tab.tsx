@@ -34,6 +34,7 @@ import {
 import { AppointmentRemindersBell } from "@/components/dashboard/appointment-reminders-bell";
 import { Button } from "@/components/ui/button";
 import { useDoctorSummary } from "@/hooks/use-doctor-summary";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import {
   formatCount,
@@ -54,6 +55,10 @@ const RANGE_OPTIONS: { key: CafeSummaryRangePreset; label: string; shortLabel: s
 ];
 
 const MOBILE_HOUR_TICKS = [0, 6, 12, 18, 23];
+
+// Non-negative left margin + wider YAxis so 4–5 digit ticks (e.g. 1500) are not clipped;
+// right margin leaves room for the last "11 PM" x tick.
+const CHART_MARGIN = { top: 8, right: 16, left: 0, bottom: 0 };
 
 function getTrendLabel(preset: CafeSummaryRangePreset) {
   switch (preset) {
@@ -164,6 +169,9 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
   );
 
   const trendLabel = getTrendLabel(rangePreset);
+  // 12px axis ticks below xl for phone legibility; desktop keeps 10px.
+  const isBelowXl = useMediaQuery("(max-width: 1279px)");
+  const axisTick = { fill: "#9ca3af", fontSize: isBelowXl ? 12 : 10 };
 
   const statusPieData = useMemo(
     () => (analytics?.statusOverview ?? []).filter((slice) => slice.value > 0),
@@ -177,11 +185,9 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
 
   return (
     <div className="-mx-1 space-y-4 sm:mx-0 sm:space-y-6">
-      <div className="flex flex-wrap items-center justify-end gap-4">
-        <AppointmentRemindersBell />
-      </div>
-
-      <div className="relative lg:hidden">
+      {/* Below lg the bell shares the location row (no standalone row); lg+ keeps it right-aligned alone. */}
+      <div className="flex items-center gap-3 lg:flex-wrap lg:justify-end lg:gap-4">
+      <div className="relative min-w-0 flex-1 lg:hidden">
         <div className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-primary">
             <Stethoscope className="h-5 w-5" />
@@ -207,6 +213,8 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
             </option>
           ))}
         </select>
+      </div>
+        <AppointmentRemindersBell />
       </div>
 
       <div className="space-y-3">
@@ -363,7 +371,7 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
               <div className="h-48 sm:h-72">
                 {analytics.revenueHourly.some((point) => point.revenue > 0) ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={analytics.revenueHourly} margin={{ top: 8, right: 4, left: -18, bottom: 0 }}>
+                    <AreaChart data={analytics.revenueHourly} margin={CHART_MARGIN}>
                       <defs>
                         <linearGradient id="doctorRevenueFill" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#ef4444" stopOpacity={0.35} />
@@ -377,9 +385,9 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
                         domain={[0, 23]}
                         ticks={MOBILE_HOUR_TICKS}
                         tickFormatter={(hour) => analytics.revenueHourly[Number(hour)]?.label ?? String(hour)}
-                        tick={{ fill: "#9ca3af", fontSize: 10 }}
+                        tick={axisTick}
                       />
-                      <YAxis tick={{ fill: "#9ca3af", fontSize: 10 }} width={40} />
+                      <YAxis tick={axisTick} width={48} />
                       <Tooltip
                         contentStyle={{ background: "#111827", border: "1px solid #374151", borderRadius: 12 }}
                         formatter={(value) => formatInr(Number(value ?? 0))}
@@ -433,7 +441,7 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
               <div className="h-48">
                 {analytics.appointmentsHourly.some((point) => point.appointments > 0) ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={analytics.appointmentsHourly} margin={{ top: 8, right: 4, left: -18, bottom: 0 }}>
+                    <BarChart data={analytics.appointmentsHourly} margin={CHART_MARGIN}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
                       <XAxis
                         dataKey="hour"
@@ -441,9 +449,9 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
                         domain={[0, 23]}
                         ticks={MOBILE_HOUR_TICKS}
                         tickFormatter={(hour) => analytics.appointmentsHourly[Number(hour)]?.label ?? String(hour)}
-                        tick={{ fill: "#9ca3af", fontSize: 10 }}
+                        tick={axisTick}
                       />
-                      <YAxis allowDecimals={false} tick={{ fill: "#9ca3af", fontSize: 10 }} width={28} />
+                      <YAxis allowDecimals={false} tick={axisTick} width={32} />
                       <Tooltip contentStyle={{ background: "#111827", border: "1px solid #374151", borderRadius: 12 }} />
                       <Bar dataKey="appointments" fill="#ef4444" radius={[4, 4, 0, 0]} />
                     </BarChart>
@@ -509,7 +517,10 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
 
           <section className="rounded-2xl border border-border bg-card p-3 sm:p-4">
             <div className="mb-3 flex items-center justify-end gap-3">
-              <Link href={"/dashboard/appointments" as never} className="text-sm font-medium text-primary hover:underline">
+              <Link
+                href={"/dashboard/appointments" as never}
+                className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline xl:min-h-0"
+              >
                 View all
               </Link>
             </div>
@@ -548,7 +559,10 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
                   </div>
                   <p className="text-sm text-muted-foreground">{alert.message}</p>
                   {alert.href && alert.hrefLabel && (
-                    <Link href={alert.href as never} className="mt-3 inline-block text-sm font-medium text-primary hover:underline">
+                    <Link
+                      href={alert.href as never}
+                      className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline xl:inline-block xl:min-h-0"
+                    >
                       {alert.hrefLabel}
                     </Link>
                   )}

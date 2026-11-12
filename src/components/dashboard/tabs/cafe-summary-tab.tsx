@@ -324,7 +324,7 @@ export default function CafeSummaryTab({ clientId }: { clientId: string }) {
               ) : (
                 <p className="text-sm text-muted-foreground">No item sales in this period.</p>
               )}
-              <Link href={"/dashboard/product" as never} className="mt-4 inline-block text-sm font-medium text-primary hover:underline">
+              <Link href={"/dashboard/product" as never} className="mt-4 inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline xl:inline-block xl:min-h-0">
                 View all items
               </Link>
             </section>

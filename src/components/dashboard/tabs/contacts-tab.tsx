@@ -306,7 +306,8 @@ export default function ContactsTab({ clientId }: { clientId: string }) {
             <h2 className="mt-2 text-2xl font-semibold text-text">Contacts</h2>
             <p className="mt-1 text-sm text-muted-foreground">Manage your WhatsApp contacts and audience.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          {/* Phones: both actions share one row instead of stacking. */}
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
             <input
               ref={fileInputRef}
               type="file"
@@ -322,14 +323,14 @@ export default function ContactsTab({ clientId }: { clientId: string }) {
             <Button
               type="button"
               variant="secondary"
-              className="gap-2"
+              className="gap-2 whitespace-nowrap max-sm:px-2 max-sm:text-sm"
               disabled={importing || customerState.saving}
               onClick={() => fileInputRef.current?.click()}
             >
               {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               Import CSV
             </Button>
-            <Button type="button" className="gap-2" onClick={openAdd}>
+            <Button type="button" className="gap-2 whitespace-nowrap max-sm:px-2 max-sm:text-sm" onClick={openAdd}>
               <Plus className="h-4 w-4" />
               Add Contact
             </Button>

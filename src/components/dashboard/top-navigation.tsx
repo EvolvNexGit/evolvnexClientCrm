@@ -36,8 +36,8 @@ function ModuleTabs({
             onClick={() => onModuleChange(module.id)}
             className={
               isActive
-                ? "shrink-0 rounded-lg border border-primary px-2.5 py-1.5 text-sm font-medium text-primary md:px-3"
-                : "shrink-0 rounded-lg border border-transparent px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition hover:text-text md:px-3"
+                ? "shrink-0 rounded-lg border border-primary px-2.5 py-1.5 text-sm font-medium text-primary md:px-3 max-xl:min-h-11"
+                : "shrink-0 rounded-lg border border-transparent px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition hover:text-text md:px-3 max-xl:min-h-11"
             }
           >
             {module.label}

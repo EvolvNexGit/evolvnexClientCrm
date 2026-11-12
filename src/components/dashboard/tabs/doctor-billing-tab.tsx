@@ -235,7 +235,7 @@ export default function DoctorBillingTab({ clientId }: DoctorBillingTabProps) {
               type="button"
               onClick={() => handleFilterChange(option.key)}
               className={cn(
-                "min-h-11 shrink-0 pb-3 xl:min-h-0",
+                "min-h-11 min-w-11 shrink-0 pb-3 xl:min-h-0 xl:min-w-0",
                 filter === option.key
                   ? "border-b-2 border-primary text-primary"
                   : "text-muted-foreground hover:text-text",
