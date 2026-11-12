@@ -455,6 +455,8 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   );
   const [sortOrder, setSortOrder] = usePersistentState<"asc" | "desc">(`appointments-tab-sort-order:${clientId}`, "asc");
   const [showFilters, setShowFilters] = useState(false);
+  // Date option picked but no value entered yet (a preset or typed value would otherwise hide the input).
+  const [pendingDateKind, setPendingDateKind] = useState<"day" | "month" | "year" | null>(null);
   const [viewMode, setViewMode] = usePersistentState<"list" | "day" | "week">(`appointments-tab-view-mode:${clientId}`, "list");
   const [calendarDate, setCalendarDate] = useState(() => formatUtcToIst(new Date().toISOString()).slice(0, 10));
   // Only today's group starts open; the rest stay collapsed until toggled.
@@ -485,7 +487,6 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     staff: string[];
     statuses: string[];
   }>({ locations: [], services: [], staff: [], statuses: [] });
-  const dateInputRef = useRef<HTMLInputElement | null>(null);
 
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
 
@@ -633,6 +634,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     setStaffFilter("all");
     setDateFilter("");
     setDateFilterMode("day");
+    setPendingDateKind(null);
     setSortBy("date");
     setSortOrder("asc");
   }
@@ -804,24 +806,34 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     }
   }
 
-  function openDatePicker() {
-    if (dateFilterMode === "year") {
-      return;
-    }
+  const todayIst = formatUtcToIst(new Date().toISOString()).slice(0, 10);
+  const tomorrowIst = formatUtcToIst(new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()).slice(0, 10);
+  const datePreset: "all" | "today" | "tomorrow" | "day" | "month" | "year" =
+    pendingDateKind ??
+    (!dateFilter
+      ? "all"
+      : dateFilterMode !== "day"
+        ? dateFilterMode
+        : dateFilter === todayIst
+          ? "today"
+          : dateFilter === tomorrowIst
+            ? "tomorrow"
+            : "day");
 
-    const input = dateInputRef.current;
-    if (!input) {
-      return;
+  function handleDatePresetChange(preset: string) {
+    if (preset === "today" || preset === "tomorrow") {
+      setPendingDateKind(null);
+      setDateFilterMode("day");
+      setDateFilter(preset === "today" ? todayIst : tomorrowIst);
+    } else if (preset === "day" || preset === "month" || preset === "year") {
+      setPendingDateKind(preset);
+      setDateFilterMode(preset);
+      setDateFilter("");
+    } else {
+      setPendingDateKind(null);
+      setDateFilterMode("day");
+      setDateFilter("");
     }
-
-    const pickerInput = input as HTMLInputElement & { showPicker?: () => void };
-    if (typeof pickerInput.showPicker === "function") {
-      pickerInput.showPicker();
-      return;
-    }
-
-    input.focus();
-    input.click();
   }
 
   useEffect(() => {
@@ -1036,20 +1048,20 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
             </span>
             <div className="space-y-2">
               <select
-                value={dateFilterMode}
-                aria-label="Date filter mode"
-                onChange={(event) => {
-                  setDateFilterMode(event.target.value as "day" | "month" | "year");
-                  setDateFilter("");
-                }}
+                value={datePreset}
+                aria-labelledby={dateFilterLabelId}
+                onChange={(event) => handleDatePresetChange(event.target.value)}
                 className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text"
               >
-                <option value="day">Day</option>
+                <option value="all">All dates</option>
+                <option value="today">Today</option>
+                <option value="tomorrow">Tomorrow</option>
+                <option value="day">Custom date</option>
                 <option value="month">Month</option>
                 <option value="year">Year</option>
               </select>
 
-              {dateFilterMode === "year" ? (
+              {datePreset === "year" ? (
                 <input
                   value={dateFilter}
                   onChange={(event) => setDateFilter(event.target.value.replace(/[^\d]/g, "").slice(0, 4))}
@@ -1059,38 +1071,16 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                   className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text placeholder:text-muted-foreground"
                   aria-label="Filter by year"
                 />
-              ) : (
-                <button
-                  type="button"
-                  onClick={openDatePicker}
-                  className="inline-flex min-h-11 w-full items-center gap-2 rounded-xl border border-border bg-background px-3 text-left text-sm text-text"
-                >
-                  <CalendarDays className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                  <span>{dateFilter || (dateFilterMode === "day" ? "Select date" : "Select month")}</span>
-                </button>
-              )}
-
-              {dateFilter && (
-                <button
-                  type="button"
-                  onClick={() => setDateFilter("")}
-                  className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm text-muted-foreground hover:bg-muted"
-                >
-                  Clear
-                </button>
-              )}
+              ) : datePreset === "day" || datePreset === "month" ? (
+                <input
+                  value={dateFilter}
+                  onChange={(event) => setDateFilter(event.target.value)}
+                  type={datePreset === "day" ? "date" : "month"}
+                  className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text"
+                  aria-label={datePreset === "day" ? "Select date" : "Select month"}
+                />
+              ) : null}
             </div>
-
-            {dateFilterMode !== "year" && (
-              <input
-                ref={dateInputRef}
-                value={dateFilter}
-                onChange={(event) => setDateFilter(event.target.value)}
-                type={dateFilterMode === "day" ? "date" : "month"}
-                className="sr-only"
-                aria-label={dateFilterMode === "day" ? "Select date" : "Select month"}
-              />
-            )}
           </div>
 
             <label className="space-y-1 text-sm text-muted-foreground">
