@@ -66,7 +66,7 @@ export function TopNavigation({
   const visibleModules = MODULES.filter((module) => visibleModuleIds.includes(module.id));
 
   return (
-    <header className="sticky top-0 z-20 border-b border-border bg-background/95 pt-safe backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-border bg-background pt-safe">
       {/* Phone (< md): menu + logo + avatar. No module chips. */}
       <div className="flex h-14 min-w-0 items-center gap-2 px-3 md:hidden">
         <button

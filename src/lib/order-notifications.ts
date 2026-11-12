@@ -139,12 +139,18 @@ export function playOrderAlertSound() {
   }
 }
 
-export function showOrderNotification(payload: OrderAlertPayload) {
+export type AppNotificationCopy = {
+  title: string;
+  body: string;
+  tag: string;
+  url: string;
+};
+
+/** Browser notification for any alert copy; no-ops without granted permission and swallows Notification errors. */
+export function showAppNotification(copy: AppNotificationCopy) {
   if (!canNotify() || window.Notification.permission !== "granted") {
     return;
   }
-
-  const copy = buildOrderAlertCopy(payload);
 
   try {
     const notification = new window.Notification(copy.title, {
@@ -160,6 +166,10 @@ export function showOrderNotification(payload: OrderAlertPayload) {
   } catch {
     // no-op
   }
+}
+
+export function showOrderNotification(payload: OrderAlertPayload) {
+  showAppNotification(buildOrderAlertCopy(payload));
 }
 
 export function triggerOrderAlert(

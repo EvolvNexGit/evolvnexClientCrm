@@ -33,6 +33,20 @@ The existing client-scoped CRM becomes a usable doctor/clinic product on the sam
 - **Tab change for the doctor client:** old "004 Billing" disabled (not deleted), new "015 Billing" enabled. "009 Transactions" stays.
 - **Write guard:** Clinic bills can only be created by the server function; updates may only move unpaid to paid with a mode; amounts are frozen and Clinic bills cannot be deleted.
 
+### Tester feedback fixes (branch `fix/doctor-crm-tester-ui-feedback`)
+1. Consultation Medication rows have visible labels (Medicine name, Dosage, Frequency, Duration, Instructions).
+2. Bill modal: quantity is a minus / plus stepper (1 to 99, never blank); each item is a compact card.
+3. Doctor billing tab opens on the All filter.
+4. Walk-in removed from New Consult and from the KPI row (4 cards); legacy walk-in rows still show their pill.
+5. Spent hidden on the Patient tab (table, card, CSV) for clinical tenants; POS tenants keep it.
+6. Light theme: white cards on a near-white page, single red accent, neutral consult KPI icon chips.
+7. Light-mode white line above the dashboard fixed: the header used a token opacity class that generates no CSS, so it was transparent. It is now opaque.
+8. Add appointment shows Customer, Phone, Service, Date and Start time first; the rest is under More options.
+9. Appointments list: one compact row (search, Filters with count badge, Clear); filters in a panel.
+10. Doctor summary KPI cards: heavy shadow only in dark mode.
+11. AI Analytics bell: real button with a badge and a panel of today's upcoming appointments; sound plus browser notification once when an appointment is 5 minutes away (shares the existing alert opt-in).
+12. Per-doctor print profiles (Print settings, Doctor profile / print): Letterhead or Standard (printed clinic/doctor header), optional margin overrides, one default profile. Receipts resolve doctor profile, then default profile (clinic details only), then letterhead margins. With nothing configured receipts print exactly as before.
+
 ## 3. Database changes (apply in this order, by hand in the Supabase SQL Editor, never the CLI push)
 
 | Order | File | What |
@@ -44,8 +58,9 @@ The existing client-scoped CRM becomes a usable doctor/clinic product on the sam
 | P3 B | `20261112_clinic_billing_schema.sql` | Payment constraints, indexes, `create_clinic_bill` |
 | P3 C | `20261112_doctor_billing_tab.sql` | Doctor client gets tab 015, 004 disabled. Run after the code is deployed |
 | P3 D | `20261113_clinic_bills_write_guard.sql` | Write guards on Clinic bills |
+| Print profiles | `20261114_doctor_print_profiles.sql` | Table `doctor_print_profiles` (per-doctor print template, RLS, one default per client). Authored, NOT applied to live; run by hand in the SQL Editor BEFORE deploying this code, because receipt printing reads the table |
 
-All of these are already applied on the live project `ltbqxyvdtrrlohdfrprf`. Deploy the code, then have the doctor sign out and in again (tab list is cached).
+The files above the print-profiles row are already applied on the live project `ltbqxyvdtrrlohdfrprf`. Deploy the code, then have the doctor sign out and in again (tab list is cached).
 
 ## 4. How to access
 
@@ -94,6 +109,9 @@ Quick smoke path, about 15 minutes:
 - Receipts read live product names; renaming a product changes reprinted receipts.
 - The Pending Payments alert links to Transactions, not Billing.
 - Mark paid has no paid-at time or audit trail; revenue is booked at bill creation time.
+- Appointment reminders fire only while the browser tab is open; web push when the tab is closed is out of scope.
+- Doctor print profiles apply to clinic receipts only; prescription print still uses the shared print settings margins (not yet per-doctor).
+- Spent is hidden only for clinical tenants (those with the consultation tab); the computed field is still in the data layer.
 
 ## 7. Verification status
 - Code review run for Phase 3; 9 review findings fixed, the rest recorded in `03-REVIEW.md`.

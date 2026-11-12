@@ -136,7 +136,7 @@ export function CustomerTable({
 
   function exportCustomersCsv() {
     const rows = [
-      ["Name", "Phone", "Email", "DOB", "Status", "Created", "Orders", "Total Spent"],
+      ["Name", "Phone", "Email", "DOB", "Status", "Created", ...(hasClinicalFields ? [] : ["Orders", "Total Spent"])],
       ...customers.map((customer) => [
         customer.name,
         customer.phone ?? "",
@@ -144,8 +144,7 @@ export function CustomerTable({
         customer.dob ?? "",
         customer.outreach_status ?? "",
         formatUtcToIst(customer.created_at),
-        String(customer.totalOrders),
-        String(customer.totalSpent),
+        ...(hasClinicalFields ? [] : [String(customer.totalOrders), String(customer.totalSpent)]),
       ]),
     ];
     downloadCsv("customers.csv", rows);
@@ -301,10 +300,12 @@ export function CustomerTable({
                     <div className="min-w-0">{details}</div>
                   );
                 })()}
-                <div className="shrink-0 text-right">
-                  <p className="text-sm text-muted-foreground">{customer.totalOrders} orders</p>
-                  <p className="mt-1 font-semibold text-text">{formatCurrency(customer.totalSpent)}</p>
-                </div>
+                {!hasClinicalFields && (
+                  <div className="shrink-0 text-right">
+                    <p className="text-sm text-muted-foreground">{customer.totalOrders} orders</p>
+                    <p className="mt-1 font-semibold text-text">{formatCurrency(customer.totalSpent)}</p>
+                  </div>
+                )}
               </div>
               <div className="mt-3 flex gap-2">
                 <Button type="button" variant="secondary" onClick={() => openEdit(customer)} disabled={saving} className="flex-1">
@@ -327,8 +328,8 @@ export function CustomerTable({
                     <th className="px-3 py-3">Status</th>
                     <th className="px-3 py-3">DOB</th>
                     <th className="px-3 py-3">Created</th>
-                    <th className="px-3 py-3">Orders</th>
-                    <th className="px-3 py-3">Spent</th>
+                    {!hasClinicalFields && <th className="px-3 py-3">Orders</th>}
+                    {!hasClinicalFields && <th className="px-3 py-3">Spent</th>}
                     <th className="px-3 py-3">Actions</th>
                   </tr>
                 </thead>
@@ -357,8 +358,12 @@ export function CustomerTable({
                       <td className="px-3 py-3 text-muted-foreground">{customer.outreach_status || "-"}</td>
                       <td className="px-3 py-3 text-muted-foreground">{formatDateOnly(customer.dob)}</td>
                       <td className="px-3 py-3 text-muted-foreground">{formatUtcToIst(customer.created_at).slice(0, 10)}</td>
-                      <td className="px-3 py-3 text-muted-foreground">{customer.totalOrders}</td>
-                      <td className="px-3 py-3 text-muted-foreground">{formatCurrency(customer.totalSpent)}</td>
+                      {!hasClinicalFields && (
+                        <td className="px-3 py-3 text-muted-foreground">{customer.totalOrders}</td>
+                      )}
+                      {!hasClinicalFields && (
+                        <td className="px-3 py-3 text-muted-foreground">{formatCurrency(customer.totalSpent)}</td>
+                      )}
                       <td className="px-3 py-3" onClick={(event) => event.stopPropagation()}>
                         <div className="flex flex-wrap gap-2">
                           <button

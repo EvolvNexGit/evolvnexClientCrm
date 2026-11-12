@@ -2,6 +2,26 @@
 
 Newest first. Each entry: what changed, files, contracts. Structural changes are also patched into STRUCTURE.md / ARCHITECTURE.md.
 
+## 2026-11-12 — Doctor CRM tester feedback: print profiles, appointment reminders
+
+**Problem:** Receipts could only print body-only on a pre-printed letterhead, with no way to print a clinic/doctor header for plain paper or to vary it per doctor. The AI Analytics bell was a dead icon and nothing warned staff before an appointment. Twelve smaller UI issues came out of tester feedback (see `RELEASE-NOTES-doctor-crm.md`).
+
+**Status:** migration `20261114_doctor_print_profiles.sql` is authored but NOT applied to live. Apply it by hand in the SQL Editor BEFORE deploying this code (receipt printing reads the table).
+
+**Contracts introduced**
+- Table `doctor_print_profiles` (client_id, doctor_name unique per client, mode `letterhead` | `standard`, header text fields, nullable margin overrides, `is_default`). RLS through `crm_can_access_client` for select/insert/update/delete, revoked from public/anon, partial unique index so a client has at most one default.
+- `resolvePrintProfile({ doctorName, profiles, letterheadMargins })` in `doctor-print-profile-types.ts`. Order: doctor profile (trimmed, case-insensitive name), then the default profile, then plain letterhead (unchanged behaviour). Identity guard: when the default profile is used, only clinic-level header fields (clinic name, address, phone, GST) print; doctor name, qualification and registration number are dropped. Standard mode starts from `STANDARD_PRINT_MARGINS` (10/10/12/12 mm); letterhead mode starts from the client margins; profile overrides replace individual keys; everything goes through `clampPrintMargins`.
+- `useClinicReceiptPrint` resolves per print (profiles plus the visit's `staff_name` through `fetchAppointmentStaffName`) and returns `printMargins` and `printHeader`; a profile load failure aborts the print with a visible error rather than printing the wrong template. `ClinicReceiptPrint` takes an optional `header`.
+- `useAppointmentReminders(clientId, alertsEnabled)`: scans today's appointments (IST) every 30 s, a reminder fires when 0 < minutes until start <= 5, once per `id|date|start` key persisted in localStorage; cancelled and completed visits are skipped; gated by the existing order-alert opt-in; only scanned for tenants with the doctor-summary tab. `showAppNotification` is the generic browser-notification helper; `showOrderNotification` delegates to it.
+
+**Behaviour decisions**
+- Profiles apply to clinic receipts only; prescription print still uses `print_settings` margins (follow-up).
+- Reminders work only while the tab is open; no push or service worker.
+
+**Files**
+- Added: `supabase/migrations/20261114_doctor_print_profiles.sql`, `src/lib/{doctor-print-profile-types,doctor-print-profile-queries}.ts`, `src/hooks/{use-doctor-print-profiles,use-appointment-reminders}.ts`, `src/components/dashboard/print/doctor-print-profiles-section.tsx`, `src/components/dashboard/appointment-reminders-bell.tsx`
+- Modified: `src/lib/{appointment-queries,order-notifications}.ts`, `src/hooks/use-clinic-receipt-print.ts`, `src/contexts/order-alert-context.tsx`, `src/components/dashboard/print/{print-settings-modal,clinic-receipt-print}.tsx`, `src/components/dashboard/tabs/{consultation-tab,doctor-billing-tab,doctor-summary-tab,appointments-tab}.tsx`, `src/components/dashboard/billing/{clinic-bill-modal,customer-table}.tsx`
+
 ## 2026-11-11 — Phase 3: doctor billing
 
 **Problem:** Doctor clients were billed through the cafe POS tab, with no consultation link, no paid/unpaid state, no receipt on their letterhead, and no way to keep clinic bills out of cafe analytics and order alerts.

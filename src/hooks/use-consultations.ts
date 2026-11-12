@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { softDeleteAppointment } from "@/lib/appointment-queries";
 import { formatSupabaseError } from "@/lib/supabase";
 import {
   addConsultationAttachment,
@@ -32,7 +33,6 @@ const EMPTY_STATS: ConsultationQueueStats = {
   waiting: 0,
   inProgress: 0,
   completedToday: 0,
-  walkIns: 0,
 };
 
 export function useConsultations(clientId: string) {
@@ -168,6 +168,31 @@ export function useConsultations(clientId: string) {
       } finally {
         setSaving(false);
       }
+    },
+    [clientId, refreshQueue],
+  );
+
+  /**
+   * Removes a queue row. Consultations are cancelled (existing soft state; a Completed one is refused by
+   * updateConsultation) and the linked appointment is soft-deleted so the row does not reappear as Waiting.
+   * Throws a user-facing Error so the confirm dialog can show it.
+   */
+  const deleteQueueRow = useCallback(
+    async (row: ConsultationQueueRow) => {
+      setSaving(true);
+      try {
+        if (row.source === "consultation") {
+          await setConsultationStatus(clientId, row.id, "CANCELLED");
+        }
+        if (row.appointmentId) {
+          await softDeleteAppointment(clientId, row.appointmentId);
+        }
+      } catch (deleteError) {
+        throw new Error(formatSupabaseError(deleteError, "Unable to delete this visit."));
+      } finally {
+        setSaving(false);
+      }
+      await refreshQueue();
     },
     [clientId, refreshQueue],
   );
@@ -309,6 +334,7 @@ export function useConsultations(clientId: string) {
     saveConsultation,
     completeConsultation,
     cancelConsultation,
+    deleteQueueRow,
     addConsultation,
     attachFile,
     uploadFile,

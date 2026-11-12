@@ -22,7 +22,6 @@ import {
   Settings,
   Stethoscope,
   Trash2,
-  UserCircle2,
   X,
 } from "lucide-react";
 import { DataState } from "@/components/dashboard/billing/data-state";
@@ -81,7 +80,7 @@ type QueueView = "All" | ConsultDisplayStatus;
 
 const planTabs = ["Advice", "Medication", "Exercises", "Treatment Plan", "Others"] as const;
 const historyFilters = ["All", "Consults", "Bills", "Reports", "Notes", "Docs"] as const;
-const visitTypeOptions: ConsultDisplayType[] = ["New", "Follow-up", "Walk-in"];
+const visitTypeOptions: ConsultDisplayType[] = ["New", "Follow-up"];
 
 type PlanTab = (typeof planTabs)[number];
 
@@ -191,23 +190,21 @@ function StatCard({
   value,
   subtext,
   icon: Icon,
-  ring,
 }: {
   label: string;
   value: string;
   subtext: string;
   icon: typeof CalendarClock;
-  ring: string;
 }) {
   return (
-    <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+    <section className="rounded-2xl border border-border bg-card p-4 dark:shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">{label}</p>
           <p className="mt-2 text-3xl font-semibold text-text">{value}</p>
           <p className="mt-1 text-xs text-muted-foreground">{subtext}</p>
         </div>
-        <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${ring}`}>
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -217,9 +214,9 @@ function StatCard({
 
 function StatusPill({ status }: { status: ConsultDisplayStatus }) {
   const styles: Record<ConsultDisplayStatus, string> = {
-    Waiting: "bg-amber-500/15 text-amber-300 border-amber-500/20",
-    "In Progress": "bg-violet-500/15 text-violet-300 border-violet-500/20",
-    Completed: "bg-emerald-500/15 text-emerald-300 border-emerald-500/20",
+    Waiting: "border-border text-text dark:border-amber-500/20 dark:bg-amber-500/15 dark:text-amber-300",
+    "In Progress": "border-primary text-primary dark:border-violet-500/20 dark:bg-violet-500/15 dark:text-violet-300",
+    Completed: "border-border text-text dark:border-emerald-500/20 dark:bg-emerald-500/15 dark:text-emerald-300",
   };
 
   return <span className={`rounded-full border px-3 py-1 text-xs font-medium ${styles[status]}`}>{status}</span>;
@@ -227,12 +224,12 @@ function StatusPill({ status }: { status: ConsultDisplayStatus }) {
 
 function TypePill({ type }: { type: ConsultationQueueRow["type"] }) {
   const styles: Record<ConsultationQueueRow["type"], string> = {
-    New: "bg-violet-500/15 text-violet-300",
-    "Follow-up": "bg-sky-500/15 text-sky-300",
-    "Walk-in": "bg-emerald-500/15 text-emerald-300",
+    New: "text-text dark:bg-violet-500/15 dark:text-violet-300",
+    "Follow-up": "text-text dark:bg-sky-500/15 dark:text-sky-300",
+    "Walk-in": "text-text dark:bg-emerald-500/15 dark:text-emerald-300",
   };
 
-  return <span className={`rounded-full px-3 py-1 text-xs font-medium ${styles[type]}`}>{type}</span>;
+  return <span className={`rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ring-border dark:ring-0 ${styles[type]}`}>{type}</span>;
 }
 
 function SectionLabel({
@@ -292,7 +289,7 @@ function EditorCard({
   onChange: (value: string) => void;
 }) {
   return (
-    <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+    <section className="overflow-hidden rounded-3xl border border-border bg-card dark:shadow-sm">
       <div className="p-4 pb-0">
         <SectionLabel number={number} title={title} icon={FileText} />
       </div>
@@ -396,6 +393,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
     saveConsultation,
     completeConsultation,
     cancelConsultation,
+    deleteQueueRow,
     clearActiveConsultation,
     addConsultation,
     uploadFile,
@@ -439,6 +437,9 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
   const [selectedPatient, setSelectedPatient] = useState<CustomerRecord | null>(null);
   const [patientsLoading, setPatientsLoading] = useState(false);
   const [newConsultError, setNewConsultError] = useState<string | null>(null);
+  const [actionRow, setActionRow] = useState<ConsultationQueueRow | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
   const debouncedPatientSearch = useDebouncedValue(patientSearch, 250);
@@ -514,35 +515,24 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
         value: String(stats.todaysConsults),
         subtext: "Total scheduled",
         icon: CalendarClock,
-        ring: "bg-violet-500/20 text-violet-300",
       },
       {
         label: "Waiting",
         value: String(stats.waiting),
         subtext: "Patients waiting",
         icon: Clock3,
-        ring: "bg-amber-500/20 text-amber-300",
       },
       {
         label: "In Progress",
         value: String(stats.inProgress),
         subtext: "Currently in consult",
         icon: Stethoscope,
-        ring: "bg-emerald-500/20 text-emerald-300",
       },
       {
         label: "Completed Today",
         value: String(stats.completedToday),
         subtext: "Consults completed",
         icon: Check,
-        ring: "bg-sky-500/20 text-sky-300",
-      },
-      {
-        label: "Walk-ins",
-        value: String(stats.walkIns),
-        subtext: "Today",
-        icon: UserCircle2,
-        ring: "bg-slate-500/20 text-slate-300",
       },
     ],
     [stats],
@@ -874,6 +864,68 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
     }
   }
 
+  function closeRowActions() {
+    setActionRow(null);
+    setConfirmingDelete(false);
+    setDeleteError(null);
+  }
+
+  async function handleDeleteRow() {
+    if (!actionRow) {
+      return;
+    }
+
+    try {
+      setDeleteError(null);
+      await deleteQueueRow(actionRow);
+      closeRowActions();
+    } catch (deleteFailure) {
+      setDeleteError(deleteFailure instanceof Error ? deleteFailure.message : "Unable to delete this visit.");
+    }
+  }
+
+  const rowActionsModal = (
+    <EntityModal open={Boolean(actionRow)} title={actionRow?.name ?? "Visit"} onClose={closeRowActions}>
+      {actionRow && actionRow.status === "Completed" ? (
+        <div className="space-y-3">
+          <Button type="button" variant="secondary" disabled className="w-full gap-2">
+            <Trash2 className="h-4 w-4" />
+            Delete visit
+          </Button>
+          <p className="text-sm text-muted-foreground">
+            Completed visits are medical records (and may be billed), so they cannot be deleted.
+          </p>
+        </div>
+      ) : actionRow && !confirmingDelete ? (
+        <Button type="button" variant="secondary" className="w-full gap-2" onClick={() => setConfirmingDelete(true)}>
+          <Trash2 className="h-4 w-4" />
+          Delete visit
+        </Button>
+      ) : actionRow ? (
+        <div className="space-y-4">
+          <p className="text-base text-muted-foreground">
+            Delete the {actionRow.time} visit for <span className="font-semibold text-text">{actionRow.name}</span>? It
+            will be removed from the queue
+            {actionRow.appointmentId ? " together with its appointment" : ""}.
+          </p>
+          {deleteError ? (
+            <p className="text-sm text-primary" role="alert">
+              {deleteError}
+            </p>
+          ) : null}
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={closeRowActions} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => void handleDeleteRow()} disabled={saving}>
+              {saving ? "Deleting..." : "Delete"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </EntityModal>
+  );
+
   const newConsultModal = (
     <EntityModal
       open={isNewConsultOpen}
@@ -1022,13 +1074,15 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
       saving={printSettings.saving}
       saveError={printSettings.saveError}
       onSave={printSettings.save}
+      clientId={clientId}
+      showDoctorProfiles={tabs.some((tab) => tab.key === "doctor-summary")}
     />
   );
 
   if (mode === "queue") {
     return (
       <div className="space-y-6">
-        <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+        <section className="rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium uppercase tracking-wider text-primary">Consultation Queue</p>
@@ -1061,13 +1115,13 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {queueStats.map((item) => (
             <StatCard key={item.label} {...item} />
           ))}
         </div>
 
-        <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+        <section className="overflow-hidden rounded-3xl border border-border bg-card dark:shadow-sm">
           <div className="flex min-w-0 items-center gap-4 overflow-x-auto border-b border-border px-4 pt-4 text-sm font-medium [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {[
               { key: "All", label: "Today's Queue", count: queueTabCounts.all },
@@ -1112,6 +1166,14 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                           <p className="mt-1 truncate text-sm text-muted-foreground">{row.reason}</p>
                         </div>
                         <StatusPill status={row.status} />
+                        <button
+                          type="button"
+                          aria-label={`More actions for ${row.name}`}
+                          onClick={() => setActionRow(row)}
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-text"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
                       </div>
                       <div className="mt-3 flex gap-2">
                         <Button
@@ -1209,7 +1271,14 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                           </div>
                         </td>
                         <td className="px-4 py-4 text-right text-muted-foreground">
-                          <MoreHorizontal className="inline h-4 w-4" />
+                          <button
+                            type="button"
+                            aria-label={`More actions for ${row.name}`}
+                            onClick={() => setActionRow(row)}
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-xl hover:bg-muted hover:text-text"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -1229,6 +1298,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
         </section>
 
         {newConsultModal}
+        {rowActionsModal}
         {printSettingsModal}
         {clinicBillModal}
       </div>
@@ -1237,7 +1307,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+      <section className="rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <button
@@ -1341,7 +1411,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
       ) : (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
           <div className="space-y-6">
-            <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+            <section className="rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-lg font-semibold text-primary">
@@ -1377,11 +1447,11 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
 
             {isReadOnly && activeConsultation ? (
               <>
-                <section className="space-y-3 rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+                <section className="space-y-3 rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
                   <ConsultationSummaryBody detail={activeConsultation} />
                 </section>
 
-                <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+                <section className="rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
                   <div className="p-0 pb-3">
                     <SectionLabel number="4" title="Attachments" icon={Paperclip} />
                   </div>
@@ -1433,7 +1503,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
               />
             </div>
 
-            <section className="rounded-3xl border border-border bg-card shadow-sm">
+            <section className="rounded-3xl border border-border bg-card dark:shadow-sm">
               <div className="p-4 pb-0">
                 <SectionLabel number="3" title="Plan" icon={ClipboardList} />
               </div>
@@ -1461,7 +1531,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
               {activePlanTab === "Medication" ? (
                 <div className="space-y-4 p-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Structured medications saved to consultation_medications.</p>
+                    <p className="text-sm text-muted-foreground">Add each medicine the patient should take.</p>
                     <Button
                       variant="secondary"
                       className="gap-2"
@@ -1491,76 +1561,98 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                   ) : (
                     medications.map((medication, index) => (
                       <div key={medication.key} className="grid gap-3 rounded-2xl border border-border bg-background p-4 sm:grid-cols-2">
-                        <input
-                          value={medication.medicineName}
-                          onChange={(event) =>
-                            setMedications((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, medicineName: event.target.value } : item,
-                              ),
-                            )
-                          }
-                          placeholder="Medicine name"
-                          className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none sm:col-span-2"
-                        />
-                        <input
-                          value={medication.dosage ?? ""}
-                          onChange={(event) =>
-                            setMedications((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, dosage: event.target.value } : item,
-                              ),
-                            )
-                          }
-                          placeholder="Dosage"
-                          className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
-                        />
-                        <input
-                          value={medication.frequency ?? ""}
-                          onChange={(event) =>
-                            setMedications((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, frequency: event.target.value } : item,
-                              ),
-                            )
-                          }
-                          placeholder="Frequency"
-                          className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
-                        />
-                        <input
-                          value={medication.duration ?? ""}
-                          onChange={(event) =>
-                            setMedications((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, duration: event.target.value } : item,
-                              ),
-                            )
-                          }
-                          placeholder="Duration"
-                          className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
-                        />
-                        <div className="flex gap-2">
+                        <label className="grid gap-1 sm:col-span-2">
+                          <span className="text-xs font-medium text-muted-foreground">Medicine name</span>
                           <input
-                            value={medication.instructions ?? ""}
+                            value={medication.medicineName}
                             onChange={(event) =>
                               setMedications((current) =>
                                 current.map((item, itemIndex) =>
-                                  itemIndex === index ? { ...item, instructions: event.target.value } : item,
+                                  itemIndex === index ? { ...item, medicineName: event.target.value } : item,
                                 ),
                               )
                             }
-                            placeholder="Instructions"
-                            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
+                            placeholder="e.g. Paracetamol"
+                            className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
                           />
-                          <Button
-                            variant="secondary"
-                            className="h-10 w-10 p-0"
-                            onClick={() =>
-                              setMedications((current) => current.filter((_, itemIndex) => itemIndex !== index))
+                        </label>
+                        <label className="grid gap-1">
+                          <span className="text-xs font-medium text-muted-foreground">Dosage</span>
+                          <input
+                            value={medication.dosage ?? ""}
+                            onChange={(event) =>
+                              setMedications((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, dosage: event.target.value } : item,
+                                ),
+                              )
                             }
+                            placeholder="e.g. 500 mg"
+                            className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
+                          />
+                        </label>
+                        <label className="grid gap-1">
+                          <span className="text-xs font-medium text-muted-foreground">Frequency</span>
+                          <input
+                            value={medication.frequency ?? ""}
+                            onChange={(event) =>
+                              setMedications((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, frequency: event.target.value } : item,
+                                ),
+                              )
+                            }
+                            placeholder="e.g. 1-0-1 (morning, noon, night)"
+                            className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
+                          />
+                        </label>
+                        <label className="grid gap-1">
+                          <span className="text-xs font-medium text-muted-foreground">Duration</span>
+                          <input
+                            value={medication.duration ?? ""}
+                            onChange={(event) =>
+                              setMedications((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, duration: event.target.value } : item,
+                                ),
+                              )
+                            }
+                            placeholder="e.g. 5 days"
+                            className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
+                          />
+                        </label>
+                        <div className="grid gap-1">
+                          <label
+                            htmlFor={`medication-instructions-${medication.key}`}
+                            className="text-xs font-medium text-muted-foreground"
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                            Instructions
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              id={`medication-instructions-${medication.key}`}
+                              value={medication.instructions ?? ""}
+                              onChange={(event) =>
+                                setMedications((current) =>
+                                  current.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, instructions: event.target.value } : item,
+                                  ),
+                                )
+                              }
+                              placeholder="e.g. After food"
+                              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
+                            />
+                            <Button
+                              variant="secondary"
+                              aria-label="Remove medicine"
+                              className="h-11 w-11 shrink-0 p-0"
+                              onClick={() =>
+                                setMedications((current) => current.filter((_, itemIndex) => itemIndex !== index))
+                              }
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))
@@ -1579,7 +1671,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
               ) : activePlanTab === "Exercises" ? (
                 <div className="space-y-4 p-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Structured exercises saved to consultation_exercises.</p>
+                    <p className="text-sm text-muted-foreground">Add each exercise the patient should do.</p>
                     <Button
                       variant="secondary"
                       className="gap-2"
@@ -1612,7 +1704,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                                 ),
                               )
                             }
-                            placeholder="Exercise name"
+                            placeholder="e.g. Wall squats"
                             className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
                           />
                           <Button
@@ -1635,7 +1727,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                               ),
                             )
                           }
-                          placeholder="Instructions"
+                          placeholder="e.g. 10 repetitions, twice a day"
                           className="w-full resize-none rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
                         />
                       </div>
@@ -1678,7 +1770,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
             </section>
 
             <div className="grid gap-6 grid-cols-1 2xl:grid-cols-2">
-              <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+              <section className="rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
                 <div className="p-0 pb-3">
                   <SectionLabel number="4" title="Attachments" icon={Paperclip} />
                 </div>
@@ -1736,7 +1828,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                 </div>
               </section>
 
-              <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+              <section className="rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
                 <div className="p-0 pb-3">
                   <SectionLabel number="5" title="Follow-up" icon={CalendarClock} />
                 </div>
@@ -1829,7 +1921,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
             )}
           </div>
 
-          <aside className="rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-5">
+          <aside className="rounded-3xl border border-border bg-card p-4 dark:shadow-sm sm:p-5">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <div>
                 <h3 className="text-lg font-semibold text-text">Patient History</h3>

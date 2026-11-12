@@ -169,6 +169,24 @@ export async function fetchAppointmentFilterOptions(clientId: string) {
   };
 }
 
+/** Doctor (staff_name) of one visit; no deleted_at filter so an already-billed visit's doctor still resolves for receipts. */
+export async function fetchAppointmentStaffName(clientId: string, appointmentId: string): Promise<string | null> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("appointments")
+    .select("staff_name")
+    .eq("client_id", clientId)
+    .eq("id", appointmentId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  const staffName = (data as { staff_name?: string | null } | null)?.staff_name;
+  return typeof staffName === "string" && staffName.trim() !== "" ? staffName : null;
+}
+
 /** client_id is written after the payload spread so payload contents can never override the tenant. */
 export async function createAppointment(clientId: string, payload: AppointmentPayload): Promise<void> {
   const supabase = getClient();
