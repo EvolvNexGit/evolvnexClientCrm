@@ -85,7 +85,7 @@ export function SlideEditorPanel({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-muted hover:text-text"
+              className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-muted hover:text-text max-xl:inline-flex max-xl:h-11 max-xl:w-11 max-xl:items-center max-xl:justify-center"
               aria-label="Back"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -96,9 +96,15 @@ export function SlideEditorPanel({
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
             {canDelete && onDelete ? (
-              <Button type="button" variant="ghost" onClick={() => void onDelete()} disabled={saving}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
+              <Button
+                type="button"
+                variant="ghost"
+                aria-label="Delete"
+                onClick={() => void onDelete()}
+                disabled={saving}
+              >
+                <Trash2 className="mr-0 h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Delete</span>
               </Button>
             ) : null}
             <Button type="button" onClick={() => void onSave()} disabled={saving}>
@@ -112,7 +118,7 @@ export function SlideEditorPanel({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 max-xl:pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-5">
           {formError ? (
             <div className="mb-4 rounded-xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-primary">
               {formError}

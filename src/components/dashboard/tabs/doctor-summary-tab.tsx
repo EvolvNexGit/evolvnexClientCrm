@@ -234,7 +234,7 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
                 key={option.key}
                 type="button"
                 onClick={() => setRangePreset(option.key)}
-                className={`shrink-0 rounded-full px-3 py-2 text-xs font-medium transition sm:px-4 sm:text-sm ${
+                className={`min-h-11 shrink-0 rounded-full px-3 py-2 text-xs font-medium transition xl:min-h-0 sm:px-4 sm:text-sm ${
                   rangePreset === option.key
                     ? "bg-primary text-white"
                     : "border border-border bg-card text-muted-foreground hover:text-text"
@@ -247,7 +247,7 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
             <button
               type="button"
               onClick={() => setRangePreset("custom")}
-              className={`flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-medium transition sm:px-4 sm:text-sm ${
+              className={`flex min-h-11 shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-medium transition xl:min-h-0 sm:px-4 sm:text-sm ${
                 rangePreset === "custom"
                   ? "bg-primary text-white"
                   : "border border-border bg-card text-muted-foreground hover:text-text"
@@ -267,7 +267,7 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
             type="button"
             onClick={() => void refresh()}
             disabled={loading}
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-text disabled:opacity-50"
+            className="inline-flex h-8 w-8 max-xl:h-11 max-xl:w-11 shrink-0 items-center justify-center rounded-full border border-border bg-card text-text disabled:opacity-50"
             aria-label="Refresh data"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
