@@ -294,7 +294,7 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
       resetForm();
       await pagedIngredients.refresh();
     } catch (submitError) {
-      setActionError(submitError instanceof Error ? submitError.message : "Unable to add ingredient.");
+      setActionError(submitError instanceof Error ? submitError.message : "Unable to add inventory item.");
     }
   }
 
@@ -321,7 +321,7 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
       resetForm();
       await pagedIngredients.refresh();
     } catch (submitError) {
-      setActionError(submitError instanceof Error ? submitError.message : "Unable to update ingredient.");
+      setActionError(submitError instanceof Error ? submitError.message : "Unable to update inventory item.");
     }
   }
 
@@ -337,7 +337,7 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
       setPendingDeleteIngredient(null);
       await pagedIngredients.refresh();
     } catch (deleteError) {
-      setActionError(deleteError instanceof Error ? deleteError.message : "Unable to delete ingredient.");
+      setActionError(deleteError instanceof Error ? deleteError.message : "Unable to delete inventory item.");
     }
   }
 
@@ -365,7 +365,7 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
       setPendingStockAction(null);
       await pagedIngredients.refresh();
     } catch (stockError) {
-      setActionError(stockError instanceof Error ? stockError.message : "Unable to update ingredient stock.");
+      setActionError(stockError instanceof Error ? stockError.message : "Unable to update inventory stock.");
     }
   }
 
@@ -375,16 +375,16 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
       : pendingStockAction?.type === "restock-all"
         ? "Set all stock to threshold"
         : pendingStockAction?.type === "reset-one"
-          ? "Reset ingredient stock to 0"
+          ? "Reset inventory stock to 0"
           : pendingStockAction?.type === "restock-one"
-            ? "Set ingredient stock to threshold"
+            ? "Set inventory stock to threshold"
             : "Confirm stock update";
 
   const stockActionDescription =
     pendingStockAction?.type === "reset-all"
-      ? `Set quantity to 0 for all ${ingredients.length} ingredient${ingredients.length === 1 ? "" : "s"}?`
+      ? `Set quantity to 0 for all ${ingredients.length} inventory item${ingredients.length === 1 ? "" : "s"}?`
       : pendingStockAction?.type === "restock-all"
-        ? `Set each ingredient quantity to its threshold for all ${ingredients.length} ingredient${ingredients.length === 1 ? "" : "s"}?`
+        ? `Set each inventory item quantity to its threshold for all ${ingredients.length} inventory item${ingredients.length === 1 ? "" : "s"}?`
         : pendingStockAction?.type === "reset-one"
           ? `Set quantity of ${pendingStockAction.ingredient.name} to 0?`
           : pendingStockAction?.type === "restock-one"
@@ -419,7 +419,7 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
             />
           )}
           <Button type="button" onClick={openAdd}>
-            Add Ingredient
+            Add Inventory Item
           </Button>
         </div>
       </div>
@@ -428,7 +428,7 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
         <input
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Search by ingredient or supplier"
+          placeholder="Search by inventory item or supplier"
           className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base text-text sm:max-w-xl"
         />
         <div className="flex flex-wrap items-center gap-2">
@@ -455,7 +455,7 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
 
       {lowStockIngredients.length > 0 && (
         <p className="text-sm text-primary">
-          {lowStockIngredients.length} ingredient{lowStockIngredients.length === 1 ? "" : "s"} below threshold or out of stock
+          {lowStockIngredients.length} inventory item{lowStockIngredients.length === 1 ? "" : "s"} below threshold or out of stock
         </p>
       )}
 
@@ -465,9 +465,9 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
 
       {!loading && !error && lowStockIngredients.length > 0 && (
         <div className="rounded-lg border border-primary/40 bg-primary/10 p-3 text-sm text-text">
-          <p className="font-medium text-primary">Low ingredient warning</p>
+          <p className="font-medium text-primary">Low inventory warning</p>
           <p className="mt-1 text-muted-foreground">
-            {lowStockIngredients.length} ingredient{lowStockIngredients.length === 1 ? "" : "s"} need restocking:
+            {lowStockIngredients.length} inventory item{lowStockIngredients.length === 1 ? "" : "s"} need restocking:
           </p>
           <ul className="mt-2 list-inside list-disc space-y-1 text-text">
             {lowStockIngredients.map((ingredient) => (
@@ -487,8 +487,8 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
         empty={!pagedIngredients.loading && !pagedIngredients.error && !hasRows}
         emptyLabel={
           searchQuery || showLowStockOnly
-            ? "No ingredients match your filters."
-            : "No ingredients yet."
+            ? "No inventory items match your filters."
+            : "No inventory items yet."
         }
       />
 
@@ -665,14 +665,14 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
         loading={pagedIngredients.loadingMore}
         onShowMore={() => void pagedIngredients.showMore()}
         onShowAll={() => void pagedIngredients.showAll()}
-        itemLabel="ingredients"
+        itemLabel="inventory items"
       />
 
-      <EntityModal open={isAddOpen} title="Add Ingredient" onClose={() => setIsAddOpen(false)}>
-        <IngredientForm form={form} onChange={setForm} onSubmit={submitAdd} saving={saving} submitLabel="Create Ingredient" />
+      <EntityModal open={isAddOpen} title="Add Inventory Item" onClose={() => setIsAddOpen(false)}>
+        <IngredientForm form={form} onChange={setForm} onSubmit={submitAdd} saving={saving} submitLabel="Create Inventory Item" />
       </EntityModal>
 
-      <EntityModal open={Boolean(editingIngredient)} title="Edit Ingredient" onClose={() => setEditingIngredient(null)}>
+      <EntityModal open={Boolean(editingIngredient)} title="Edit Inventory Item" onClose={() => setEditingIngredient(null)}>
         <IngredientForm
           form={form}
           onChange={setForm}
@@ -684,10 +684,10 @@ export default function IngredientTab({ clientId }: { clientId: string }) {
         />
       </EntityModal>
 
-      <EntityModal open={Boolean(pendingDeleteIngredient)} title="Confirm ingredient deletion" onClose={() => setPendingDeleteIngredient(null)}>
+      <EntityModal open={Boolean(pendingDeleteIngredient)} title="Confirm inventory item deletion" onClose={() => setPendingDeleteIngredient(null)}>
         <div className="space-y-4">
           <p className="text-base text-muted-foreground">
-            Delete ingredient <span className="font-semibold text-text">{pendingDeleteIngredient?.name}</span>? This action cannot be undone.
+            Delete inventory item <span className="font-semibold text-text">{pendingDeleteIngredient?.name}</span>? This action cannot be undone.
           </p>
           <div className="flex items-center justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setPendingDeleteIngredient(null)} disabled={saving}>
