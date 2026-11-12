@@ -27,8 +27,9 @@ import {
   getDefaultModuleId,
   getModuleIdForNavKey,
   getSidebarItemsForModule,
+  getVisibleModuleIds,
   isComingSoonPathKey,
-  MODULES,
+  isComingSoonPathPermitted,
   type ModuleId,
   type ResolvedSidebarItem,
 } from "@/lib/module-navigation";
@@ -243,25 +244,30 @@ function DashboardPageContent() {
     }
   };
 
-  const visibleModuleIds = useMemo(
-    () => MODULES.map((module) => module.id),
-    [],
-  );
+  // Modules with no permitted items (e.g. LEADS/HRM without client_tab_access rows) are hidden.
+  const visibleModuleIds = useMemo(() => getVisibleModuleIds(tabs), [tabs]);
 
   const defaultTab = useMemo(() => getDefaultApplicationTab(tabs), [tabs]);
 
   const resolvedView = useMemo((): ResolvedView => {
     const comingSoonKey = getComingSoonKeyFromPath(pathname);
     if (comingSoonKey) {
-      return { type: "coming-soon", key: comingSoonKey };
+      if (isComingSoonPathPermitted(comingSoonKey, tabs)) {
+        return { type: "coming-soon", key: comingSoonKey };
+      }
+      // Gated LEADS/HRM path: wait for tab access, then fall through to the default tab if not granted.
+      if (loading) {
+        return { type: "empty" };
+      }
     }
 
     if (isDashboardHomePath(pathname)) {
       // Honor legacy ?tab= on /dashboard (e.g. ?tab=summary → My Profile redirect)
-      if (tabFromUrl) {
-        if (isComingSoonPathKey(tabFromUrl)) {
+      if (tabFromUrl && isComingSoonPathKey(tabFromUrl)) {
+        if (isComingSoonPathPermitted(tabFromUrl, tabs)) {
           return { type: "coming-soon", key: tabFromUrl };
         }
+      } else if (tabFromUrl) {
         const urlTab = tabs.find((tab) => tab.key === tabFromUrl);
         if (urlTab) {
           return { type: "tab", key: urlTab.key };
@@ -274,15 +280,17 @@ function DashboardPageContent() {
       return { type: "empty" };
     }
 
-    const pathTab = tabs.find((tab) => pathMatchesTab(pathname, tab.key));
+    // LEADS/HRM access rows are nav gates, never rendered as "tab" views.
+    const pathTab = tabs.find((tab) => !isComingSoonPathKey(tab.key) && pathMatchesTab(pathname, tab.key));
     if (pathTab) {
       return { type: "tab", key: pathTab.key };
     }
 
-    if (tabFromUrl) {
-      if (isComingSoonPathKey(tabFromUrl)) {
+    if (tabFromUrl && isComingSoonPathKey(tabFromUrl)) {
+      if (isComingSoonPathPermitted(tabFromUrl, tabs)) {
         return { type: "coming-soon", key: tabFromUrl };
       }
+    } else if (tabFromUrl) {
       const urlTab = tabs.find((tab) => tab.key === tabFromUrl);
       if (urlTab) {
         return { type: "tab", key: urlTab.key };
@@ -297,10 +305,11 @@ function DashboardPageContent() {
     }
 
     const storedTab = getStoredTab();
-    if (storedTab) {
-      if (isComingSoonPathKey(storedTab)) {
+    if (storedTab && isComingSoonPathKey(storedTab)) {
+      if (isComingSoonPathPermitted(storedTab, tabs)) {
         return { type: "coming-soon", key: storedTab };
       }
+    } else if (storedTab) {
       const stored = tabs.find((tab) => tab.key === storedTab);
       if (stored) {
         return { type: "tab", key: stored.key };

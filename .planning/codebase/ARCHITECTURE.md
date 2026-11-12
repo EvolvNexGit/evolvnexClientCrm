@@ -179,7 +179,7 @@
 **Module / nav item:**
 - Purpose: Presentation catalog independent of DB tabs (`existing-tab` | `ai-insights` | `coming-soon`).
 - Examples: `MODULES` in `src/lib/module-navigation.ts`
-- Pattern: Sidebar is `getSidebarItemsForModule(moduleId, tabs)` — existing tabs hidden if not in `tabs`; coming-soon always shown
+- Pattern: Sidebar is `getSidebarItemsForModule(moduleId, tabs)` — existing tabs hidden if not in `tabs`; LEADS/HRM coming-soon items gated by `requiresAccess` (tabs_info 016–026 via `client_tab_access`); ungated coming-soon (Reports) always shown; modules with no visible items are hidden (`getVisibleModuleIds`)
 
 **Query module + types module:**
 - Purpose: Keep PostgREST and row mapping out of JSX.
