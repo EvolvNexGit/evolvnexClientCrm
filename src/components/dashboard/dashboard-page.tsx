@@ -27,8 +27,9 @@ import {
   getDefaultModuleId,
   getModuleIdForNavKey,
   getSidebarItemsForModule,
+  getVisibleModuleIds,
   isComingSoonPathKey,
-  MODULES,
+  isComingSoonPathPermitted,
   type ModuleId,
   type ResolvedSidebarItem,
 } from "@/lib/module-navigation";
@@ -243,25 +244,30 @@ function DashboardPageContent() {
     }
   };
 
-  const visibleModuleIds = useMemo(
-    () => MODULES.map((module) => module.id),
-    [],
-  );
+  // Modules with no permitted items (e.g. LEADS/HRM without client_tab_access rows) are hidden.
+  const visibleModuleIds = useMemo(() => getVisibleModuleIds(tabs), [tabs]);
 
   const defaultTab = useMemo(() => getDefaultApplicationTab(tabs), [tabs]);
 
   const resolvedView = useMemo((): ResolvedView => {
     const comingSoonKey = getComingSoonKeyFromPath(pathname);
     if (comingSoonKey) {
-      return { type: "coming-soon", key: comingSoonKey };
+      if (isComingSoonPathPermitted(comingSoonKey, tabs)) {
+        return { type: "coming-soon", key: comingSoonKey };
+      }
+      // Gated LEADS/HRM path: wait for tab access, then fall through to the default tab if not granted.
+      if (loading) {
+        return { type: "empty" };
+      }
     }
 
     if (isDashboardHomePath(pathname)) {
       // Honor legacy ?tab= on /dashboard (e.g. ?tab=summary → My Profile redirect)
-      if (tabFromUrl) {
-        if (isComingSoonPathKey(tabFromUrl)) {
+      if (tabFromUrl && isComingSoonPathKey(tabFromUrl)) {
+        if (isComingSoonPathPermitted(tabFromUrl, tabs)) {
           return { type: "coming-soon", key: tabFromUrl };
         }
+      } else if (tabFromUrl) {
         const urlTab = tabs.find((tab) => tab.key === tabFromUrl);
         if (urlTab) {
           return { type: "tab", key: urlTab.key };
@@ -274,26 +280,36 @@ function DashboardPageContent() {
       return { type: "empty" };
     }
 
-    const pathTab = tabs.find((tab) => pathMatchesTab(pathname, tab.key));
+    // LEADS/HRM access rows are nav gates, never rendered as "tab" views.
+    const pathTab = tabs.find((tab) => !isComingSoonPathKey(tab.key) && pathMatchesTab(pathname, tab.key));
     if (pathTab) {
       return { type: "tab", key: pathTab.key };
     }
 
-    if (tabFromUrl) {
-      if (isComingSoonPathKey(tabFromUrl)) {
+    if (tabFromUrl && isComingSoonPathKey(tabFromUrl)) {
+      if (isComingSoonPathPermitted(tabFromUrl, tabs)) {
         return { type: "coming-soon", key: tabFromUrl };
       }
+    } else if (tabFromUrl) {
       const urlTab = tabs.find((tab) => tab.key === tabFromUrl);
       if (urlTab) {
         return { type: "tab", key: urlTab.key };
       }
     }
 
+    // Tabs are still loading: a deep link like /dashboard/transaction cannot match yet. Falling back to
+    // the stored tab here would let a stored coming-soon key (e.g. leads-*) win and router.replace the
+    // URL away from the requested tab before permissions arrive.
+    if (loading) {
+      return { type: "empty" };
+    }
+
     const storedTab = getStoredTab();
-    if (storedTab) {
-      if (isComingSoonPathKey(storedTab)) {
+    if (storedTab && isComingSoonPathKey(storedTab)) {
+      if (isComingSoonPathPermitted(storedTab, tabs)) {
         return { type: "coming-soon", key: storedTab };
       }
+    } else if (storedTab) {
       const stored = tabs.find((tab) => tab.key === storedTab);
       if (stored) {
         return { type: "tab", key: stored.key };
@@ -305,7 +321,7 @@ function DashboardPageContent() {
     }
 
     return { type: "empty" };
-  }, [pathname, tabFromUrl, tabs, defaultTab]);
+  }, [pathname, tabFromUrl, tabs, defaultTab, loading]);
 
   const activeNavKey =
     pendingNavKeyRef.current ??
@@ -525,6 +541,9 @@ function DashboardPageContent() {
         onOpenProfile={handleOpenProfile}
         onLogout={signOut}
         userLabel={userLabel}
+        sectionItems={sidebarItems}
+        activeNavKey={displayTabKey === "summary" ? null : activeNavKey}
+        onSectionSelect={handleSidebarItemSelect}
       />
 
       <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
@@ -560,7 +579,7 @@ function DashboardPageContent() {
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <section
-            className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-6 pt-6 sm:px-6 sm:pt-8 lg:px-8"
+            className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-6 pt-4 max-xl:scroll-pb-24 max-xl:pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-8 lg:px-8"
             ref={contentSectionRef}
           >
             <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6">
@@ -619,7 +638,7 @@ function DashboardPageContent() {
 
 export function DashboardScreenLoader() {
   return (
-    <main className="grid min-h-screen place-items-center bg-background px-6">
+    <main className="grid min-h-dvh place-items-center bg-background px-6">
       <div className="rounded-xl border border-border bg-card px-6 py-5 text-base text-muted-foreground shadow-soft">
         <span className="inline-flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -646,7 +665,7 @@ function ClientFallback({
   onLogout: () => Promise<void>;
 }) {
   return (
-    <main className="grid min-h-screen place-items-center bg-background px-6">
+    <main className="grid min-h-dvh place-items-center bg-background px-6">
       <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-8 shadow-soft">
         <div className="flex items-center gap-3 text-primary">
           <AlertCircle className="h-5 w-5" />

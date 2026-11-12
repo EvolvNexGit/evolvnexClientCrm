@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { cn } from "@/lib/utils";
 
 const XL_COLS: Record<2 | 3 | 4 | 5, string> = {
@@ -87,5 +87,28 @@ export function RecordCard({
     <article className={cn("min-w-0 rounded-2xl border border-border bg-background p-4", className)}>
       {children}
     </article>
+  );
+}
+
+/** Horizontal strip with hidden scrollbar; scroll stays inside the strip, never the page. */
+export function ResponsiveScrollStrip({
+  children,
+  className,
+  containerRef,
+}: {
+  children: ReactNode;
+  className?: string;
+  containerRef?: Ref<HTMLDivElement>;
+}) {
+  return (
+    <div
+      ref={containerRef}
+      className={cn(
+        "flex min-w-0 max-w-full items-center gap-2 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        className,
+      )}
+    >
+      {children}
+    </div>
   );
 }

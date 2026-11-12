@@ -116,6 +116,12 @@ body {
   textarea {
     font-size: 1rem;
   }
+
+  /* Tap-target floor below xl; desktop keeps authored heights. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+  select {
+    min-height: 2.75rem;
+  }
 }
 
 /* RESET */

@@ -2,6 +2,24 @@
 
 Newest first. Each entry: what changed, files, contracts. Structural changes are also patched into STRUCTURE.md / ARCHITECTURE.md.
 
+## 2026-11-13 — Responsive pass 261112-wx7: phones and tablets
+
+**Problem:** A static mobile audit found drawer-only section switching, one scroll-only table (contacts), 10/11px text, controls under 44px, `vh` units, and overlong stacked forms and filters on 360/390/768px viewports.
+
+**Behaviour changes (all below xl; xl and up render as before)**
+- Section strip: `TopNavigation` renders `SectionTabs` below xl, a horizontal chip strip fed by the tab-access-filtered `sidebarItems` (same list as the drawer and sidebar), active chip has `aria-current` and is centered; phones also get a leading module chip that opens the drawer. New shared helper `ResponsiveScrollStrip` in `src/components/ui/responsive.tsx`.
+- Contacts: record cards below xl (44px actions menu, same Edit and Block or Unblock handlers); table kept at xl.
+- Global field floor: text-like inputs and `select` get `min-height: 2.75rem` inside the existing `max-width: 1279px` block in `globals.css`.
+- Full-screen wrappers use `min-h-dvh`; dashboard scroll area has `max-xl:scroll-pb-24` and safe-area bottom padding; calendar scroller uses `70dvh`.
+- Cafe summary charts: phone-only (`max-width: 639px`) x-axis interval 5, narrower y-axis and margin via `useMediaQuery`.
+- 10px and 11px text is `text-xs` below xl with the original size restored at xl; touched controls are `min-h-11` / `h-11` below xl; card shells use `p-4` below sm; recipe add-ingredient row stacks on phones; promos day picker and filters are 2-up on phones.
+
+**Files**
+- Added: `src/hooks/use-media-query.ts`
+- Modified: `src/components/ui/{responsive,list-pagination-controls}.tsx`, `src/components/dashboard/{top-navigation,dashboard-page,user-menu,order-alert-settings-card,appointments-calendar}.tsx`, `src/app/{page.tsx,globals.css}`, `src/components/dashboard/tabs/{contacts,templates,whatsapp-auto-reply,whatsapp-settings,recipe,ingredient,promos,subscription,billing,summary,cafe-summary,doctor-summary,consultation}-tab.tsx`, `src/components/dashboard/leads/{leads-tab-header,slide-editor-panel}.tsx`, `src/components/dashboard/billing/{transaction-list,order-list}.tsx`, `src/components/dashboard/consultation/{consultation-summary,vitals-card}.tsx`, `src/components/dashboard/patient/patient-visits-panel.tsx`
+
+**Not done (by design):** calendar time-slot grid height (24px precision grid), the inert X button in the consultation history aside, recharts axis tick font sizes (SVG props, not classes). Viewport matrix still needs a device or emulator run.
+
 ## 2026-11-12 — Doctor CRM tester feedback: print profiles, appointment reminders
 
 **Problem:** Receipts could only print body-only on a pre-printed letterhead, with no way to print a clinic/doctor header for plain paper or to vary it per doctor. The AI Analytics bell was a dead icon and nothing warned staff before an appointment. Twelve smaller UI issues came out of tester feedback (see `RELEASE-NOTES-doctor-crm.md`).

@@ -1157,12 +1157,12 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
             const isGroupCollapsed = collapsedGroups[groupKey];
 
             return (
-              <section key={groupKey} className="space-y-3 rounded-2xl border border-border bg-background p-4">
+              <section key={groupKey} className="space-y-3 rounded-2xl border border-border bg-background p-3 sm:p-4">
                 <button
                   type="button"
                   aria-expanded={!isGroupCollapsed}
                   onClick={() => setCollapsedGroups((current) => ({ ...current, [groupKey]: !current[groupKey] }))}
-                  className="flex w-full items-center justify-between gap-3 text-left"
+                  className="flex min-h-11 w-full items-center justify-between gap-3 text-left xl:min-h-0"
                 >
                   <div className="flex items-center gap-2 text-text">
                     <CalendarDays className="h-4 w-4 text-primary" />
@@ -1182,7 +1182,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                     return (
                       <article
                         key={appointment.id}
-                        className="rounded-2xl border border-border bg-card p-4 transition hover:bg-muted/60"
+                        className="rounded-2xl border border-border bg-card p-3 transition hover:bg-muted/60 sm:p-4"
                       >
                         <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center">
                           <button
@@ -1195,18 +1195,28 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                                 {getInitials(appointment.name)}
                               </div>
                               <div className="min-w-0 flex-1">
-                                <div className="text-sm font-semibold text-text">
-                                  {formatAppointmentTimeRange(appointment.date, appointment.start_time, appointment.end_time)}
+                                {/* Below xl the status badge sits on the time row so name/phone get full width. */}
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="text-sm font-semibold text-text">
+                                    {formatAppointmentTimeRange(appointment.date, appointment.start_time, appointment.end_time)}
+                                  </div>
+                                  <span
+                                    className={`shrink-0 rounded-xl px-2.5 py-1 text-xs font-semibold uppercase tracking-wide xl:hidden ${statusTone}`}
+                                  >
+                                    {appointment.status ?? "tentative"}
+                                  </span>
                                 </div>
                                 <div className="truncate font-semibold text-text">
                                   {appointment.name ?? "Unnamed appointment"}
                                 </div>
-                                <div className="truncate text-sm text-muted-foreground">{appointment.phone ?? "-"}</div>
+                                <div className="text-sm text-muted-foreground max-xl:break-all xl:truncate">
+                                  {appointment.phone ?? "-"}
+                                </div>
                                 <div className="mt-1 truncate text-sm text-muted-foreground xl:hidden">
                                   {appointment.service ?? "-"}
                                 </div>
                               </div>
-                              <span className={`shrink-0 rounded-xl px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${statusTone}`}>
+                              <span className={`hidden shrink-0 rounded-xl px-2.5 py-1 text-xs font-semibold uppercase tracking-wide xl:inline ${statusTone}`}>
                                 {appointment.status ?? "tentative"}
                               </span>
                             </div>

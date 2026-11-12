@@ -69,7 +69,7 @@ export function LoginForm() {
 
   return (
     <main className="min-h-dvh bg-black lg:grid lg:grid-cols-2">
-      <section className="flex min-w-0 flex-col gap-8 bg-black px-6 pb-10 pt-8 text-white lg:justify-between lg:px-12 lg:py-10 xl:px-16">
+      <section className="flex min-w-0 flex-col gap-6 bg-black px-6 pb-8 pt-6 text-white lg:justify-between lg:gap-8 lg:px-12 lg:py-10 xl:px-16">
         <BrandLogo className="h-auto w-44 sm:w-52" width={1192} height={137} priority />
 
         <div>
@@ -82,7 +82,8 @@ export function LoginForm() {
             build stronger relationships and grow your business.
           </p>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          {/* Marketing stats + trust strip only from lg so the sign-in form is visible on phones without scrolling. */}
+          <div className="mt-8 hidden gap-4 sm:grid-cols-2 lg:grid">
             {STATS.map(({ icon: Icon, value, label }) => (
               <div
                 key={value}
@@ -100,7 +101,7 @@ export function LoginForm() {
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="hidden space-y-6 lg:block">
           <div className="border-t border-white/10 pt-6 text-center">
             <p className="text-xs uppercase tracking-[0.18em] text-slate-300">
               Trusted by growing businesses across industries

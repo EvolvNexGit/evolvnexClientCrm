@@ -94,7 +94,7 @@ evolvnexClientCrm/
 
 **`src/components/ui/`:**
 - Purpose: Cross-app primitives.
-- Contains: `button.tsx`, `list-pagination-controls.tsx`
+- Contains: `button.tsx`, `list-pagination-controls.tsx`, `responsive.tsx` (responsive layout helpers incl. `ResponsiveScrollStrip`)
 - Key files: `src/components/ui/button.tsx`
 
 **`src/contexts/`:**
@@ -104,7 +104,7 @@ evolvnexClientCrm/
 
 **`src/hooks/`:**
 - Purpose: Client-side data + UI persistence. One hook per domain aggregate, plus shared list utilities.
-- Contains: `use-customers.ts`, `use-products.ts`, `use-orders.ts`, `use-transactions.ts`, `use-promotions.ts`, `use-ingredients.ts`, `use-recipes.ts`, `use-consultations.ts`, `use-print-settings.ts`, `use-print-job.ts`, `use-clinic-bills.ts`, `use-clinic-receipt-print.ts`, `use-doctor-print-profiles.ts`, `use-appointment-reminders.ts`, `use-appointments-range.ts`, `use-cafe-summary.ts`, `use-doctor-summary.ts`, `use-whatsapp-auto-replies.ts`, `use-paged-list.ts`, `use-persistent-state.ts`, `use-debounced-value.ts`
+- Contains: `use-customers.ts`, `use-products.ts`, `use-orders.ts`, `use-transactions.ts`, `use-promotions.ts`, `use-ingredients.ts`, `use-recipes.ts`, `use-consultations.ts`, `use-print-settings.ts`, `use-print-job.ts`, `use-clinic-bills.ts`, `use-clinic-receipt-print.ts`, `use-doctor-print-profiles.ts`, `use-appointment-reminders.ts`, `use-appointments-range.ts`, `use-cafe-summary.ts`, `use-doctor-summary.ts`, `use-whatsapp-auto-replies.ts`, `use-paged-list.ts`, `use-persistent-state.ts`, `use-debounced-value.ts`, `use-media-query.ts`
 - Key files: `src/hooks/use-paged-list.ts`, `src/hooks/use-whatsapp-auto-replies.ts`
 
 **`src/lib/`:**

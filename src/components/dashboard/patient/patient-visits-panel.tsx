@@ -64,7 +64,7 @@ export function PatientVisitsPanel({ clientId, patientId }: PatientVisitsPanelPr
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{item.date}</p>
+                    <p className="text-xs xl:text-[11px] uppercase tracking-wider text-muted-foreground">{item.date}</p>
                     <h4 className="mt-1 text-sm font-semibold text-text">{item.title}</h4>
                     <p className={`mt-1 text-xs font-medium ${item.statusTone}`}>{item.status}</p>
                   </div>

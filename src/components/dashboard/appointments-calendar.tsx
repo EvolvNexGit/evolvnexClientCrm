@@ -334,7 +334,7 @@ export function AppointmentsCalendar({
         </div>
       )}
 
-      <div className="min-w-0 max-w-full overflow-auto rounded-xl border border-border bg-card max-h-[70vh]">
+      <div className="min-w-0 max-w-full overflow-auto rounded-xl border border-border bg-card max-h-[70dvh]">
         <div className="grid" style={{ gridTemplateColumns, minWidth: gridMinWidth }}>
           <div className="sticky left-0 top-0 z-30 border-b border-r border-border bg-card" />
           {columns.map((column) => (
@@ -355,7 +355,7 @@ export function AppointmentsCalendar({
               {hourMarks.map((minutes) => (
                 <span
                   key={minutes}
-                  className="absolute right-1 text-[11px] leading-none text-muted-foreground"
+                  className="absolute right-1 text-xs xl:text-[11px] leading-none text-muted-foreground"
                   style={{ top: ((minutes - range.startMinutes) / TIME_STEP_MINUTES) * CALENDAR_SLOT_HEIGHT_PX + 2 }}
                 >
                   {minutesToClock(minutes)}
@@ -426,7 +426,7 @@ export function AppointmentsCalendar({
                         <div className={cn("truncate", isCancelled && "line-through")}>{appointmentLabel(item)}</div>
                         {item.service ? <div className="truncate opacity-80">{item.service}</div> : null}
                         <div className="truncate opacity-80">{staffLabel}</div>
-                        {hasOverlap ? <div className="truncate text-[10px] font-semibold uppercase">Overlap</div> : null}
+                        {hasOverlap ? <div className="truncate text-xs xl:text-[10px] font-semibold uppercase">Overlap</div> : null}
                       </div>
                     </button>
                   );

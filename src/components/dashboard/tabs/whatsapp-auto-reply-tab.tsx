@@ -103,7 +103,7 @@ export default function WhatsAppAutoReplyTab({ clientId }: { clientId: string })
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <LeadsTabHeader
         title="Auto replies"
         description="Configure keyword triggers and automatic WhatsApp responses for incoming messages."
@@ -121,7 +121,7 @@ export default function WhatsAppAutoReplyTab({ clientId }: { clientId: string })
         </div>
       )}
 
-      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+      <section className="rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-6">
         <p className="mb-4 text-center text-sm font-medium text-muted-foreground">Reply mappings</p>
         <DataState
           loading={loading}

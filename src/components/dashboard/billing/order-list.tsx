@@ -83,7 +83,7 @@ function OrderCard({
             <div className="text-right">
               {orderId ? (
                 <>
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-white/45">Order id</p>
+                  <p className="text-xs xl:text-[10px] font-medium uppercase tracking-wide text-white/45">Order id</p>
                   <p className="truncate text-sm font-medium text-white/90" title={orderId}>
                     {orderId}
                   </p>
@@ -111,7 +111,7 @@ function OrderCard({
             <button
               type="button"
               onClick={() => onStatusClick(order)}
-              className={`rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition ${statusPillClass(currentStatus)}`}
+              className={`min-h-11 rounded-full px-5 py-2 text-xs xl:min-h-0 font-bold uppercase tracking-wider transition ${statusPillClass(currentStatus)}`}
             >
               {currentStatus}
             </button>
@@ -198,7 +198,7 @@ export function OrderList({ orders, loading, error, onUpdateStatus }: OrderListP
                   key={status}
                   type="button"
                   onClick={() => setPendingStatus(status)}
-                  className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${
+                  className={`min-h-11 rounded-full px-4 py-2 text-xs xl:min-h-0 font-bold uppercase tracking-wider transition ${
                     active ? statusPillClass(status) : "border border-border bg-background text-muted-foreground"
                   }`}
                 >

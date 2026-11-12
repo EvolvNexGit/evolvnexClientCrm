@@ -420,7 +420,7 @@ function PromotionModal({ open, mode, promotion, products, productTypes, saving,
       onClose={onClose}
       contentClassName="xl:max-w-6xl"
     >
-      <form className="space-y-6" onSubmit={handleSubmit}>
+      <form className="space-y-4 md:space-y-6" onSubmit={handleSubmit}>
         {error && <div className="rounded-xl border border-primary/50 bg-primary/10 p-3 text-sm text-primary">{error}</div>}
 
         <div className="grid gap-4 lg:grid-cols-2">
@@ -471,12 +471,12 @@ function PromotionModal({ open, mode, promotion, products, productTypes, saving,
             <input value={form.priority} onChange={(event) => updateField("priority", event.target.value)} className={fieldClass} inputMode="numeric" />
           </label>
 
-          <div className="flex items-end gap-3 rounded-xl border border-border bg-background p-3">
-            <label className="flex items-center gap-2 text-sm text-text">
+          <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-background p-3">
+            <label className="flex min-h-11 items-center gap-2 text-sm text-text xl:min-h-0">
               <input type="checkbox" checked={form.isPublic} onChange={(event) => updateField("isPublic", event.target.checked)} className={checkboxClass} />
               Public
             </label>
-            <label className="flex items-center gap-2 text-sm text-text">
+            <label className="flex min-h-11 items-center gap-2 text-sm text-text xl:min-h-0">
               <input type="checkbox" checked={form.canStack} onChange={(event) => updateField("canStack", event.target.checked)} className={checkboxClass} />
               Stackable
             </label>
@@ -567,15 +567,15 @@ function PromotionModal({ open, mode, promotion, products, productTypes, saving,
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
-            <label className="flex items-center gap-2 text-sm text-text">
+            <label className="flex min-h-11 items-center gap-2 text-sm text-text xl:min-h-0">
               <input type="checkbox" checked={form.firstOrderOnly} onChange={(event) => updateField("firstOrderOnly", event.target.checked)} className={checkboxClass} />
               First order only
             </label>
-            <label className="flex items-center gap-2 text-sm text-text">
+            <label className="flex min-h-11 items-center gap-2 text-sm text-text xl:min-h-0">
               <input type="checkbox" checked={form.loyaltyMembersOnly} onChange={(event) => updateField("loyaltyMembersOnly", event.target.checked)} className={checkboxClass} />
               Loyalty members only
             </label>
-            <label className="flex items-center gap-2 text-sm text-text">
+            <label className="flex min-h-11 items-center gap-2 text-sm text-text xl:min-h-0">
               <input type="checkbox" checked={form.subscriptionRequired} onChange={(event) => updateField("subscriptionRequired", event.target.checked)} className={checkboxClass} />
               Subscription required
             </label>
@@ -612,9 +612,9 @@ function PromotionModal({ open, mode, promotion, products, productTypes, saving,
 
           <div>
             <div className="mb-2 text-sm font-medium text-text">Valid days</div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+            <div className="grid grid-cols-2 gap-2 lg:grid-cols-4 xl:grid-cols-7">
               {PROMO_VALID_DAY_OPTIONS.map((day) => (
-                <label key={day.value} className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm text-text">
+                <label key={day.value} className="flex min-h-11 items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm text-text xl:min-h-0">
                   <input type="checkbox" checked={form.validDays.includes(day.value)} onChange={() => toggleDay(day.value)} className={checkboxClass} />
                   {day.label}
                 </label>
@@ -623,15 +623,15 @@ function PromotionModal({ open, mode, promotion, products, productTypes, saving,
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
-            <label className="flex items-center gap-2 text-sm text-text">
+            <label className="flex min-h-11 items-center gap-2 text-sm text-text xl:min-h-0">
               <input type="checkbox" checked={form.validForDineIn} onChange={(event) => updateField("validForDineIn", event.target.checked)} className={checkboxClass} />
               Dine-in
             </label>
-            <label className="flex items-center gap-2 text-sm text-text">
+            <label className="flex min-h-11 items-center gap-2 text-sm text-text xl:min-h-0">
               <input type="checkbox" checked={form.validForTakeaway} onChange={(event) => updateField("validForTakeaway", event.target.checked)} className={checkboxClass} />
               Takeaway
             </label>
-            <label className="flex items-center gap-2 text-sm text-text">
+            <label className="flex min-h-11 items-center gap-2 text-sm text-text xl:min-h-0">
               <input type="checkbox" checked={form.validForDelivery} onChange={(event) => updateField("validForDelivery", event.target.checked)} className={checkboxClass} />
               Delivery
             </label>
@@ -650,7 +650,7 @@ function PromotionModal({ open, mode, promotion, products, productTypes, saving,
                 <div className="text-sm text-muted-foreground">No products found.</div>
               ) : (
                 products.map((product) => (
-                  <label key={product.id} className="flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm text-text hover:bg-muted/50">
+                  <label key={product.id} className="flex min-h-11 items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm text-text hover:bg-muted/50 xl:min-h-0">
                     <span>
                       <span className="block font-medium">{product.name}</span>
                       <span className="block text-xs text-muted-foreground">{product.type ?? "No type"}</span>
@@ -673,7 +673,7 @@ function PromotionModal({ open, mode, promotion, products, productTypes, saving,
                 <div className="text-sm text-muted-foreground">No product types available.</div>
               ) : (
                 productTypes.map((productType) => (
-                  <label key={productType} className="flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm text-text hover:bg-muted/50">
+                  <label key={productType} className="flex min-h-11 items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm text-text hover:bg-muted/50 xl:min-h-0">
                     <span>
                       <span className="block font-medium">{titleCase(productType)}</span>
                       <span className="block text-xs text-muted-foreground">Target this product type</span>
@@ -842,8 +842,8 @@ export default function PromosTab({ clientId }: { clientId: string }) {
         </div>
       </div>
 
-      <div className="grid gap-3 rounded-xl border border-border bg-background p-3 xl:grid-cols-4">
-        <label className="text-sm text-muted-foreground xl:col-span-2">
+      <div className="grid grid-cols-2 gap-3 rounded-xl border border-border bg-background p-3 xl:grid-cols-4">
+        <label className="col-span-2 text-sm text-muted-foreground xl:col-span-2">
           <span className="mb-1 flex items-center gap-2">
             <Search className="h-4 w-4" />
             Search
@@ -951,7 +951,7 @@ export default function PromosTab({ clientId }: { clientId: string }) {
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
                   <div className="rounded-lg border border-border bg-background p-3 text-sm text-muted-foreground">
                     <div className="text-xs uppercase tracking-wide">Validity</div>
                     <div className="mt-1 text-text">{formatDateRange(promotion.start_date, promotion.end_date)}</div>

@@ -167,6 +167,18 @@ const DB_KEY_TO_CODE_KEY: Record<string, string> = {
   "013": "doctor-summary",
   "014": "consultation",
   "015": "doctor-billing",
+  // LEADS / HRM nav gates (module-navigation `requiresAccess`); code key = coming-soon path key.
+  "016": "leads-inbox",
+  "017": "leads-contacts",
+  "018": "leads-campaigns",
+  "019": "leads-templates",
+  "020": "leads-whatsapp-settings",
+  "021": "leads-automation",
+  "022": "leads-segments",
+  "023": "hrm-employees",
+  "024": "hrm-attendance",
+  "025": "hrm-leave",
+  "026": "hrm-payroll",
 };
 
 function toPermissions(value: unknown): string[] {

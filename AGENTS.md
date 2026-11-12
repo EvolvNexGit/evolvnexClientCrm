@@ -302,7 +302,7 @@ v1 keeps the existing CRM tabs working and ships a **Conversations / inbox** so 
 - Pattern: DB numeric keys (`001`…`014`) and aliases map to code keys (`customer`, `cafe-summary`, …)
 - Purpose: Presentation catalog independent of DB tabs (`existing-tab` | `ai-insights` | `coming-soon`).
 - Examples: `MODULES` in `src/lib/module-navigation.ts`
-- Pattern: Sidebar is `getSidebarItemsForModule(moduleId, tabs)` — existing tabs hidden if not in `tabs`; coming-soon always shown
+- Pattern: Sidebar is `getSidebarItemsForModule(moduleId, tabs)` — existing tabs hidden if not in `tabs`; LEADS/HRM coming-soon items gated by `requiresAccess` (tabs_info 016–026 via `client_tab_access`); ungated coming-soon (Reports) always shown; modules with no visible items are hidden (`getVisibleModuleIds`)
 - Purpose: Keep PostgREST and row mapping out of JSX.
 - Examples: `src/lib/billing-queries.ts` + `src/lib/billing-types.ts`; `src/lib/consultation-queries.ts` + `src/lib/consultation-types.ts`
 - Pattern: `getClient()` → throw if missing env; `raise`/`formatSupabaseError` on PostgREST errors; always `.eq("client_id", clientId)`
