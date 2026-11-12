@@ -289,6 +289,13 @@ function DashboardPageContent() {
       }
     }
 
+    // Tabs are still loading: a deep link like /dashboard/transaction cannot match yet. Falling back to
+    // the stored tab here would let a stored coming-soon key (e.g. leads-*) win and router.replace the
+    // URL away from the requested tab before permissions arrive.
+    if (loading) {
+      return { type: "empty" };
+    }
+
     const storedTab = getStoredTab();
     if (storedTab) {
       if (isComingSoonPathKey(storedTab)) {
@@ -305,7 +312,7 @@ function DashboardPageContent() {
     }
 
     return { type: "empty" };
-  }, [pathname, tabFromUrl, tabs, defaultTab]);
+  }, [pathname, tabFromUrl, tabs, defaultTab, loading]);
 
   const activeNavKey =
     pendingNavKeyRef.current ??

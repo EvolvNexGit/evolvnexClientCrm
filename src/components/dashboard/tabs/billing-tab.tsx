@@ -1081,22 +1081,25 @@ export default function BillingTab({ clientId }: { clientId: string }) {
                 onClick={() => setDiscountMode("manual")}
                 className={
                   discountMode === "manual"
-                    ? "rounded-full border border-primary bg-primary/10 px-3 py-1 text-sm font-medium text-primary"
-                    : "rounded-full border border-border bg-background px-3 py-1 text-sm text-text"
+                    ? "min-h-11 whitespace-nowrap rounded-full border border-primary bg-primary/10 px-3 py-1 text-sm font-medium text-primary xl:min-h-0"
+                    : "min-h-11 whitespace-nowrap rounded-full border border-border bg-background px-3 py-1 text-sm text-text xl:min-h-0"
                 }
               >
-                Manual discount
+                {/* Short label on narrow phones so both pills fit one line (same pattern as 3M/6M range chips). */}
+                <span className="min-[400px]:hidden">Manual</span>
+                <span className="hidden min-[400px]:inline">Manual discount</span>
               </button>
               <button
                 type="button"
                 onClick={() => setDiscountMode("promos")}
                 className={
                   discountMode === "promos"
-                    ? "rounded-full border border-primary bg-primary/10 px-3 py-1 text-sm font-medium text-primary"
-                    : "rounded-full border border-border bg-background px-3 py-1 text-sm text-text"
+                    ? "min-h-11 whitespace-nowrap rounded-full border border-primary bg-primary/10 px-3 py-1 text-sm font-medium text-primary xl:min-h-0"
+                    : "min-h-11 whitespace-nowrap rounded-full border border-border bg-background px-3 py-1 text-sm text-text xl:min-h-0"
                 }
               >
-                Eligible promos
+                <span className="min-[400px]:hidden">Promos</span>
+                <span className="hidden min-[400px]:inline">Eligible promos</span>
               </button>
             </div>
 

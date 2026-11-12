@@ -259,7 +259,7 @@ export default function CafeSummaryTab({ clientId }: { clientId: string }) {
                 <h4 className="font-semibold">Peak Hours</h4>
               </div>
               <p className="text-sm text-muted-foreground">{analytics.peakHoursLabel}</p>
-              <Link href={"/dashboard/transaction" as never} className="mt-3 inline-block text-sm font-medium text-primary hover:underline">
+              <Link href={"/dashboard/transaction" as never} className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline xl:inline-block xl:min-h-0">
                 View details
               </Link>
             </section>
