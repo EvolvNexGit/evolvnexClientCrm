@@ -12,7 +12,7 @@ type VitalsCardProps = {
 
 export function VitalsCard({ value, onChange, error, disabled }: VitalsCardProps) {
   return (
-    <section id="consult-vitals" className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+    <section id="consult-vitals" className="rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-6">
       <div className="flex items-center gap-2">
         <Activity className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-semibold uppercase tracking-wider text-text">Vitals</h3>

@@ -7,7 +7,7 @@ import { VITAL_FIELDS } from "@/lib/consultation-vitals";
 export function SummarySection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="rounded-2xl border border-border bg-background p-4">
-      <h5 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</h5>
+      <h5 className="text-xs xl:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</h5>
       <div className="mt-2 text-sm text-text">{children}</div>
     </section>
   );

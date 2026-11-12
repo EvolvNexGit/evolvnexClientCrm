@@ -201,7 +201,7 @@ function StatCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="mt-2 text-3xl font-semibold text-text">{value}</p>
+          <p className="mt-2 text-2xl font-semibold text-text sm:text-3xl">{value}</p>
           <p className="mt-1 text-xs text-muted-foreground">{subtext}</p>
         </div>
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">
@@ -259,16 +259,16 @@ function Toolbar() {
       <Button variant="ghost" className="h-8 px-3 text-xs">
         Normal
       </Button>
-      <Button variant="ghost" className="h-8 w-8 p-0">
+      <Button variant="ghost" className="h-8 w-8 p-0 min-w-11 xl:min-w-0">
         B
       </Button>
-      <Button variant="ghost" className="h-8 w-8 p-0 italic">
+      <Button variant="ghost" className="h-8 w-8 p-0 italic min-w-11 xl:min-w-0">
         I
       </Button>
-      <Button variant="ghost" className="h-8 w-8 p-0 underline">
+      <Button variant="ghost" className="h-8 w-8 p-0 underline min-w-11 xl:min-w-0">
         U
       </Button>
-      <Button variant="ghost" className="h-8 w-8 p-0">
+      <Button variant="ghost" className="h-8 w-8 p-0 min-w-11 xl:min-w-0">
         <MoreHorizontal className="h-4 w-4" />
       </Button>
     </div>
@@ -366,7 +366,7 @@ function HistorySummary({
       ) : (
         <>
           <div>
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            <p className="text-xs xl:text-[11px] uppercase tracking-wider text-muted-foreground">
               {formatUtcToIst(detail.created_at).slice(0, 10)} · {toDisplayVisitType(detail.visit_type)} visit
             </p>
             <p className="mt-1 text-xs font-medium text-muted-foreground">{toDisplayStatus(detail.status)}</p>
@@ -1082,7 +1082,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
   if (mode === "queue") {
     return (
       <div className="space-y-6">
-        <section className="rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
+        <section className="rounded-3xl border border-border bg-card p-4 dark:shadow-sm sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium uppercase tracking-wider text-primary">Consultation Queue</p>
@@ -1134,8 +1134,8 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                 onClick={() => setQueueView(tab.key as QueueView)}
                 className={
                   queueView === tab.key
-                    ? "shrink-0 border-b-2 border-primary pb-3 text-primary"
-                    : "shrink-0 pb-3 text-muted-foreground hover:text-text"
+                    ? "min-h-11 shrink-0 border-b-2 border-primary pb-3 text-primary xl:min-h-0"
+                    : "min-h-11 shrink-0 pb-3 text-muted-foreground hover:text-text xl:min-h-0"
                 }
               >
                 {tab.label} ({tab.count})
@@ -1307,13 +1307,13 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
+      <section className="rounded-3xl border border-border bg-card p-4 dark:shadow-sm sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={handleBackToQueue}
-              className="rounded-full border border-border p-2 text-muted-foreground hover:bg-muted"
+              className="rounded-full border border-border p-2 text-muted-foreground hover:bg-muted max-xl:inline-flex max-xl:h-11 max-xl:w-11 max-xl:items-center max-xl:justify-center"
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
@@ -1404,14 +1404,14 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
       )}
 
       {detailLoading ? (
-        <div className="flex items-center justify-center gap-2 rounded-3xl border border-border bg-card p-16 text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 rounded-3xl border border-border bg-card p-10 text-muted-foreground sm:p-16">
           <Loader2 className="h-5 w-5 animate-spin" />
           Loading consultation...
         </div>
       ) : (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
           <div className="space-y-6">
-            <section className="rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
+            <section className="rounded-3xl border border-border bg-card p-4 dark:shadow-sm sm:p-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-lg font-semibold text-primary">
@@ -1430,15 +1430,15 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
 
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="rounded-2xl border border-border bg-background px-4 py-3">
-                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Appointment</p>
+                    <p className="text-xs xl:text-[11px] uppercase tracking-wider text-muted-foreground">Appointment</p>
                     <p className="mt-1 text-sm text-text">{appointmentLabel}</p>
                   </div>
                   <div className="rounded-2xl border border-border bg-background px-4 py-3">
-                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Status</p>
+                    <p className="text-xs xl:text-[11px] uppercase tracking-wider text-muted-foreground">Status</p>
                     <p className="mt-1 text-sm text-emerald-500">{consultStatus}</p>
                   </div>
                   <div className="rounded-2xl border border-border bg-background px-4 py-3">
-                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Visit Type</p>
+                    <p className="text-xs xl:text-[11px] uppercase tracking-wider text-muted-foreground">Visit Type</p>
                     <p className="mt-1 text-sm text-text">{visitType}</p>
                   </div>
                 </div>
@@ -1447,15 +1447,15 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
 
             {isReadOnly && activeConsultation ? (
               <>
-                <section className="space-y-3 rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
+                <section className="space-y-3 rounded-3xl border border-border bg-card p-4 dark:shadow-sm sm:p-6">
                   <ConsultationSummaryBody detail={activeConsultation} />
                 </section>
 
-                <section className="rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
+                <section className="rounded-3xl border border-border bg-card p-4 dark:shadow-sm sm:p-6">
                   <div className="p-0 pb-3">
                     <SectionLabel number="4" title="Attachments" icon={Paperclip} />
                   </div>
-                  <div className="rounded-2xl border border-border bg-muted/30 p-5">
+                  <div className="rounded-2xl border border-border bg-muted/30 p-4 sm:p-5">
                     <p className="text-sm font-medium text-text">
                       Attached Files ({activeConsultation.attachments.length})
                     </p>
@@ -1518,8 +1518,8 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                       onClick={() => setActivePlanTab(tab)}
                       className={
                         active
-                          ? "rounded-full bg-text px-4 py-2 text-sm font-medium text-background"
-                          : "rounded-full border border-border bg-background px-4 py-2 text-sm text-muted-foreground hover:text-text"
+                          ? "min-h-11 rounded-full bg-text px-4 py-2 text-sm font-medium text-background xl:min-h-0"
+                          : "min-h-11 rounded-full border border-border bg-background px-4 py-2 text-sm text-muted-foreground hover:text-text xl:min-h-0"
                       }
                     >
                       {tab}
@@ -1530,7 +1530,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
 
               {activePlanTab === "Medication" ? (
                 <div className="space-y-4 p-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm text-muted-foreground">Add each medicine the patient should take.</p>
                     <Button
                       variant="secondary"
@@ -1770,7 +1770,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
             </section>
 
             <div className="grid gap-6 grid-cols-1 2xl:grid-cols-2">
-              <section className="rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
+              <section className="rounded-3xl border border-border bg-card p-4 dark:shadow-sm sm:p-6">
                 <div className="p-0 pb-3">
                   <SectionLabel number="4" title="Attachments" icon={Paperclip} />
                 </div>
@@ -1799,7 +1799,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                     ) : null}
                   </div>
 
-                  <div className="rounded-2xl border border-border bg-muted/30 p-5">
+                  <div className="rounded-2xl border border-border bg-muted/30 p-4 sm:p-5">
                     <p className="text-sm font-medium text-text">
                       Attached Files ({activeConsultation?.attachments.length ?? 0})
                     </p>
@@ -1811,7 +1811,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                             <AttachmentOpenButton attachment={attachment} />
                             <Button
                               variant="secondary"
-                              className="h-8 w-8 shrink-0 p-0"
+                              className="h-8 w-8 shrink-0 p-0 max-xl:h-11 max-xl:w-11"
                               disabled={saving}
                               aria-label={`Remove ${attachment.file_name || "file"}`}
                               onClick={() => void handleRemoveAttachment(attachment)}
@@ -1828,7 +1828,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                 </div>
               </section>
 
-              <section className="rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
+              <section className="rounded-3xl border border-border bg-card p-4 dark:shadow-sm sm:p-6">
                 <div className="p-0 pb-3">
                   <SectionLabel number="5" title="Follow-up" icon={CalendarClock} />
                 </div>
@@ -1836,7 +1836,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                 <div className="space-y-4">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="block min-w-0 space-y-2 rounded-2xl border border-border bg-muted/30 p-4">
-                      <span className="block text-[11px] uppercase tracking-wider text-muted-foreground">
+                      <span className="block text-xs xl:text-[11px] uppercase tracking-wider text-muted-foreground">
                         Duration (days)
                       </span>
                       <input
@@ -1854,7 +1854,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                       />
                     </label>
                     <label className="block min-w-0 space-y-2 rounded-2xl border border-border bg-muted/30 p-4">
-                      <span className="block text-[11px] uppercase tracking-wider text-muted-foreground">
+                      <span className="block text-xs xl:text-[11px] uppercase tracking-wider text-muted-foreground">
                         Follow-up Date
                       </span>
                       <input
@@ -1872,7 +1872,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                   </div>
 
                   <label className="block space-y-2 rounded-2xl border border-border bg-muted/30 p-4">
-                    <span className="block text-[11px] uppercase tracking-wider text-muted-foreground">
+                    <span className="block text-xs xl:text-[11px] uppercase tracking-wider text-muted-foreground">
                       Notes (Optional)
                     </span>
                     <textarea
@@ -1952,7 +1952,10 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                   placeholder="Search history"
                   className="h-8 flex-1 bg-transparent text-sm text-text outline-none placeholder:text-muted-foreground"
                 />
-                <button type="button" className="text-muted-foreground">
+                <button
+                  type="button"
+                  className="text-muted-foreground max-xl:inline-flex max-xl:h-11 max-xl:w-11 max-xl:items-center max-xl:justify-center"
+                >
                   <Filter className="h-4 w-4" />
                 </button>
               </div>
@@ -1967,8 +1970,8 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                       onClick={() => setActiveFilter(filter)}
                       className={
                         active
-                          ? "rounded-full border border-[#ff4b5c] bg-[#ff4b5c]/10 px-3 py-1.5 text-xs font-medium text-[#cc3d4a]"
-                          : "rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground hover:text-text"
+                          ? "rounded-full border border-[#ff4b5c] bg-[#ff4b5c]/10 px-3 py-1.5 text-xs font-medium text-[#cc3d4a] max-xl:inline-flex max-xl:min-h-11 max-xl:items-center"
+                          : "rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground hover:text-text max-xl:inline-flex max-xl:min-h-11 max-xl:items-center"
                       }
                     >
                       {filter}
@@ -1997,7 +2000,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{item.date}</p>
+                              <p className="text-xs xl:text-[11px] uppercase tracking-wider text-muted-foreground">{item.date}</p>
                               <h4 className="mt-1 text-sm font-semibold text-text">{item.title}</h4>
                               <p className={`mt-1 text-xs font-medium ${item.statusTone}`}>{item.status}</p>
                             </div>
