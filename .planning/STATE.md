@@ -129,6 +129,7 @@ Items acknowledged and carried forward:
 | 260826-59z | Auto Replies tab strip credentials and extras | 2026-08-26 | `.planning/quick/260826-59z-remove-whatsapp-cloud-api-credentials-se/260826-59z-SUMMARY.md` |
 | 260826-5fh | LEADS WhatsApp Settings credentials sub-tab | 2026-08-26 | `.planning/quick/260826-5fh-leads-whatsapp-settings-sub-tab-single-p/260826-5fh-SUMMARY.md` |
 | 260826-5p8 | Merge develop into feature/consultation-tab | 2026-08-26 | `.planning/quick/260826-5p8-pull-latest-develop-into-feature-consult/260826-5p8-SUMMARY.md` |
+| 261112-wx7 | Responsive mobile UI/UX pass (phones and tablets, xl unchanged) | 2026-11-13 | `.planning/quick/261112-wx7-responsive-mobile-ui-ux-optimization-of-/261112-wx7-SUMMARY.md` |
 
 ## Session Continuity
 
