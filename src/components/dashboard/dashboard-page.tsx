@@ -563,7 +563,7 @@ function DashboardPageContent() {
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <section
-            className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-6 pt-6 sm:px-6 sm:pt-8 lg:px-8"
+            className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-6 pt-4 max-xl:scroll-pb-24 max-xl:pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-8 lg:px-8"
             ref={contentSectionRef}
           >
             <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6">
@@ -622,7 +622,7 @@ function DashboardPageContent() {
 
 export function DashboardScreenLoader() {
   return (
-    <main className="grid min-h-screen place-items-center bg-background px-6">
+    <main className="grid min-h-dvh place-items-center bg-background px-6">
       <div className="rounded-xl border border-border bg-card px-6 py-5 text-base text-muted-foreground shadow-soft">
         <span className="inline-flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -649,7 +649,7 @@ function ClientFallback({
   onLogout: () => Promise<void>;
 }) {
   return (
-    <main className="grid min-h-screen place-items-center bg-background px-6">
+    <main className="grid min-h-dvh place-items-center bg-background px-6">
       <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-8 shadow-soft">
         <div className="flex items-center gap-3 text-primary">
           <AlertCircle className="h-5 w-5" />
