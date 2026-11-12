@@ -197,7 +197,7 @@ function StatCard({
   icon: typeof CalendarClock;
 }) {
   return (
-    <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+    <section className="rounded-2xl border border-border bg-card p-4 dark:shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">{label}</p>
@@ -214,9 +214,9 @@ function StatCard({
 
 function StatusPill({ status }: { status: ConsultDisplayStatus }) {
   const styles: Record<ConsultDisplayStatus, string> = {
-    Waiting: "bg-amber-500/15 text-amber-300 border-amber-500/20",
-    "In Progress": "bg-violet-500/15 text-violet-300 border-violet-500/20",
-    Completed: "bg-emerald-500/15 text-emerald-300 border-emerald-500/20",
+    Waiting: "border-border text-text dark:border-amber-500/20 dark:bg-amber-500/15 dark:text-amber-300",
+    "In Progress": "border-primary text-primary dark:border-violet-500/20 dark:bg-violet-500/15 dark:text-violet-300",
+    Completed: "border-border text-text dark:border-emerald-500/20 dark:bg-emerald-500/15 dark:text-emerald-300",
   };
 
   return <span className={`rounded-full border px-3 py-1 text-xs font-medium ${styles[status]}`}>{status}</span>;
@@ -224,12 +224,12 @@ function StatusPill({ status }: { status: ConsultDisplayStatus }) {
 
 function TypePill({ type }: { type: ConsultationQueueRow["type"] }) {
   const styles: Record<ConsultationQueueRow["type"], string> = {
-    New: "bg-violet-500/15 text-violet-300",
-    "Follow-up": "bg-sky-500/15 text-sky-300",
-    "Walk-in": "bg-emerald-500/15 text-emerald-300",
+    New: "text-text dark:bg-violet-500/15 dark:text-violet-300",
+    "Follow-up": "text-text dark:bg-sky-500/15 dark:text-sky-300",
+    "Walk-in": "text-text dark:bg-emerald-500/15 dark:text-emerald-300",
   };
 
-  return <span className={`rounded-full px-3 py-1 text-xs font-medium ${styles[type]}`}>{type}</span>;
+  return <span className={`rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ring-border dark:ring-0 ${styles[type]}`}>{type}</span>;
 }
 
 function SectionLabel({
@@ -289,7 +289,7 @@ function EditorCard({
   onChange: (value: string) => void;
 }) {
   return (
-    <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+    <section className="overflow-hidden rounded-3xl border border-border bg-card dark:shadow-sm">
       <div className="p-4 pb-0">
         <SectionLabel number={number} title={title} icon={FileText} />
       </div>
@@ -1082,7 +1082,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
   if (mode === "queue") {
     return (
       <div className="space-y-6">
-        <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+        <section className="rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium uppercase tracking-wider text-primary">Consultation Queue</p>
@@ -1121,7 +1121,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
           ))}
         </div>
 
-        <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+        <section className="overflow-hidden rounded-3xl border border-border bg-card dark:shadow-sm">
           <div className="flex min-w-0 items-center gap-4 overflow-x-auto border-b border-border px-4 pt-4 text-sm font-medium [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {[
               { key: "All", label: "Today's Queue", count: queueTabCounts.all },
@@ -1307,7 +1307,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+      <section className="rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <button
@@ -1411,7 +1411,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
       ) : (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
           <div className="space-y-6">
-            <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+            <section className="rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-lg font-semibold text-primary">
@@ -1447,11 +1447,11 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
 
             {isReadOnly && activeConsultation ? (
               <>
-                <section className="space-y-3 rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+                <section className="space-y-3 rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
                   <ConsultationSummaryBody detail={activeConsultation} />
                 </section>
 
-                <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+                <section className="rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
                   <div className="p-0 pb-3">
                     <SectionLabel number="4" title="Attachments" icon={Paperclip} />
                   </div>
@@ -1503,7 +1503,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
               />
             </div>
 
-            <section className="rounded-3xl border border-border bg-card shadow-sm">
+            <section className="rounded-3xl border border-border bg-card dark:shadow-sm">
               <div className="p-4 pb-0">
                 <SectionLabel number="3" title="Plan" icon={ClipboardList} />
               </div>
@@ -1770,7 +1770,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
             </section>
 
             <div className="grid gap-6 grid-cols-1 2xl:grid-cols-2">
-              <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+              <section className="rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
                 <div className="p-0 pb-3">
                   <SectionLabel number="4" title="Attachments" icon={Paperclip} />
                 </div>
@@ -1828,7 +1828,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
                 </div>
               </section>
 
-              <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+              <section className="rounded-3xl border border-border bg-card p-5 dark:shadow-sm sm:p-6">
                 <div className="p-0 pb-3">
                   <SectionLabel number="5" title="Follow-up" icon={CalendarClock} />
                 </div>
@@ -1921,7 +1921,7 @@ export default function ConsultationTab({ clientId }: { clientId: string }) {
             )}
           </div>
 
-          <aside className="rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-5">
+          <aside className="rounded-3xl border border-border bg-card p-4 dark:shadow-sm sm:p-5">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <div>
                 <h3 className="text-lg font-semibold text-text">Patient History</h3>

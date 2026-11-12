@@ -88,7 +88,7 @@ function TrendBadge({
   return (
     <div
       className={`inline-flex items-center gap-0.5 ${compact ? "text-xs" : "text-sm"} ${
-        isPositive ? "text-emerald-400" : "text-rose-400"
+        isPositive ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"
       }`}
     >
       {isPositive ? (
@@ -319,32 +319,32 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
               value={formatInr(analytics.kpis.revenue.value)}
               trend={analytics.kpis.revenue.changePercent}
               trendLabel={trendLabel}
-              icon={<IndianRupee className="h-4 w-4 text-white sm:h-5 sm:w-5" />}
-              iconClassName="bg-primary"
+              icon={<IndianRupee className="h-4 w-4 text-muted-foreground dark:text-white sm:h-5 sm:w-5" />}
+              iconClassName="bg-muted dark:bg-primary"
             />
             <KpiCard
               title="Total Appointments"
               value={formatCount(analytics.kpis.appointments.value)}
               trend={analytics.kpis.appointments.changePercent}
               trendLabel={trendLabel}
-              icon={<CalendarDays className="h-4 w-4 text-white sm:h-5 sm:w-5" />}
-              iconClassName="bg-orange-500"
+              icon={<CalendarDays className="h-4 w-4 text-muted-foreground dark:text-white sm:h-5 sm:w-5" />}
+              iconClassName="bg-muted dark:bg-orange-500"
             />
             <KpiCard
               title="Patients Served"
               value={formatCount(analytics.kpis.patientsServed.value)}
               trend={analytics.kpis.patientsServed.changePercent}
               trendLabel={trendLabel}
-              icon={<Users className="h-4 w-4 text-white sm:h-5 sm:w-5" />}
-              iconClassName="bg-violet-500"
+              icon={<Users className="h-4 w-4 text-muted-foreground dark:text-white sm:h-5 sm:w-5" />}
+              iconClassName="bg-muted dark:bg-violet-500"
             />
             <KpiCard
               title="New Patients"
               value={formatCount(analytics.kpis.newPatients.value)}
               trend={analytics.kpis.newPatients.changePercent}
               trendLabel={trendLabel}
-              icon={<UserPlus className="h-4 w-4 text-white sm:h-5 sm:w-5" />}
-              iconClassName="bg-emerald-500"
+              icon={<UserPlus className="h-4 w-4 text-muted-foreground dark:text-white sm:h-5 sm:w-5" />}
+              iconClassName="bg-muted dark:bg-emerald-500"
             />
             <KpiCard
               className="col-span-2 xl:col-span-1"
@@ -353,8 +353,8 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
               trend={analytics.kpis.avgBill.changePercent}
               trendLabel={trendLabel}
               note="From POS bills and paid clinic bills"
-              icon={<IndianRupee className="h-4 w-4 text-white sm:h-5 sm:w-5" />}
-              iconClassName="bg-sky-500"
+              icon={<IndianRupee className="h-4 w-4 text-muted-foreground dark:text-white sm:h-5 sm:w-5" />}
+              iconClassName="bg-muted dark:bg-sky-500"
             />
           </div>
 
@@ -538,7 +538,7 @@ export default function DoctorSummaryTab({ clientId }: { clientId: string }) {
               {analytics.alerts.map((alert) => (
                 <article key={alert.id} className="rounded-2xl border border-border bg-card p-3 sm:p-4">
                   <div className="mb-2 flex items-center gap-2 text-text">
-                    {alert.id === "low-stock" && <Package className="h-4 w-4 text-amber-400" />}
+                    {alert.id === "low-stock" && <Package className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
                     {alert.id === "pending-payments" && <IndianRupee className="h-4 w-4 text-primary" />}
                     {alert.id === "upcoming-appointments" && <Clock3 className="h-4 w-4 text-primary" />}
                     {!["low-stock", "pending-payments", "upcoming-appointments"].includes(alert.id) && (
