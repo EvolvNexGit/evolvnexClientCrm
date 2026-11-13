@@ -46,7 +46,7 @@ export function UserMenu({
     .join("") || "U";
 
   return (
-    <div className="relative" ref={rootRef}>
+    <div className="relative z-40" ref={rootRef}>
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
@@ -75,7 +75,7 @@ export function UserMenu({
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 mt-2 w-48 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border border-border bg-card py-1 shadow-soft"
+          className="absolute right-0 z-50 mt-2 w-48 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border border-border bg-card py-1 shadow-soft"
         >
           <button
             type="button"
