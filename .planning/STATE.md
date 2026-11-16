@@ -5,10 +5,10 @@ current_phase: 01
 current_phase_name: Doctor appointments and patients
 status: verifying
 stopped_at: Completed 03-07-PLAN.md (docs, gates, UAT); 03-06 (migration C) pending
-last_updated: "2026-11-10T21:13:43.571Z"
+last_updated: "2026-11-16T21:26:21.182Z"
 last_activity: 2026-11-10
 last_activity_desc: Phase 01 execution started
-state_head: 9e11cf15e344ba98e476957dd572239ed04f2ebc
+state_head: 572e06d1037e16992189f459d55082e16e054689
 progress:
   total_phases: 3
   completed_phases: 0
@@ -122,14 +122,15 @@ Items acknowledged and carried forward:
 
 ## Quick Tasks Completed
 
-| ID | Title | Date | Summary |
-|----|-------|------|---------|
-| 260826-4tb | LEADS Templates tab CRUD for prefilled messages | 2026-08-26 | `.planning/quick/260826-4tb-leads-templates-tab-crud-for-prefilled-m/260826-4tb-SUMMARY.md` |
-| 260826-56h | Templates tab centered list + slide editor | 2026-08-26 | `.planning/quick/260826-56h-templates-tab-ui-centered-list-as-defaul/260826-56h-SUMMARY.md` |
-| 260826-59z | Auto Replies tab strip credentials and extras | 2026-08-26 | `.planning/quick/260826-59z-remove-whatsapp-cloud-api-credentials-se/260826-59z-SUMMARY.md` |
-| 260826-5fh | LEADS WhatsApp Settings credentials sub-tab | 2026-08-26 | `.planning/quick/260826-5fh-leads-whatsapp-settings-sub-tab-single-p/260826-5fh-SUMMARY.md` |
-| 260826-5p8 | Merge develop into feature/consultation-tab | 2026-08-26 | `.planning/quick/260826-5p8-pull-latest-develop-into-feature-consult/260826-5p8-SUMMARY.md` |
-| 261112-wx7 | Responsive mobile UI/UX pass (phones and tablets, xl unchanged) | 2026-11-13 | `.planning/quick/261112-wx7-responsive-mobile-ui-ux-optimization-of-/261112-wx7-SUMMARY.md` |
+| # | Description | Date | Commit | Status | Directory |
+| --- | ------------- | ------ | -------- | -------- | ----------- |
+| 260826-4tb | LEADS Templates tab CRUD for prefilled messages · `.planning/quick/260826-4tb-leads-templates-tab-crud-for-prefilled-m/260826-4tb-SUMMARY.md` | 2026-08-26 | — | — | — |
+| 260826-56h | Templates tab centered list + slide editor · `.planning/quick/260826-56h-templates-tab-ui-centered-list-as-defaul/260826-56h-SUMMARY.md` | 2026-08-26 | — | — | — |
+| 260826-59z | Auto Replies tab strip credentials and extras · `.planning/quick/260826-59z-remove-whatsapp-cloud-api-credentials-se/260826-59z-SUMMARY.md` | 2026-08-26 | — | — | — |
+| 260826-5fh | LEADS WhatsApp Settings credentials sub-tab · `.planning/quick/260826-5fh-leads-whatsapp-settings-sub-tab-single-p/260826-5fh-SUMMARY.md` | 2026-08-26 | — | — | — |
+| 260826-5p8 | Merge develop into feature/consultation-tab · `.planning/quick/260826-5p8-pull-latest-develop-into-feature-consult/260826-5p8-SUMMARY.md` | 2026-08-26 | — | — | — |
+| 261112-wx7 | Responsive mobile UI/UX pass (phones and tablets, xl unchanged) · `.planning/quick/261112-wx7-responsive-mobile-ui-ux-optimization-of-/261112-wx7-SUMMARY.md` | 2026-11-13 | — | — | — |
+| 261117-3ns | Remove WhatsApp/communication feature: tabs, hooks, lib, API routes; drop-tables migration (not applied) | 2026-11-17 | 572e06d | — | [261117-3ns-remove-whatsapp-communication-feature-ta](./quick/261117-3ns-remove-whatsapp-communication-feature-ta/) |
 
 ## Session Continuity
 
