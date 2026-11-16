@@ -7,7 +7,6 @@ import {
   CreditCard,
   FileText,
   Inbox,
-  Layers,
   LayoutDashboard,
   Megaphone,
   Package,
@@ -23,7 +22,6 @@ import {
   ChefHat,
   UserRound,
   CalendarDays,
-  Settings,
 } from "lucide-react";
 import { isSpecialtySummaryTab } from "@/lib/tabs";
 import type { TabDefinition } from "@/lib/types";
@@ -106,9 +104,7 @@ export const MODULES: ModuleConfig[] = [
       { id: "inbox", label: "Inbox", kind: "coming-soon", pathKey: "leads-inbox", requiresAccess: true, icon: Inbox },
       { id: "contacts", label: "Contacts", kind: "coming-soon", pathKey: "leads-contacts", requiresAccess: true, icon: Contact },
       { id: "campaigns", label: "Campaigns", kind: "coming-soon", pathKey: "leads-campaigns", requiresAccess: true, icon: Megaphone },
-      { id: "templates", label: "Templates", kind: "coming-soon", pathKey: "leads-templates", requiresAccess: true, icon: Layers },
-      { id: "whatsapp-settings", label: "WhatsApp Settings", kind: "coming-soon", pathKey: "leads-whatsapp-settings", requiresAccess: true, icon: Settings },
-      { id: "automation", label: "Auto Replies", kind: "coming-soon", pathKey: "leads-automation", requiresAccess: true, icon: Workflow },
+      { id: "automation", label: "Automation", kind: "coming-soon", pathKey: "leads-automation", requiresAccess: true, icon: Workflow },
       { id: "segments", label: "Segments", kind: "coming-soon", pathKey: "leads-segments", requiresAccess: true, icon: LayoutDashboard },
     ],
   },

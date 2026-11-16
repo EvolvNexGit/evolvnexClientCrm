@@ -171,8 +171,6 @@ const DB_KEY_TO_CODE_KEY: Record<string, string> = {
   "016": "leads-inbox",
   "017": "leads-contacts",
   "018": "leads-campaigns",
-  "019": "leads-templates",
-  "020": "leads-whatsapp-settings",
   "021": "leads-automation",
   "022": "leads-segments",
   "023": "hrm-employees",
@@ -180,6 +178,9 @@ const DB_KEY_TO_CODE_KEY: Record<string, string> = {
   "025": "hrm-leave",
   "026": "hrm-payroll",
 };
+
+// These tabs_info rows still exist in the DB but their feature was removed; drop them at normalization.
+const RETIRED_DB_TAB_KEYS = new Set(["019", "020"]);
 
 function toPermissions(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -234,7 +235,7 @@ function normalizeTab(row: any): TabDefinition | null {
 
   const dbKey = String(relatedTab.key ?? relatedTab.id ?? "").trim();
 
-  if (!dbKey) {
+  if (!dbKey || RETIRED_DB_TAB_KEYS.has(dbKey)) {
     return null;
   }
 

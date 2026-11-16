@@ -24,8 +24,6 @@ export const DASHBOARD_TAB_ROUTES: Record<string, string> = {
   "leads-inbox": "/dashboard/leads-inbox",
   "leads-contacts": "/dashboard/leads-contacts",
   "leads-campaigns": "/dashboard/leads-campaigns",
-  "leads-templates": "/dashboard/leads-templates",
-  "leads-whatsapp-settings": "/dashboard/leads-whatsapp-settings",
   "leads-automation": "/dashboard/leads-automation",
   "leads-segments": "/dashboard/leads-segments",
   "hrm-employees": "/dashboard/hrm-employees",
