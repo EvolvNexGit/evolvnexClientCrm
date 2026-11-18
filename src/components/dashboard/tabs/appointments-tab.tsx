@@ -20,11 +20,13 @@ import {
   type CalendarSlot,
 } from "@/components/dashboard/appointments-calendar";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { StaffPickerField } from "@/components/dashboard/staff-picker-field";
 import { ListPaginationControls } from "@/components/ui/list-pagination-controls";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useAppointmentsRange } from "@/hooks/use-appointments-range";
 import { usePagedList } from "@/hooks/use-paged-list";
 import { usePersistentState } from "@/hooks/use-persistent-state";
+import { useStaffMembers } from "@/hooks/use-staff-members";
 import {
   createAppointment,
   fetchAppointmentFilterOptions,
@@ -51,6 +53,7 @@ import {
   formatUtcToIst,
 } from "@/lib/time-utils";
 import { fetchCustomersPage } from "@/lib/billing-queries";
+import { findStaffMemberByName, normalizeStaffName } from "@/lib/staff-member-types";
 import type { CustomerRecord } from "@/lib/billing-types";
 import { formatSupabaseError } from "@/lib/supabase";
 
@@ -60,6 +63,7 @@ type AppointmentFormState = {
   email: string;
   service: string;
   staff_name: string;
+  staff_member_id: string;
   location: string;
   date: string;
   start_time: string;
@@ -84,6 +88,7 @@ const initialForm: AppointmentFormState = {
   email: "",
   service: "",
   staff_name: "",
+  staff_member_id: "",
   location: "",
   date: "",
   start_time: "",
@@ -490,6 +495,9 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
 
+  // Active bookable staff: feeds the form picker and keeps staff with no appointments yet visible as calendar columns.
+  const staffDirectory = useStaffMembers(clientId, { bookableOnly: true, enabled: Boolean(clientId) });
+
   const pagedAppointments = usePagedList<AppointmentRow>({
     resetKey: `${clientId}|${debouncedSearch}|${locationFilter}|${statusFilter}|${serviceFilter}|${staffFilter}|${dateFilter}|${dateFilterMode}|${sortBy}|${sortOrder}`,
     enabled: Boolean(clientId),
@@ -597,6 +605,7 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       start_time: slot.startTime,
       end_time: slot.endTime,
       staff_name: slot.staffName ?? "",
+      staff_member_id: findStaffMemberByName(staffDirectory.staffMembers, slot.staffName)?.id ?? "",
     });
     setModalMode("add");
   }
@@ -617,6 +626,11 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       email: appointment.email ?? "",
       service: appointment.service ?? "",
       staff_name: appointment.staff_name ?? "",
+      // Legacy rows without a link are matched by the same normalized-name key the database backfill uses.
+      staff_member_id:
+        appointment.staff_member_id ??
+        findStaffMemberByName(staffDirectory.staffMembers, appointment.staff_name)?.id ??
+        "",
       location: appointment.location ?? "",
       date: appointment.date ?? "",
       start_time: appointment.start_time ?? "",
@@ -711,7 +725,11 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       phone: phoneDigits,
       email: toNullable(form.email),
       service: toNullable(matchOptionCasing(form.service, serviceOptions)),
-      staff_name: toNullable(matchOptionCasing(form.staff_name, staffOptions)),
+      // Dual-write: a picked staff member saves its id and exact display name; legacy free text keeps its option casing.
+      staff_name: toNullable(
+        form.staff_member_id ? form.staff_name : matchOptionCasing(form.staff_name, staffOptions),
+      ),
+      staff_member_id: form.staff_member_id || null,
       location: toNullable(form.location),
       date: form.date,
       start_time: toNullable(form.start_time),
@@ -857,7 +875,17 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
   const locationOptions = filterOptions.locations;
   const serviceOptions = filterOptions.services;
-  const staffOptions = filterOptions.staff;
+  // Staff directory names win the spelling; distinct appointment staff_name values cover legacy free text.
+  const staffOptions = useMemo(() => {
+    const byKey = new Map<string, string>();
+    for (const name of [...staffDirectory.staffMembers.map((member) => member.display_name), ...filterOptions.staff]) {
+      const key = normalizeStaffName(name);
+      if (key !== "" && !byKey.has(key)) {
+        byKey.set(key, name.trim());
+      }
+    }
+    return Array.from(byKey.values()).sort((left, right) => left.localeCompare(right));
+  }, [filterOptions.staff, staffDirectory.staffMembers]);
   const statusOptions = filterOptions.statuses as Array<NonNullable<AppointmentRow["status"]>>;
   const activeFilterCount =
     [locationFilter, statusFilter, serviceFilter, staffFilter].filter((value) => value !== "all").length +
@@ -1441,12 +1469,14 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
                 />
               </label>
 
-              <SearchableCreatableField
-                label="Staff"
-                value={form.staff_name}
-                options={staffOptions}
-                placeholder="Search or add staff"
-                onChange={(staff_name) => setForm((current) => ({ ...current, staff_name }))}
+              <StaffPickerField
+                value={{ staffMemberId: form.staff_member_id ?? "", staffName: form.staff_name }}
+                staffMembers={staffDirectory.staffMembers}
+                loading={staffDirectory.loading && staffDirectory.staffMembers.length === 0}
+                onCreate={staffDirectory.create}
+                onChange={({ staffMemberId, staffName }) =>
+                  setForm((current) => ({ ...current, staff_member_id: staffMemberId, staff_name: staffName }))
+                }
               />
 
               <label className="space-y-1 text-sm text-muted-foreground">

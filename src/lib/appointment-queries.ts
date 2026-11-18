@@ -16,6 +16,7 @@ export type AppointmentRow = {
   email: string | null;
   service: string | null;
   staff_name: string | null;
+  staff_member_id: string | null;
   location: string | null;
   date: string | null;
   start_time: string | null;
@@ -30,6 +31,7 @@ export type AppointmentPayload = {
   email: string | null;
   service: string | null;
   staff_name: string | null;
+  staff_member_id: string | null;
   location: string | null;
   date: string;
   start_time: string | null;
@@ -50,7 +52,7 @@ export type FetchAppointmentsPageParams = ListPageParams & {
 };
 
 const APPOINTMENT_SELECT =
-  "id, name, phone, email, service, staff_name, location, date, start_time, end_time, status, remark";
+  "id, name, phone, email, service, staff_name, staff_member_id, location, date, start_time, end_time, status, remark";
 
 function getClient() {
   const supabase = getSupabaseClient();
