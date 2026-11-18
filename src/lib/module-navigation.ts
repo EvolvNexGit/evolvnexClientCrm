@@ -80,7 +80,6 @@ export const MODULES: ModuleConfig[] = [
     items: [
       { id: "customers", label: "Customers", kind: "existing-tab", tabKey: "customer", icon: Users },
       { id: "appointments", label: "Appointments", kind: "existing-tab", tabKey: "appointments", icon: Calendar },
-      { id: "staff", label: "Staff", kind: "existing-tab", tabKey: "staff", icon: UsersRound },
       { id: "consultations", label: "Consultations", kind: "existing-tab", tabKey: "consultation", icon: FileText },
       { id: "subscriptions", label: "Subscriptions", kind: "existing-tab", tabKey: "subscription", icon: CreditCard },
     ],
@@ -114,6 +113,7 @@ export const MODULES: ModuleConfig[] = [
     id: "hrm",
     label: "HRM",
     items: [
+      { id: "staff", label: "Staff", kind: "existing-tab", tabKey: "staff", icon: UsersRound },
       { id: "employees", label: "Employees", kind: "coming-soon", pathKey: "hrm-employees", requiresAccess: true, icon: UserRound },
       { id: "attendance", label: "Attendance", kind: "coming-soon", pathKey: "hrm-attendance", requiresAccess: true, icon: CalendarDays },
       { id: "leave", label: "Leave", kind: "coming-soon", pathKey: "hrm-leave", requiresAccess: true, icon: Plane },
