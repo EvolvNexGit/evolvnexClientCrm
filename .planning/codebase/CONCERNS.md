@@ -90,6 +90,22 @@
 
 ## Security Considerations
 
+**`staff_members` next to the internal-use `employees` table (deliberate deviation, 2026-11-19):**
+- Risk: AGENTS.md says not to create parallel tables. The live `public.employees` table is internal-use only (no `client_id`, RLS on with no policies, other internal tables point at it), so the user decided on a new tenant-scoped `staff_members` table (D-11). Future work could merge the two by accident or point tenant code at the internal table.
+- Files: `supabase/migrations/20261119_staff_members.sql`, `src/lib/staff-member-queries.ts`
+- Current mitigation: no foreign key, trigger, backfill or policy in the migration references `employees` or `people`; its footer has a catalog probe that must return zero rows. `appointments.verified_by` keeps its existing FK to the internal table and is not touched.
+- Recommendations: keep the two separate; never join tenant staff to `employees`.
+
+**Name-keyed staff join and new appointment triggers (staff Stage A):**
+- Risk: `appointments.staff_name` is still the join key of print profiles, calendar columns, conflict checks and summaries, and `unique_booking` includes it. Renames could orphan those joins, and the new trigger `appointments_staff_name_sync` (plus `staff_members_rename_propagate` on staff_members) runs on a live table that had no user triggers.
+- Files: `supabase/migrations/20261119_staff_members.sql`
+- Current mitigation: rename trigger rewrites `appointments.staff_name` and `doctor_print_profiles.doctor_name` (skipped when the new name already exists as a profile); sync trigger leaves text untouched when it already matches after trim and lowercase so legacy casing never collides with `unique_booking`; both triggers are SECURITY INVOKER with a pinned `search_path` and no EXECUTE for API roles.
+- Recommendations: Stage B moves readers to `staff_member_id`; Stage C drops `staff_name`.
+
+**Single login per tenant can edit settings and staff:**
+- Risk: today any signed-in tenant user can write `client_settings` and `staff_members` (own-client RLS only).
+- Recommendations: add an owner-only check when per-staff logins exist.
+
 **Dashboard auth is client-only (no middleware):**
 - Risk: `/dashboard` and `/dashboard/[tab]` always render the client shell. Protection is `useEffect` redirect in `src/components/dashboard/dashboard-page.tsx`. HTML/JS for the CRM still downloads unauthenticated.
 - Files: `src/app/dashboard/page.tsx`, `src/app/dashboard/[tab]/page.tsx`, `src/components/dashboard/dashboard-page.tsx`, `src/contexts/app-context.tsx`

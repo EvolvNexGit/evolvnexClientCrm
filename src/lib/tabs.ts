@@ -177,6 +177,8 @@ const DB_KEY_TO_CODE_KEY: Record<string, string> = {
   "024": "hrm-attendance",
   "025": "hrm-leave",
   "026": "hrm-payroll",
+  // Tenant staff list (staff_members); a real tab, applied last by 20261119_staff_tab_access.sql.
+  "027": "staff",
 };
 
 // These tabs_info rows still exist in the DB but their feature was removed; drop them at normalization.
