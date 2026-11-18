@@ -2,6 +2,24 @@
 
 Newest first. Each entry: what changed, files, contracts. Structural changes are also patched into STRUCTURE.md / ARCHITECTURE.md.
 
+## 2026-11-19 — Scheduling foundation (quick-261114-22k, Wave 1): staff_members, client_settings, Staff tab
+
+**Problem:** Appointment staff was free text (`appointments.staff_name`), so there was no staff list to reuse, rename safely or assign, and tenant-wide settings had no home.
+
+**Status:** migrations `20261119_staff_members.sql`, `20261119_client_settings.sql` and `20261119_staff_tab_access.sql` are authored but NOT applied to live. Apply the first two by hand in the SQL Editor BEFORE deploying this code; apply `20261119_staff_tab_access.sql` LAST, after deploy (users sign in again to see the tab).
+
+**Contracts introduced**
+- `staff_members` (tenant-scoped, deactivate never delete, own-client RLS, unique `(client_id, lower(btrim(display_name)))`). `appointments.staff_member_id` with composite tenant FK; the form dual-writes `staff_member_id` and `staff_name`, and every existing reader (calendar columns, conflict check, print profiles, summaries) keeps reading `staff_name`. Renaming a staff member rewrites `staff_name` on its appointments and the matching print profile through a trigger.
+- `client_settings` keyed `(client_id, namespace)`; the code registry is the allow-list. Readers never throw (defaults), writers validate strictly. Only `scheduling` (`timezone`) exists now.
+- Staff is a dedicated CRM tab (`tabs_info` 027, key `staff`), gated by `client_tab_access`; HRM keys 023 to 026 untouched.
+- Appointment form staff field is `StaffPickerField` (active bookable staff plus inline add); calendar columns and filters use the union of bookable staff names and distinct `staff_name` values.
+
+**Files**
+- Added: `supabase/migrations/20261119_{staff_members,client_settings,staff_tab_access}.sql`, `src/lib/{staff-member-types,staff-member-queries,client-settings-types,client-settings-queries}.ts`, `src/hooks/{use-staff-members,use-client-settings}.ts`, `src/components/dashboard/tabs/staff-tab.tsx`, `src/components/dashboard/staff-picker-field.tsx`, `scripts/check-client-settings.mjs`
+- Modified: `src/lib/{appointment-queries,tabs,dashboard-tab-routes,module-navigation}.ts`, `src/components/dashboard/{dashboard-page.tsx,tabs/appointments-tab.tsx}`
+
+**Not done (by design):** moving readers off `staff_name` (Stage B) and dropping it (Stage C); per-staff logins; contact fields on staff.
+
 ## 2026-11-13 — Responsive pass 261112-wx7: phones and tablets
 
 **Problem:** A static mobile audit found drawer-only section switching, one scroll-only table (contacts), 10/11px text, controls under 44px, `vh` units, and overlong stacked forms and filters on 360/390/768px viewports.

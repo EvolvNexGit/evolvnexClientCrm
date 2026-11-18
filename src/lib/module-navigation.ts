@@ -21,6 +21,7 @@ import {
   ConciergeBell,
   ChefHat,
   UserRound,
+  UsersRound,
   CalendarDays,
 } from "lucide-react";
 import { isSpecialtySummaryTab } from "@/lib/tabs";
@@ -79,6 +80,7 @@ export const MODULES: ModuleConfig[] = [
     items: [
       { id: "customers", label: "Customers", kind: "existing-tab", tabKey: "customer", icon: Users },
       { id: "appointments", label: "Appointments", kind: "existing-tab", tabKey: "appointments", icon: Calendar },
+      { id: "staff", label: "Staff", kind: "existing-tab", tabKey: "staff", icon: UsersRound },
       { id: "consultations", label: "Consultations", kind: "existing-tab", tabKey: "consultation", icon: FileText },
       { id: "subscriptions", label: "Subscriptions", kind: "existing-tab", tabKey: "subscription", icon: CreditCard },
     ],

@@ -8,6 +8,7 @@ export const DASHBOARD_TAB_ROUTES: Record<string, string> = {
   "saloon-summary": "/dashboard/saloon-summary",
   "doctor-summary": "/dashboard/doctor-summary",
   appointments: "/dashboard/appointments",
+  staff: "/dashboard/staff",
   consultation: "/dashboard/consultation",
   subscription: "/dashboard/subscription",
   billing: "/dashboard/billing",

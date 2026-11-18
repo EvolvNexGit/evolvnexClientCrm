@@ -153,6 +153,14 @@ evolvnexClientCrm/
 - `src/app/api/communication/whatsapp/webhook/route.ts`: Meta webhook
 - `src/app/api/communication/whatsapp/credentials/route.ts`: Save WhatsApp secrets
 
+**Staff and tenant settings (quick-261114-22k Wave 1):**
+- `src/lib/staff-member-types.ts`, `src/lib/staff-member-queries.ts`: `staff_members` records, limits, normalized-name helpers, CRUD (no delete)
+- `src/hooks/use-staff-members.ts`: list and mutators (`bookableOnly`, `includeInactive`)
+- `src/components/dashboard/tabs/staff-tab.tsx`: CRM Staff tab (table from `md`, cards below); `src/components/dashboard/staff-picker-field.tsx`: appointment-form picker with inline add
+- `src/lib/client-settings-types.ts` (import-free registry and parsers), `src/lib/client-settings-queries.ts`, `src/hooks/use-client-settings.ts`: per-namespace tenant settings
+- `scripts/check-client-settings.mjs`: node assertion script for the registry (`node scripts/check-client-settings.mjs`; Node 24 loads the `.ts` directly)
+- `supabase/migrations/20261119_{staff_members,client_settings,staff_tab_access}.sql`: authored, not applied; staff_tab_access applies last
+
 **Configuration:**
 - `package.json`: Next 15, React 19, Supabase JS, Tailwind, Recharts
 - `tsconfig.json`: `strict`, paths `@/*` → `src/*`
