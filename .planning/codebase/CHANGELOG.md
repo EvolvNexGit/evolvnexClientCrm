@@ -2,6 +2,22 @@
 
 Newest first. Each entry: what changed, files, contracts. Structural changes are also patched into STRUCTURE.md / ARCHITECTURE.md.
 
+## 2026-11-20 — Scheduling package payments (quick-261114-22k, Wave 3 plan C2): upfront, installments, per visit, templates, reschedule guard
+
+**Status:** `supabase/migrations/20261120_packages_payment_rpcs.sql` is authored but NOT applied to live. Apply order: `20261120_packages_schema.sql`, `20261120_packages_rpcs.sql`, `20261120_packages_payment_rpcs.sql` (re-apply it after any re-apply of the rpcs file), deploy the code, `20261120_packages_tab_access.sql` last. Dry run: `supabase/tests/20261120_packages_all_dryrun.sql` (one transaction, always rolls back, ends in `ALL PASS`; regenerate with `node scripts/build-packages-dryrun.mjs`).
+
+**Database**
+- `sell_package` body replaced under its existing signature: upfront, installments (jsonb schedule, count 1..120, sum must equal `price_total`) and per visit; optional initial payment created atomically.
+- New `record_package_payment` (final signature, optional trailing `p_idempotency_key`; column `package_payments.idempotency_key` plus partial unique index per tenant) and `cancel_package` (voids scheduled and undecided sessions, keeps payments). Same R-10 hardening as C1.
+- Appointments trigger function replaced with a reschedule guard (a package-linked appointment cannot move past `valid_until`, 22023); trigger recreated on `status, deleted_at, date`.
+
+**App**
+- Sell modal: plan selector, template pick, installment schedule editor (count, first due, split evenly with remainder on the last row, live sum check), collect-now. Detail drawer: payments list, record-payment form (idempotent per submission), installment schedule with overdue highlighting, per-visit amounts owed, cancel package. Packages tab: template management (catalog CRUD) and plan shown on each card.
+- `package-ledger.ts` gained the integer-paise money module; `check-package-ledger.mjs` asserts all three plans, overdue in the clinic time zone, per-visit accrual with `charge_on_forfeit`, overpayment and a seeded random walk.
+- Appointments tab shows a readable message when a save or status change is rejected by the package triggers.
+
+**Not done (by design):** refunds (R-17), revenue reporting integration (R-14), an idempotency key on `sell_package`.
+
 ## 2026-11-20 — Scheduling packages core (quick-261114-22k, Wave 3 plan C1): sell, attach, consume, missed-session decision
 
 **Problem:** Clinics sell bundles of sessions (physio courses, salon memberships) but had nowhere to record them, consume them on visits, or decide what happens to a missed visit.
@@ -19,7 +35,7 @@ Newest first. Each entry: what changed, files, contracts. Structural changes are
 - Added: `supabase/migrations/20261120_{packages_schema,packages_rpcs,packages_tab_access}.sql`, `supabase/tests/20261120_packages_probes.sql`, `src/lib/{package-types,package-ledger,package-queries}.ts`, `src/hooks/use-packages.ts`, `src/components/dashboard/tabs/packages-tab.tsx`, `src/components/dashboard/packages/{sell-package-modal,package-detail-drawer,appointment-package-field,missed-session-dialog,package-settings-section}.tsx`, `scripts/check-package-ledger.mjs`
 - Modified: `src/lib/{appointment-queries,client-settings-types,tabs,dashboard-tab-routes,module-navigation}.ts`, `src/components/dashboard/{dashboard-page.tsx,tabs/appointments-tab.tsx}`, `scripts/check-client-settings.mjs`
 
-**Not done (by design, plan C2 / Task 7):** installments and per-visit selling, payments (`record_package_payment`), `cancel_package`, templates UI. Revenue reporting (R-14) and refunds (R-17) stay out of scope.
+**Not done in C1 (delivered by plan C2 above):** installments and per-visit selling, payments, `cancel_package`, templates UI. Revenue reporting (R-14) and refunds (R-17) stay out of scope.
 
 ## 2026-11-19 — Scheduling reminders (quick-261114-22k, Wave 2): clinic-wide lead time, time zone, look-ahead
 
