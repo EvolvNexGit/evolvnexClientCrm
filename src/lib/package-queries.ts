@@ -50,6 +50,17 @@ function getClient() {
   return supabase;
 }
 
+/**
+ * Client-generated key for one submission (sale or payment). Callers keep it while the same submission is retried,
+ * so the database can answer a retry with the stored row instead of repeating the write.
+ */
+export function newIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `k-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`.slice(0, PACKAGE_LIMITS.idempotencyKeyMax);
+}
+
 function raiseQueryError(error: unknown, fallback: string): never {
   throw new Error(formatSupabaseError(error, fallback));
 }
@@ -71,7 +82,9 @@ export function mapPackageRpcError(error: unknown, fallback: string): string {
     return "Package not found. Reload and try again.";
   }
   if (code === "23505") {
-    if (message.includes("Idempotency")) return "This payment was already recorded with different details. Reload and check the payments list.";
+    if (message.includes("Idempotency")) {
+      return "This was already submitted with different details. Reload, check the list, and try again.";
+    }
     if (message.includes("package_templates") || message.includes("package_templates_client_name_uniq")) {
       return "A template with this name already exists.";
     }
@@ -459,6 +472,8 @@ export async function sellPackage(clientId: string, payload: SellPackagePayload)
         }
       : null,
     p_note: payload.note?.trim() || null,
+    // A retry of the same sale (same key) returns the stored package; a new submission gets a new key.
+    p_idempotency_key: payload.idempotencyKey ?? newIdempotencyKey(),
   });
 
   if (error) {

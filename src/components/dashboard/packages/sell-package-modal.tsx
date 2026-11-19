@@ -33,6 +33,7 @@ import {
   type PackageTemplateRecord,
   type SellPackagePayload,
 } from "@/lib/package-types";
+import { newIdempotencyKey } from "@/lib/package-queries";
 import { formatSupabaseError } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
@@ -217,9 +218,16 @@ export function SellPackageModal({
   const [collectAmount, setCollectAmount] = useState("");
   const [collectMethod, setCollectMethod] = useState<PackagePaymentMethod>("CASH");
   const [formError, setFormError] = useState<string | null>(null);
+  // Local pending flag: disables submit the moment it is pressed (the hook's saving flag follows a render later).
+  const [pending, setPending] = useState(false);
+  // One key per distinct sale: a retry of an unchanged form (for example after a timeout) reuses it, so the database
+  // returns the stored package instead of selling twice. Editing any field makes a new sale and a new key.
+  const attemptRef = useRef<{ signature: string; key: string } | null>(null);
 
   useEffect(() => {
     if (open) {
+      attemptRef.current = null;
+      setPending(false);
       setCustomer(null);
       setForm(EMPTY_FORM);
       setPlan("upfront");
@@ -281,7 +289,7 @@ export function SellPackageModal({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (saving) {
+    if (saving || pending) {
       return;
     }
 
@@ -341,24 +349,34 @@ export function SellPackageModal({
       initialPayment = { amountPaise, method: collectMethod, note: null };
     }
 
+    const sale: Omit<SellPackagePayload, "idempotencyKey"> = {
+      customerId: customer.id,
+      name,
+      sessionsTotal: sessions,
+      paymentPlan: plan,
+      priceTotal: plan === "per_visit" ? null : paiseToMoney(pricePaise ?? 0),
+      pricePerSession: plan === "per_visit" ? paiseToMoney(perVisitPaise ?? 0) : null,
+      validUntil,
+      templateId: templateId || null,
+      note: form.note.trim() || null,
+      installments,
+      initialPayment,
+    };
+    const signature = JSON.stringify(sale);
+    if (attemptRef.current?.signature !== signature) {
+      attemptRef.current = { signature, key: newIdempotencyKey() };
+    }
+
     try {
       setFormError(null);
-      await onSell({
-        customerId: customer.id,
-        name,
-        sessionsTotal: sessions,
-        paymentPlan: plan,
-        priceTotal: plan === "per_visit" ? null : paiseToMoney(pricePaise ?? 0),
-        pricePerSession: plan === "per_visit" ? paiseToMoney(perVisitPaise ?? 0) : null,
-        validUntil,
-        templateId: templateId || null,
-        note: form.note.trim() || null,
-        installments,
-        initialPayment,
-      });
+      setPending(true);
+      await onSell({ ...sale, idempotencyKey: attemptRef.current.key });
+      attemptRef.current = null;
       onClose();
     } catch (sellError) {
       setFormError(formatSupabaseError(sellError, `Unable to sell the ${labels.package.toLowerCase()}.`));
+    } finally {
+      setPending(false);
     }
   }
 
@@ -542,10 +560,10 @@ export function SellPackageModal({
           </button>
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || pending}
             className="min-h-11 w-full rounded-xl border border-border bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
-            {saving ? "Saving..." : `Sell ${labels.package.toLowerCase()}`}
+            {saving || pending ? "Saving..." : `Sell ${labels.package.toLowerCase()}`}
           </button>
         </div>
       </form>

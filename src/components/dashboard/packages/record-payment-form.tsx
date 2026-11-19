@@ -21,6 +21,7 @@ import {
   type PackageStatus,
   type RecordPaymentPayload,
 } from "@/lib/package-types";
+import { newIdempotencyKey } from "@/lib/package-queries";
 import { formatSupabaseError } from "@/lib/supabase";
 
 const inputClass =
@@ -36,14 +37,6 @@ const FAILURE_TEXT: Record<PaymentFailure, string> = {
   session_not_chargeable: "That visit is not owed.",
   exceeds: "That amount is more than the balance.",
 };
-
-/** One key per distinct submission: unchanged fields after a failed attempt reuse the key, so a retry cannot double charge. */
-function newIdempotencyKey(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `pay-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`.slice(0, PACKAGE_LIMITS.idempotencyKeyMax);
-}
 
 /**
  * Record a payment against one package. Upfront and installments take any amount up to the balance; per visit takes

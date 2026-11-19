@@ -248,6 +248,8 @@ export type SellPackagePayload = {
   installments: InstallmentInput[] | null;
   /** Upfront and installments plans only. */
   initialPayment: InitialPaymentInput | null;
+  /** Stable per modal submission: a retry of the same sale returns the stored package instead of selling twice. */
+  idempotencyKey: string | null;
 };
 
 /** Write DTO for record_package_payment. */
