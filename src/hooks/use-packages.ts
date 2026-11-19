@@ -3,19 +3,29 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   attachPackageSession,
+  cancelPackage,
+  createPackageTemplate,
+  deletePackageTemplate,
   detachPackageSession,
   fetchCustomerPackages,
   fetchPackageDetail,
+  fetchPackageTemplates,
   fetchPendingDecisions,
   markSessionMissed,
+  recordPackagePayment,
   resolveMissedSession,
   sellPackage,
+  updatePackageTemplate,
+  type PackageDetailRecord,
   type PackageWithSessions,
 } from "@/lib/package-queries";
 import type {
   MissedResolution,
   PackageStatus,
+  PackageTemplatePayload,
+  PackageTemplateRecord,
   PendingDecisionRecord,
+  RecordPaymentPayload,
   SellPackagePayload,
 } from "@/lib/package-types";
 import { formatSupabaseError } from "@/lib/supabase";
@@ -123,7 +133,7 @@ export function usePackages(clientId: string, options: UsePackagesOptions = {}) 
 
 /** One package and its sessions for the detail drawer. */
 export function usePackageDetail(clientId: string, packageId: string | null) {
-  const [pkg, setPkg] = useState<PackageWithSessions | null>(null);
+  const [pkg, setPkg] = useState<PackageDetailRecord | null>(null);
   const [loading, setLoading] = useState(Boolean(packageId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -194,7 +204,27 @@ export function usePackageDetail(clientId: string, packageId: string | null) {
     [clientId, runMutation],
   );
 
-  return { pkg, loading, saving, error, refresh, attach, detach, runMutation };
+  const recordPayment = useCallback(
+    (payload: Omit<RecordPaymentPayload, "packageId">) => {
+      if (!packageId) {
+        return Promise.reject(new Error("Package not found."));
+      }
+      return runMutation(() => recordPackagePayment(clientId, { ...payload, packageId }));
+    },
+    [clientId, packageId, runMutation],
+  );
+
+  const cancel = useCallback(
+    (reason?: string | null) => {
+      if (!packageId) {
+        return Promise.reject(new Error("Package not found."));
+      }
+      return runMutation(() => cancelPackage(clientId, packageId, reason));
+    },
+    [clientId, packageId, runMutation],
+  );
+
+  return { pkg, loading, saving, error, refresh, attach, detach, recordPayment, cancel, runMutation };
 }
 
 /** Undecided sessions (Needs decision). Refreshes on focus and after any package change in this tab. */
@@ -281,4 +311,72 @@ export function usePackageDecisionActions(clientId: string) {
   );
 
   return { saving, markMissed, resolve };
+}
+
+/** Template catalog (own-client RLS). Mutations refresh the list; the sell modal reads the active ones. */
+export function usePackageTemplates(clientId: string, options: { enabled?: boolean } = {}) {
+  const { enabled = true } = options;
+  const [templates, setTemplates] = useState<PackageTemplateRecord[]>([]);
+  const [loading, setLoading] = useState(enabled);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
+
+  const refresh = useCallback(async () => {
+    if (!enabled || !clientId) {
+      setTemplates([]);
+      setLoading(false);
+      return;
+    }
+
+    const requestId = ++requestIdRef.current;
+    try {
+      setLoading(true);
+      setError(null);
+      const next = await fetchPackageTemplates(clientId, { includeInactive: true });
+      if (requestId === requestIdRef.current) {
+        setTemplates(next);
+      }
+    } catch (fetchError) {
+      if (requestId === requestIdRef.current) {
+        setError(formatSupabaseError(fetchError, "Unable to load templates."));
+      }
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [clientId, enabled]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const mutate = useCallback(
+    async (action: () => Promise<unknown>) => {
+      setSaving(true);
+      try {
+        await action();
+        await refresh();
+      } finally {
+        setSaving(false);
+      }
+    },
+    [refresh],
+  );
+
+  const create = useCallback(
+    (payload: PackageTemplatePayload) => mutate(() => createPackageTemplate(clientId, payload)),
+    [clientId, mutate],
+  );
+  const update = useCallback(
+    (templateId: string, payload: PackageTemplatePayload) => mutate(() => updatePackageTemplate(clientId, templateId, payload)),
+    [clientId, mutate],
+  );
+  const remove = useCallback(
+    (templateId: string) => mutate(() => deletePackageTemplate(clientId, templateId)),
+    [clientId, mutate],
+  );
+
+  return { templates, loading, saving, error, refresh, create, update, remove };
 }

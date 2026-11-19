@@ -208,6 +208,26 @@ export async function createAppointment(clientId: string, payload: AppointmentPa
   return String((data as { id: unknown }).id);
 }
 
+/**
+ * Package trigger rejections (supabase/migrations/20261120_packages_payment_rpcs.sql) as readable messages, so the
+ * Appointments tab shows a sentence instead of a database error code. Other errors pass through unchanged.
+ */
+function mapAppointmentWriteError(error: unknown): unknown {
+  const record = error != null && typeof error === "object" ? (error as Record<string, unknown>) : {};
+  const code = typeof record.code === "string" ? record.code : "";
+  const message = typeof record.message === "string" ? record.message : "";
+
+  if (code === "22023" && message.includes("Package expired")) {
+    return new Error(
+      "This appointment is linked to a package that expires before the new date. Pick a date on or before the package expiry, or remove the package link first.",
+    );
+  }
+  if (code === "23514" && message.includes("package payment")) {
+    return new Error("This visit has a recorded package payment, so its status cannot be changed back.");
+  }
+  return error;
+}
+
 /** Filters by client_id AND id; zero matched rows (stale or foreign id) fails loudly instead of silently succeeding. */
 export async function updateAppointment(
   clientId: string,
@@ -224,7 +244,7 @@ export async function updateAppointment(
     .select("id");
 
   if (error) {
-    throw error;
+    throw mapAppointmentWriteError(error);
   }
 
   if (!data || data.length === 0) {
@@ -247,7 +267,7 @@ export async function setAppointmentStatus(
     .select("id");
 
   if (error) {
-    throw error;
+    throw mapAppointmentWriteError(error);
   }
 
   if (!data || data.length === 0) {

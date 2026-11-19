@@ -1,17 +1,27 @@
 import { formatSupabaseError, getSupabaseClient } from "@/lib/supabase";
+import { paiseToMoney } from "@/lib/package-ledger";
 import {
   PACKAGE_LIMITS,
   isMissedResolution,
+  isPackagePaymentKind,
+  isPackagePaymentMethod,
   isPackagePaymentPlan,
   isPackageSessionStatus,
   isPackageStatus,
   type AttachPackageResult,
+  type CancelPackageResult,
   type CustomerPackageRecord,
   type MissedReason,
   type MissedResolution,
+  type PackageInstallmentRecord,
+  type PackagePaymentRecord,
   type PackageSessionRecord,
   type PackageStatus,
+  type PackageTemplatePayload,
+  type PackageTemplateRecord,
   type PendingDecisionRecord,
+  type RecordPaymentPayload,
+  type RecordPaymentResult,
   type ResolveMissedResult,
   type SellPackagePayload,
 } from "@/lib/package-types";
@@ -21,6 +31,13 @@ const PACKAGE_SELECT =
 
 const SESSION_SELECT =
   "id, client_id, package_id, appointment_id, status, missed_reason, resolution, resolution_overrode_default, validity_extended_days, charge_on_forfeit, note, completed_at, missed_at, resolved_at, voided_at, created_at, appointment:appointments(date, start_time, status, name, service)";
+
+const INSTALLMENT_SELECT = "id, package_id, seq, due_on, amount";
+
+const PAYMENT_SELECT = "id, package_id, kind, amount, method, paid_at, session_id, note";
+
+const TEMPLATE_SELECT =
+  "id, client_id, name, session_count, payment_plan, price_total, price_per_session, validity_days, is_active";
 
 const SESSION_ID_CHUNK = 50;
 
@@ -54,9 +71,14 @@ export function mapPackageRpcError(error: unknown, fallback: string): string {
     return "Package not found. Reload and try again.";
   }
   if (code === "23505") {
+    if (message.includes("Idempotency")) return "This payment was already recorded with different details. Reload and check the payments list.";
+    if (message.includes("package_templates") || message.includes("package_templates_client_name_uniq")) {
+      return "A template with this name already exists.";
+    }
     return "This appointment is already linked to a package.";
   }
   if (code === "23514") {
+    if (message.includes("exceeds")) return "That amount is more than the balance.";
     if (message.includes("payment")) return "This visit has a recorded package payment, so its status cannot change.";
     return "No sessions left on this package.";
   }
@@ -64,11 +86,29 @@ export function mapPackageRpcError(error: unknown, fallback: string): string {
     if (message.includes("expired")) return "The package has expired for this appointment date.";
     if (message.includes("not active")) return "This package is no longer active.";
     if (message.includes("cancelled appointment")) return "A cancelled appointment cannot use a package.";
-    if (message.includes("not supported yet")) return "Only upfront packages can be sold right now.";
+    if (message.includes("Invalid installments")) {
+      return "Check the installment schedule: amounts must add up to the price and dates must be in order.";
+    }
+    if (message.includes("Invalid initial payment")) return "Check the first payment: amount, method and notes.";
+    if (message.includes("Invalid amount")) return "Enter a valid amount (up to two decimals).";
+    if (message.includes("Invalid method")) return "Choose how the payment was made.";
+    if (message.includes("Invalid payment kind") || message.includes("does not match the plan")) {
+      return "This payment type does not match the payment plan.";
+    }
+    if (message.includes("not chargeable")) {
+      return "That visit is not owed (not used yet, rolled over, or forfeits are not charged).";
+    }
+    if (message.includes("Session is required")) return "Choose which visit this payment is for.";
+    if (message.includes("Session not allowed")) return "This plan does not take payments against a visit.";
+    if (message.includes("is cancelled")) return "This package is cancelled and no longer takes payments.";
+    if (message.includes("already cancelled")) return "This package is already cancelled.";
+    if (message.includes("cannot be cancelled")) return "A completed package cannot be cancelled.";
+    if (message.includes("Invalid idempotency")) return "The payment could not be sent. Reload and try again.";
+    if (message.includes("Invalid payment plan")) return "Choose a payment plan.";
     if (message.includes("awaiting a decision")) return "This session already has a decision.";
     if (message.includes("marked missed")) return "Only booked sessions can be marked missed.";
     if (message.includes("Only scheduled")) return "Only scheduled or undecided sessions can be removed.";
-    if (message.includes("Invalid price")) return "Enter a valid price.";
+    if (message.includes("Invalid price")) return "Enter a valid price (up to two decimals; per visit needs a price above zero).";
     if (message.includes("Invalid validity")) return "Enter a valid expiry.";
     if (message.includes("Invalid session count")) return `Sessions must be from 1 to ${PACKAGE_LIMITS.sessionsMax}.`;
     if (message.includes("Invalid name")) return `Name is required (up to ${PACKAGE_LIMITS.nameMax} characters).`;
@@ -228,8 +268,86 @@ export async function fetchCustomerPackages(
   return attachSessions(packages, sessions);
 }
 
-/** One package with all of its sessions (detail drawer). */
-export async function fetchPackageDetail(clientId: string, packageId: string): Promise<PackageWithSessions | null> {
+export type PackageDetailRecord = PackageWithSessions & {
+  installments: PackageInstallmentRecord[];
+  payments: PackagePaymentRecord[];
+};
+
+function mapInstallment(row: Record<string, unknown>): PackageInstallmentRecord {
+  return {
+    id: String(row.id),
+    package_id: String(row.package_id),
+    seq: asNumber(row.seq),
+    due_on: String(row.due_on ?? ""),
+    amount: asNumber(row.amount),
+  };
+}
+
+function mapPayment(row: Record<string, unknown>): PackagePaymentRecord {
+  return {
+    id: String(row.id),
+    package_id: String(row.package_id),
+    kind: isPackagePaymentKind(row.kind) ? row.kind : "upfront",
+    amount: asNumber(row.amount),
+    method: isPackagePaymentMethod(row.method) ? row.method : "OTHER",
+    paid_at: String(row.paid_at ?? ""),
+    session_id: asNullableText(row.session_id),
+    note: asNullableText(row.note),
+  };
+}
+
+function mapTemplate(row: Record<string, unknown>): PackageTemplateRecord {
+  return {
+    id: String(row.id),
+    client_id: String(row.client_id),
+    name: String(row.name ?? ""),
+    session_count: asNumber(row.session_count),
+    payment_plan: isPackagePaymentPlan(row.payment_plan) ? row.payment_plan : "upfront",
+    price_total: asNullableNumber(row.price_total),
+    price_per_session: asNullableNumber(row.price_per_session),
+    validity_days: asNullableNumber(row.validity_days),
+    is_active: row.is_active !== false,
+  };
+}
+
+/** Schedule and payments of one package (tenant-scoped reads; a package has at most 120 installments). */
+async function fetchMoneyForPackage(
+  clientId: string,
+  packageId: string,
+): Promise<{ installments: PackageInstallmentRecord[]; payments: PackagePaymentRecord[] }> {
+  const supabase = getClient();
+  const [installmentResult, paymentResult] = await Promise.all([
+    supabase
+      .from("package_installments")
+      .select(INSTALLMENT_SELECT)
+      .eq("client_id", clientId)
+      .eq("package_id", packageId)
+      .order("seq", { ascending: true }),
+    supabase
+      .from("package_payments")
+      .select(PAYMENT_SELECT)
+      .eq("client_id", clientId)
+      .eq("package_id", packageId)
+      .order("paid_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(0, 499),
+  ]);
+
+  if (installmentResult.error) {
+    raiseQueryError(installmentResult.error, "Unable to load the installment schedule.");
+  }
+  if (paymentResult.error) {
+    raiseQueryError(paymentResult.error, "Unable to load payments.");
+  }
+
+  return {
+    installments: ((installmentResult.data ?? []) as Array<Record<string, unknown>>).map(mapInstallment),
+    payments: ((paymentResult.data ?? []) as Array<Record<string, unknown>>).map(mapPayment),
+  };
+}
+
+/** One package with all of its sessions, installments and payments (detail drawer). */
+export async function fetchPackageDetail(clientId: string, packageId: string): Promise<PackageDetailRecord | null> {
   const supabase = getClient();
   const { data, error } = await supabase
     .from("customer_packages")
@@ -246,8 +364,11 @@ export async function fetchPackageDetail(clientId: string, packageId: string): P
   }
 
   const pkg = mapPackage(data as Record<string, unknown>);
-  const sessions = await fetchSessionsForPackages(clientId, [pkg.id]);
-  return { ...pkg, sessions };
+  const [sessions, money] = await Promise.all([
+    fetchSessionsForPackages(clientId, [pkg.id]),
+    fetchMoneyForPackage(clientId, pkg.id),
+  ]);
+  return { ...pkg, sessions, ...money };
 }
 
 /** The live (non-voided) package link of one appointment, with its package, or null. */
@@ -325,8 +446,18 @@ export async function sellPackage(clientId: string, payload: SellPackagePayload)
     p_price_per_session: payload.pricePerSession,
     p_valid_until: payload.validUntil,
     p_template_id: payload.templateId,
-    p_installments: null,
-    p_initial_payment: null,
+    // Amounts travel as exact two-decimal numbers derived from integer paise; the RPC re-validates every rule.
+    p_installments:
+      payload.paymentPlan === "installments" && payload.installments
+        ? payload.installments.map((item) => ({ due_on: item.dueOn, amount: paiseToMoney(item.amountPaise) }))
+        : null,
+    p_initial_payment: payload.initialPayment
+      ? {
+          amount: paiseToMoney(payload.initialPayment.amountPaise),
+          method: payload.initialPayment.method,
+          note: payload.initialPayment.note?.trim() || null,
+        }
+      : null,
     p_note: payload.note?.trim() || null,
   });
 
@@ -464,5 +595,127 @@ export async function detachPackageSession(clientId: string, sessionId: string, 
 
   if (error) {
     throw new Error(mapPackageRpcError(error, "Unable to remove the package link."));
+  }
+}
+
+/** Appends one payment through the definer RPC; a repeated idempotency key returns the existing row (replayed). */
+export async function recordPackagePayment(clientId: string, payload: RecordPaymentPayload): Promise<RecordPaymentResult> {
+  const supabase = getClient();
+  const { data, error } = await supabase.rpc("record_package_payment", {
+    p_client_id: clientId,
+    p_package_id: payload.packageId,
+    p_kind: payload.kind,
+    p_amount: paiseToMoney(payload.amountPaise),
+    p_method: payload.method,
+    p_session_id: payload.sessionId,
+    p_note: payload.note?.trim() || null,
+    p_idempotency_key: payload.idempotencyKey,
+  });
+
+  if (error) {
+    throw new Error(mapPackageRpcError(error, "Unable to record the payment."));
+  }
+
+  const result = embedded(data);
+  const paymentId = asNullableText(result?.payment_id);
+  if (!result || !paymentId) {
+    throw new Error("The payment was not recorded.");
+  }
+  return {
+    paymentId,
+    paidTotal: asNumber(result.paid_total),
+    balance: asNumber(result.balance),
+    replayed: result.replayed === true,
+  };
+}
+
+/** Cancels a package: open sessions are voided, payments and consumed sessions stay. */
+export async function cancelPackage(clientId: string, packageId: string, reason?: string | null): Promise<CancelPackageResult> {
+  const supabase = getClient();
+  const { data, error } = await supabase.rpc("cancel_package", {
+    p_client_id: clientId,
+    p_package_id: packageId,
+    p_reason: reason?.trim() || null,
+  });
+
+  if (error) {
+    throw new Error(mapPackageRpcError(error, "Unable to cancel the package."));
+  }
+
+  return { voidedSessions: asNumber(embedded(data)?.voided_sessions) };
+}
+
+// ---------------------------------------------------------------------------
+// Templates: tenant catalog, browser CRUD under own-client RLS (no money ledger).
+// ---------------------------------------------------------------------------
+
+export async function fetchPackageTemplates(
+  clientId: string,
+  options?: { includeInactive?: boolean },
+): Promise<PackageTemplateRecord[]> {
+  const supabase = getClient();
+  let query = supabase.from("package_templates").select(TEMPLATE_SELECT).eq("client_id", clientId);
+  if (!options?.includeInactive) {
+    query = query.eq("is_active", true);
+  }
+
+  const { data, error } = await query.order("name", { ascending: true }).range(0, PACKAGE_LIMITS.listMax - 1);
+  if (error) {
+    raiseQueryError(error, "Unable to load templates.");
+  }
+  return ((data ?? []) as Array<Record<string, unknown>>).map(mapTemplate);
+}
+
+function templateRow(payload: PackageTemplatePayload) {
+  const perVisit = payload.paymentPlan === "per_visit";
+  return {
+    name: payload.name.trim(),
+    session_count: payload.sessionCount,
+    payment_plan: payload.paymentPlan,
+    price_total: perVisit ? null : payload.priceTotal,
+    price_per_session: perVisit ? payload.pricePerSession : null,
+    validity_days: payload.validityDays,
+    is_active: payload.isActive,
+  };
+}
+
+export async function createPackageTemplate(clientId: string, payload: PackageTemplatePayload): Promise<PackageTemplateRecord> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("package_templates")
+    .insert({ client_id: clientId, ...templateRow(payload) })
+    .select(TEMPLATE_SELECT)
+    .single();
+
+  if (error) {
+    throw new Error(mapPackageRpcError(error, "Unable to save the template."));
+  }
+  return mapTemplate(data as Record<string, unknown>);
+}
+
+export async function updatePackageTemplate(
+  clientId: string,
+  templateId: string,
+  payload: PackageTemplatePayload,
+): Promise<void> {
+  const supabase = getClient();
+  const { error } = await supabase
+    .from("package_templates")
+    .update(templateRow(payload))
+    .eq("client_id", clientId)
+    .eq("id", templateId);
+
+  if (error) {
+    throw new Error(mapPackageRpcError(error, "Unable to save the template."));
+  }
+}
+
+/** Deleting a template keeps sold packages (the link is cleared by the foreign key). */
+export async function deletePackageTemplate(clientId: string, templateId: string): Promise<void> {
+  const supabase = getClient();
+  const { error } = await supabase.from("package_templates").delete().eq("client_id", clientId).eq("id", templateId);
+
+  if (error) {
+    throw new Error(mapPackageRpcError(error, "Unable to delete the template."));
   }
 }
