@@ -2,7 +2,9 @@
 -- Package payment probes (quick-261114-22k, plan C2: Task 7). SELF-CHECKING, FULLY ROLLED BACK.
 -- =====================================================================================================================
 -- What it proves (each failure raises 'FAIL: ...' and aborts; success ends with one row: ALL PASS):
---   * catalog: sell_package / record_package_payment / cancel_package / the appointments trigger function are SECURITY DEFINER with search_path '', anon and
+--   * catalog: exactly ONE sell_package exists and it is the 13-argument one (an overload from re-applying the C1 rpcs
+--     file after the payment file fails loudly), the replay helper is not callable by API roles, both idempotency
+--     columns and partial unique indexes exist; sell_package / record_package_payment / cancel_package / the appointments trigger function are SECURITY DEFINER with search_path '', anon and
 --     public cannot execute them, no overloads, idempotency_key column plus the partial unique index exist, the C2
 --     sell_package body is live (not the C1 body), and no browser write grant exists on payments or installments
 --   * sell per plan: upfront, installments (3 rows, sum = price, seq 1..3, 120 rows accepted), per_visit, free upfront,
@@ -27,7 +29,10 @@
 --     per_visit visits already delivered can still be settled after a cancel
 --   * the C1 appointments trigger still raises 23514 (and the appointment change rolls back) when a payment pins a
 --     completed visit
---   * reschedule guard: a linked appointment cannot move past valid_until (22023, date and session unchanged, also
+--   * sale idempotency: same key + same details returns the same package and initial payment (replayed true, nothing new
+--     written, also after more payments and a cancel); same key with other details 23505; blank key = no key; per tenant
+--   * reschedule guard: scheduled, completed and missed_pending links cannot move past valid_until; rolled_over and forfeited
+--     links can and nothing changes. A linked appointment cannot move past valid_until (22023, date and session unchanged, also
 --     together with a status change); within validity, no-expiry packages, unlinked and detached appointments are free;
 --     a date-only change never alters session status; status and soft-delete transitions still work
 --   * a deterministic random walk of payments never lets paid exceed the total
@@ -179,6 +184,14 @@ begin
     perform set_config('probe.appt_' || i, v_id::text, true);
   end loop;
 
+  -- appt_15..appt_18 (2036-01-16 .. 2036-01-19) at 11:00, for the reschedule guard scope tests.
+  for i in 15..18 loop
+    insert into public.appointments (client_id, name, phone, service, staff_name, date, start_time, status)
+    values (v_a_client, 'ZZ PayProbe Customer A', '9000000011', 'ZZ PayProbe', 'ZZ Probe Staff', date '2036-01-01' + i, '11:00', 'booked')
+    returning id into v_id;
+    perform set_config('probe.appt_' || i, v_id::text, true);
+  end loop;
+
   for i in 1..2 loop
     insert into public.appointments (client_id, name, phone, service, staff_name, date, start_time, status)
     values (v_b_client, 'ZZ PayProbe Customer B', '9000000012', 'ZZ PayProbe', 'ZZ Probe Staff', date '2036-01-01' + i, '10:00', 'booked')
@@ -199,7 +212,7 @@ declare
   v_priv text;
 begin
   foreach v_sig in array array[
-    'public.sell_package(uuid,uuid,text,integer,text,numeric,numeric,date,uuid,jsonb,jsonb,text)',
+    'public.sell_package(uuid,uuid,text,integer,text,numeric,numeric,date,uuid,jsonb,jsonb,text,text)',
     'public.record_package_payment(uuid,uuid,text,numeric,text,uuid,text,text)',
     'public.cancel_package(uuid,uuid,text)'
   ] loop
@@ -216,12 +229,36 @@ begin
     not exists (
       select 1 from pg_proc p
        where p.pronamespace = 'public'::regnamespace
-         and p.proname in ('sell_package', 'record_package_payment', 'cancel_package')
+         and p.proname in ('sell_package', 'record_package_payment', 'cancel_package', 'package_sell_replay')
        group by p.proname having count(*) > 1),
     'no payment RPC overloads');
+  -- Loud overload check: re-applying the C1 rpcs file after the payment file recreates the 12-argument sell_package.
+  perform pg_temp.check(
+    (select count(*) from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = 'sell_package') = 1,
+    'exactly ONE sell_package signature exists (a second one means the C1 rpcs file was re-applied after the payment file: re-apply 20261120_packages_payment_rpcs.sql)');
+  perform pg_temp.check(
+    exists (select 1 from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = 'sell_package' and p.pronargs = 13),
+    'the surviving sell_package is the 13-argument one (trailing p_idempotency_key)');
+  perform pg_temp.check(
+    not has_function_privilege('authenticated', 'public.package_sell_replay(uuid,text,text)'::regprocedure, 'execute')
+    and not has_function_privilege('anon', 'public.package_sell_replay(uuid,text,text)'::regprocedure, 'execute'),
+    'the replay helper is not callable by API roles');
+  perform pg_temp.check(
+    exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'customer_packages' and column_name = 'idempotency_key')
+    and exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'customer_packages' and column_name = 'idempotency_fingerprint')
+    and exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'customer_packages' and column_name = 'initial_payment_id'),
+    'customer_packages idempotency_key, idempotency_fingerprint and initial_payment_id exist');
+  perform pg_temp.check(
+    exists (select 1 from pg_indexes
+             where schemaname = 'public' and indexname = 'customer_packages_client_idem_uniq'
+               and indexdef ilike '%unique%' and indexdef ilike '%idempotency_key is not null%'),
+    'partial unique index on customer_packages (client_id, idempotency_key)');
 
   perform pg_temp.check(
-    pg_get_functiondef('public.sell_package(uuid,uuid,text,integer,text,numeric,numeric,date,uuid,jsonb,jsonb,text)'::regprocedure)
+    pg_get_functiondef('public.sell_package(uuid,uuid,text,integer,text,numeric,numeric,date,uuid,jsonb,jsonb,text,text)'::regprocedure)
       like '%Invalid installments%',
     'the C2 sell_package body is live (the C1 body is active: re-apply 20261120_packages_payment_rpcs.sql after the rpcs file)');
 
@@ -272,6 +309,9 @@ begin
 
   v := public.record_package_payment(b, pg_temp.g('pbu'), 'upfront', 50, 'CASH', p_idempotency_key => 'probe-key-0001');
   perform pg_temp.check((v ->> 'replayed')::boolean = false and (v ->> 'balance')::numeric = 850, 'B keyed payment, balance 850');
+
+  -- The same key text tenant A uses later: keys are scoped per tenant.
+  perform public.sell_package(b, pg_temp.g('cust_b'), 'ZZ Pay BKeyed', 2, 'upfront', 50, null, null, null, null, null, null, 'probe-sale-0001');
 
   v := public.sell_package(b, pg_temp.g('cust_b'), 'ZZ Pay BV', 3, 'per_visit', null, 100);
   perform set_config('probe.pbv', v ->> 'package_id', true);
@@ -472,6 +512,102 @@ begin
   perform pg_temp.check(
     not exists (select 1 from public.customer_packages p where p.name_snapshot = 'ZZ Pay Bad'),
     'rejected sales leave no package behind');
+end
+$$;
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- (4b) TENANT A: sale idempotency (sell_package trailing p_idempotency_key).
+-- ---------------------------------------------------------------------------------------------------------------------
+do $$
+declare
+  v jsonb;
+  v2 jsonb;
+  a uuid := pg_temp.g('a_client');
+  c uuid := pg_temp.g('cust_a');
+  v_sched jsonb := jsonb_build_array(
+    jsonb_build_object('due_on', current_date, 'amount', 300),
+    jsonb_build_object('due_on', current_date + 30, 'amount', 300));
+  v_pkg uuid;
+begin
+  -- First call (same key text was already used by tenant B in its own block: keys are per tenant).
+  v := public.sell_package(a, c, 'ZZ Pay SaleKey', 4, 'upfront', 1000, null, null, null, null,
+         jsonb_build_object('amount', 100, 'method', 'CASH'), null, 'probe-sale-0001');
+  v_pkg := (v ->> 'package_id')::uuid;
+  perform pg_temp.check((v ->> 'replayed')::boolean = false and v ->> 'payment_id' is not null, 'keyed sale: not replayed, initial payment made');
+  perform pg_temp.check(
+    (select p.client_id = a and p.idempotency_key = 'probe-sale-0001' from public.customer_packages p where p.id = v_pkg),
+    'the key is stored on tenant A''s own package (tenant B using the same key text did not clash)');
+
+  -- Replay: same package and payment ids, nothing new written.
+  v2 := public.sell_package(a, c, 'ZZ Pay SaleKey', 4, 'upfront', 1000, null, null, null, null,
+          jsonb_build_object('amount', 100, 'method', 'CASH'), null, 'probe-sale-0001');
+  perform pg_temp.check((v2 ->> 'replayed')::boolean = true and v2 ->> 'package_id' = v ->> 'package_id'
+    and v2 ->> 'payment_id' = v ->> 'payment_id', 'replay returns the same package and the same initial payment');
+  perform pg_temp.check(
+    (select count(*) from public.customer_packages p where p.client_id = a and p.name_snapshot = 'ZZ Pay SaleKey') = 1,
+    'replay did not create a second package');
+  perform pg_temp.check(pg_temp.pay_count(v_pkg) = 1 and pg_temp.paid(v_pkg) = 100, 'replay did not create a second payment');
+
+  -- Replay after the package moved on (more payments, then a cancel): still the stored sale, still no new rows.
+  perform public.record_package_payment(a, v_pkg, 'upfront', 50, 'UPI');
+  perform public.cancel_package(a, v_pkg, 'probe');
+  v2 := public.sell_package(a, c, 'ZZ Pay SaleKey', 4, 'upfront', 1000, null, null, null, null,
+          jsonb_build_object('amount', 100, 'method', 'CASH'), null, ' probe-sale-0001 ');
+  perform pg_temp.check((v2 ->> 'replayed')::boolean = true and v2 ->> 'package_id' = v ->> 'package_id'
+    and v2 ->> 'payment_id' = v ->> 'payment_id' and v2 ->> 'status' = 'cancelled',
+    'replay after later payments and a cancel returns the stored sale (initial payment id unchanged, key trimmed)');
+  perform pg_temp.check(pg_temp.pay_count(v_pkg) = 2, 'replay never adds payments');
+
+  -- Different details with the same key: 23505, nothing written.
+  perform pg_temp.expect_sqlstate(
+    format('select public.sell_package(%L, %L, %L, 4, %L, 1001, null, null, null, null, %L::jsonb, null, %L)',
+      a, c, 'ZZ Pay SaleKey', 'upfront', '{"amount":100,"method":"CASH"}', 'probe-sale-0001'),
+    '23505', 'same key with another price');
+  perform pg_temp.expect_sqlstate(
+    format('select public.sell_package(%L, %L, %L, 4, %L, 1000, null, null, null, null, %L::jsonb, null, %L)',
+      a, c, 'ZZ Pay SaleKey', 'upfront', '{"amount":101,"method":"CASH"}', 'probe-sale-0001'),
+    '23505', 'same key with another initial payment');
+  perform pg_temp.expect_sqlstate(
+    format('select public.sell_package(%L, %L, %L, 4, %L, 1000, null, null, null, null, null, null, %L)',
+      a, c, 'ZZ Pay SaleKey', 'upfront', 'probe-sale-0001'),
+    '23505', 'same key without the initial payment');
+  perform pg_temp.expect_sqlstate(
+    format('select public.sell_package(%L, %L, %L, 5, %L, 1000, null, null, null, null, %L::jsonb, null, %L)',
+      a, c, 'ZZ Pay SaleKey', 'upfront', '{"amount":100,"method":"CASH"}', 'probe-sale-0001'),
+    '23505', 'same key with another session count');
+  perform pg_temp.check(
+    (select count(*) from public.customer_packages p where p.client_id = a and p.name_snapshot = 'ZZ Pay SaleKey') = 1
+    and pg_temp.pay_count(v_pkg) = 2, 'key conflicts wrote nothing');
+
+  -- Installments: replay returns the same schedule size and adds no rows.
+  v := public.sell_package(a, c, 'ZZ Pay SaleKeyI', 6, 'installments', 600, null, null, null, v_sched, null, null, 'probe-sale-0002');
+  v2 := public.sell_package(a, c, 'ZZ Pay SaleKeyI', 6, 'installments', 600, null, null, null, v_sched, null, null, 'probe-sale-0002');
+  perform pg_temp.check((v2 ->> 'replayed')::boolean = true and v2 ->> 'package_id' = v ->> 'package_id'
+    and (v2 ->> 'installments')::int = 2 and v2 ->> 'payment_id' is null, 'installments replay: same package, 2 rows, no payment');
+  perform pg_temp.check(
+    (select count(*) from public.package_installments i where i.package_id = (v ->> 'package_id')::uuid) = 2,
+    'installments replay did not add schedule rows');
+  perform pg_temp.expect_sqlstate(
+    format('select public.sell_package(%L, %L, %L, 6, %L, 600, null, null, null, %L::jsonb, null, null, %L)',
+      a, c, 'ZZ Pay SaleKeyI',  'installments',
+      '[{"due_on":"2030-01-01","amount":300},{"due_on":"2030-02-01","amount":300}]', 'probe-sale-0002'),
+    '23505', 'same key with another schedule');
+
+  -- Blank keys are no key (two sales make two packages); over-long key rejected; an invalid sale with a fresh key
+  -- stores nothing and the key stays free.
+  perform public.sell_package(a, c, 'ZZ Pay SaleBlank', 2, 'upfront', 10, null, null, null, null, null, null, '');
+  perform public.sell_package(a, c, 'ZZ Pay SaleBlank', 2, 'upfront', 10, null, null, null, null, null, null, '   ');
+  perform pg_temp.check(
+    (select count(*) from public.customer_packages p where p.client_id = a and p.name_snapshot = 'ZZ Pay SaleBlank') = 2,
+    'blank sale keys do not dedupe');
+  perform pg_temp.expect_sqlstate(
+    format('select public.sell_package(%L, %L, %L, 2, %L, 10, null, null, null, null, null, null, %L)', a, c, 'ZZ x', 'upfront', repeat('k', 101)),
+    '22023', 'sale key over 100 characters');
+  perform pg_temp.expect_sqlstate(
+    format('select public.sell_package(%L, %L, %L, 0, %L, 10, null, null, null, null, null, null, %L)', a, c, 'ZZ x', 'upfront', 'probe-sale-0003'),
+    '22023', 'invalid sale with a key');
+  v := public.sell_package(a, c, 'ZZ Pay SaleAfterFail', 2, 'upfront', 10, null, null, null, null, null, null, 'probe-sale-0003');
+  perform pg_temp.check((v ->> 'replayed')::boolean = false, 'a failed sale does not consume its key');
 end
 $$;
 
@@ -859,7 +995,8 @@ end
 $$;
 
 -- ---------------------------------------------------------------------------------------------------------------------
--- (10b) Reschedule guard: a linked appointment cannot move past the package's valid_until (22023); status and delete
+-- (10b) Reschedule guard: a scheduled, completed or missed_pending link cannot move past the package's valid_until
+--       (22023), rolled_over and forfeited links can; status and delete
 --       transitions of the trigger keep behaving as in C1 (the C1 probe file covers them; spot-checked here too).
 -- ---------------------------------------------------------------------------------------------------------------------
 do $$
@@ -938,6 +1075,64 @@ begin
   perform pg_temp.check(
     (select a2.date::date from public.appointments a2 where a2.id = pg_temp.g('appt_9')) = date '2042-01-01',
     'a detached appointment moves freely');
+end
+$$;
+
+-- Guard scope: scheduled, completed and missed_pending links are guarded; rolled_over and forfeited links are not.
+do $$
+declare
+  v jsonb;
+  a uuid := pg_temp.g('a_client');
+  c uuid := pg_temp.g('cust_a');
+  pg uuid;
+  s_done uuid; s_miss uuid; s_roll uuid; s_forf uuid;
+  v_until date;
+begin
+  v := public.sell_package(a, c, 'ZZ Pay ReschedGuard', 6, 'upfront', 600, null, date '2036-01-20');
+  pg := (v ->> 'package_id')::uuid;
+
+  -- completed
+  s_done := (public.attach_package_session(a, pg, pg_temp.g('appt_15')) ->> 'session_id')::uuid;
+  update public.appointments set status = 'completed' where id = pg_temp.g('appt_15');
+  perform pg_temp.expect_sqlstate(
+    format('update public.appointments set date = date %L where id = %L', '2036-02-01', pg_temp.g('appt_15')), '22023', 'completed link past valid_until');
+  perform pg_temp.check(
+    (select a2.date::date from public.appointments a2 where a2.id = pg_temp.g('appt_15')) = date '2036-01-16'
+    and (select s.status from public.package_sessions s where s.id = s_done) = 'completed', 'completed link: date and session unchanged');
+
+  -- missed_pending
+  s_miss := (public.attach_package_session(a, pg, pg_temp.g('appt_16')) ->> 'session_id')::uuid;
+  update public.appointments set status = 'cancelled' where id = pg_temp.g('appt_16');
+  perform pg_temp.check((select s.status from public.package_sessions s where s.id = s_miss) = 'missed_pending', 'SETUP: missed_pending');
+  perform pg_temp.expect_sqlstate(
+    format('update public.appointments set date = date %L where id = %L', '2036-02-01', pg_temp.g('appt_16')), '22023', 'missed_pending link past valid_until');
+  perform pg_temp.check(
+    (select a2.date::date from public.appointments a2 where a2.id = pg_temp.g('appt_16')) = date '2036-01-17', 'missed_pending link: date unchanged');
+
+  -- rolled_over: allowed, nothing else changes
+  s_roll := (public.attach_package_session(a, pg, pg_temp.g('appt_17')) ->> 'session_id')::uuid;
+  update public.appointments set status = 'cancelled' where id = pg_temp.g('appt_17');
+  perform public.resolve_missed_session(a, s_roll, 'rollover');
+  select p.valid_until into v_until from public.customer_packages p where p.id = pg;
+  update public.appointments set date = date '2036-02-01' where id = pg_temp.g('appt_17');
+  perform pg_temp.check(
+    (select a2.date::date from public.appointments a2 where a2.id = pg_temp.g('appt_17')) = date '2036-02-01', 'rolled_over link may move past valid_until');
+  perform pg_temp.check(
+    (select s.status from public.package_sessions s where s.id = s_roll) = 'rolled_over'
+    and (select p.valid_until from public.customer_packages p where p.id = pg) = v_until
+    and pg_temp.consumed(pg) = 1, 'rolled_over move changed neither the session, the expiry nor the credit');
+
+  -- forfeited: allowed, nothing else changes
+  s_forf := (public.attach_package_session(a, pg, pg_temp.g('appt_18')) ->> 'session_id')::uuid;
+  update public.appointments set status = 'cancelled' where id = pg_temp.g('appt_18');
+  perform public.resolve_missed_session(a, s_forf, 'forfeit');
+  update public.appointments set date = date '2036-02-02' where id = pg_temp.g('appt_18');
+  perform pg_temp.check(
+    (select a2.date::date from public.appointments a2 where a2.id = pg_temp.g('appt_18')) = date '2036-02-02', 'forfeited link may move past valid_until');
+  perform pg_temp.check(
+    (select s.status from public.package_sessions s where s.id = s_forf) = 'forfeited'
+    and (select p.valid_until from public.customer_packages p where p.id = pg) = v_until
+    and pg_temp.consumed(pg) = 2, 'forfeited move changed neither the session, the expiry nor the credit');
 end
 $$;
 

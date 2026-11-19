@@ -153,8 +153,23 @@ declare
   v_table text;
   v_priv text;
 begin
+  -- sell_package is looked up by NAME, not by argument list: C1 creates the 12-argument version and the payment
+  -- migration (plan C2) replaces it with the 13-argument one (trailing p_idempotency_key). Exactly one must exist.
+  perform pg_temp.check(
+    (select count(*) from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = 'sell_package') = 1,
+    'exactly one sell_package signature exists (an overload means the C1 rpcs file was re-applied after the payment file)');
+  for v_proc in
+    select p.oid::regprocedure from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = 'sell_package'
+  loop
+    perform pg_temp.check(not has_function_privilege('anon', v_proc, 'execute'), 'anon must not execute ' || v_proc::text);
+    perform pg_temp.check(not has_function_privilege('public', v_proc, 'execute'), 'public must not execute ' || v_proc::text);
+    perform pg_temp.check(has_function_privilege('authenticated', v_proc, 'execute'), 'authenticated must execute ' || v_proc::text);
+    perform pg_temp.check(
+      (select p.prosecdef and array_to_string(p.proconfig, ',') like '%search_path=""%' from pg_proc p where p.oid = v_proc),
+      v_proc::text || ' must be SECURITY DEFINER with search_path ''''');
+  end loop;
+
   foreach v_sig in array array[
-    'public.sell_package(uuid,uuid,text,integer,text,numeric,numeric,date,uuid,jsonb,jsonb,text)',
     'public.attach_package_session(uuid,uuid,uuid)',
     'public.detach_package_session(uuid,uuid,text)',
     'public.mark_session_missed(uuid,uuid,text)',
