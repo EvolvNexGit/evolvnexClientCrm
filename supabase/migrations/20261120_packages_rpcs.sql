@@ -241,6 +241,20 @@ begin
     raise exception 'Appointment not found' using errcode = 'P0002';
   end if;
 
+  -- Lock order everywhere is: appointment row first, then the package lock. The status trigger runs while the
+  -- UPDATE already holds the appointment row, so taking the row lock first here avoids a lock-order deadlock.
+  -- The row lock also serializes two attaches of the same appointment to different packages.
+  select a.date::date, a.status::text
+    into v_appt_date, v_appt_status
+    from public.appointments a
+   where a.id = p_appointment_id
+     and a.client_id = p_client_id
+     and a.deleted_at is null
+   for update;
+  if not found then
+    raise exception 'Appointment not found' using errcode = 'P0002';
+  end if;
+
   perform public.package_lock(p_package_id);
 
   select p.status, p.sessions_total, p.valid_until
@@ -255,17 +269,6 @@ begin
     raise exception 'Package is not active' using errcode = '22023';
   end if;
 
-  -- Row lock serializes two attaches of the same appointment to different packages.
-  select a.date::date, a.status::text
-    into v_appt_date, v_appt_status
-    from public.appointments a
-   where a.id = p_appointment_id
-     and a.client_id = p_client_id
-     and a.deleted_at is null
-   for update;
-  if not found then
-    raise exception 'Appointment not found' using errcode = 'P0002';
-  end if;
   if v_appt_status = 'cancelled' then
     raise exception 'Cannot link a cancelled appointment' using errcode = '22023';
   end if;
