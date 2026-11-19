@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useApp } from "@/contexts/app-context";
 import { useAppointmentReminders, type AppointmentReminder } from "@/hooks/use-appointment-reminders";
+import { useClientSettings } from "@/hooks/use-client-settings";
 import { useOrderAlerts } from "@/hooks/use-order-alerts";
 import {
   persistOrderAlertsEnabled,
@@ -33,7 +34,14 @@ type OrderAlertContextValue = {
   dueSoonCount: number;
   remindersLoading: boolean;
   remindersError: string | null;
+  /** True when this tenant scans appointments (doctor-summary tab); the settings card hides itself otherwise. */
+  remindersApplicable: boolean;
+  /** Clinic-wide lead time in minutes (reminders.lead_minutes). */
+  leadMinutes: number;
 };
+
+/** Another device's lead time or zone change reaches this device within about this long. */
+const CLINIC_SETTINGS_POLL_MS = 5 * 60_000;
 
 const OrderAlertContext = createContext<OrderAlertContextValue | null>(null);
 
@@ -254,12 +262,25 @@ export function OrderAlertProvider({ children }: { children: ReactNode }) {
 
   // Only doctor tenants scan appointments; cafe tenants never hit the appointments table from here.
   const reminderClientId = user && tabs.some((tab) => tab.key === "doctor-summary") ? clientId : null;
+  const remindersApplicable = Boolean(reminderClientId);
+  // Clinic-wide lead time and time zone, not per device; defaults apply until loaded or when nothing is saved.
+  // The settings hook already refreshes on window focus and on a same-tab save; the poll covers other devices.
+  const { value: reminderSettings } = useClientSettings(reminderClientId ?? "", "reminders", {
+    enabled: remindersApplicable,
+    pollMs: CLINIC_SETTINGS_POLL_MS,
+  });
+  const { value: schedulingSettings } = useClientSettings(reminderClientId ?? "", "scheduling", {
+    enabled: remindersApplicable,
+    pollMs: CLINIC_SETTINGS_POLL_MS,
+  });
+  const leadMinutes = reminderSettings.lead_minutes;
+  const timeZone = schedulingSettings.timezone;
   const {
     reminders,
     dueSoonCount,
     loading: remindersLoading,
     error: remindersError,
-  } = useAppointmentReminders(reminderClientId, enabled && Boolean(user));
+  } = useAppointmentReminders(reminderClientId, enabled && Boolean(user), { leadMinutes, timeZone });
 
   const statusLabel = useMemo(
     () =>
@@ -288,16 +309,20 @@ export function OrderAlertProvider({ children }: { children: ReactNode }) {
       dueSoonCount,
       remindersLoading,
       remindersError,
+      remindersApplicable,
+      leadMinutes,
     }),
     [
       busy,
       dueSoonCount,
       enabled,
       error,
+      leadMinutes,
       permission,
       pushConfigured,
       pushReady,
       reminders,
+      remindersApplicable,
       remindersError,
       remindersLoading,
       setEnabled,

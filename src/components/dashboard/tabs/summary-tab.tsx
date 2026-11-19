@@ -2,6 +2,7 @@
 
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Moon, Sun, Trash2 } from "lucide-react";
+import { AppointmentReminderSettingsCard } from "@/components/dashboard/appointment-reminder-settings-card";
 import { OrderAlertSettingsCard } from "@/components/dashboard/order-alert-settings-card";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/theme-context";
@@ -350,6 +351,7 @@ export default function SummaryTab({ clientId }: { clientId: string }) {
       </div>
 
       <OrderAlertSettingsCard />
+      <AppointmentReminderSettingsCard />
 
       <div className="rounded-2xl border border-border bg-card p-4">
         <div className="flex items-center justify-end gap-3">

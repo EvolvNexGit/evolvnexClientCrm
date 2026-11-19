@@ -4,12 +4,15 @@ import assert from "node:assert/strict";
 import {
   CLIENT_SETTINGS_DEFAULTS,
   CLIENT_SETTINGS_NAMESPACES,
+  DEFAULT_REMINDER_LEAD_MINUTES,
   DEFAULT_SCHEDULING_TIMEZONE,
   isClientSettingsNamespace,
   isValidTimeZone,
   parseClientSettings,
+  parseReminderSettings,
   parseSchedulingSettings,
   validateClientSettings,
+  validateReminderSettings,
   validateSchedulingSettings,
 } from "../src/lib/client-settings-types.ts";
 
@@ -45,9 +48,10 @@ assert.deepEqual(validateSchedulingSettings({ timezone: "Asia/Tokyo" }), {
 });
 
 // Registry: unknown namespace is rejected, a well-formed registry namespace round-trips.
-assert.deepEqual([...CLIENT_SETTINGS_NAMESPACES], ["scheduling"]);
+assert.deepEqual([...CLIENT_SETTINGS_NAMESPACES], ["scheduling", "reminders"]);
 assert.equal(isClientSettingsNamespace("scheduling"), true);
-for (const unknown of ["reminders", "Scheduling", "", "calendar_sync", null, 3]) {
+assert.equal(isClientSettingsNamespace("reminders"), true);
+for (const unknown of ["Reminders", "Scheduling", "", "calendar_sync", "packages", null, 3]) {
   assert.equal(isClientSettingsNamespace(unknown), false, `unknown namespace ${JSON.stringify(unknown)}`);
 }
 assert.equal(validateClientSettings("not_registered", { timezone: "Asia/Kolkata" }).ok, false);
@@ -56,5 +60,28 @@ const saved = validateClientSettings("scheduling", { timezone: "Australia/Sydney
 assert.equal(saved.ok, true);
 assert.deepEqual(parseClientSettings("scheduling", JSON.parse(JSON.stringify(saved.value))), { timezone: "Australia/Sydney" });
 assert.deepEqual(parseClientSettings("scheduling", null), CLIENT_SETTINGS_DEFAULTS.scheduling);
+
+// reminders.lead_minutes: default 5, rounded and clamped to 1..1440 on read, never throws.
+assert.equal(DEFAULT_REMINDER_LEAD_MINUTES, 5);
+const reminderDefaults = { lead_minutes: 5 };
+for (const raw of [null, undefined, "x", 42, [], {}, { other: 1 }, { lead_minutes: "15" }, { lead_minutes: null }, { lead_minutes: NaN }, { lead_minutes: Infinity }]) {
+  assert.deepEqual(parseReminderSettings(raw), reminderDefaults, `reminder defaults for ${String(JSON.stringify(raw))}`);
+}
+assert.deepEqual(parseReminderSettings({ lead_minutes: 15, extra: "dropped" }), { lead_minutes: 15 });
+assert.deepEqual(parseReminderSettings({ lead_minutes: 0 }), { lead_minutes: 1 });
+assert.deepEqual(parseReminderSettings({ lead_minutes: -30 }), { lead_minutes: 1 });
+assert.deepEqual(parseReminderSettings({ lead_minutes: 99999 }), { lead_minutes: 1440 });
+assert.deepEqual(parseReminderSettings({ lead_minutes: 1440 }), { lead_minutes: 1440 });
+assert.deepEqual(parseReminderSettings({ lead_minutes: 7.6 }), { lead_minutes: 8 });
+assert.deepEqual(parseClientSettings("reminders", null), CLIENT_SETTINGS_DEFAULTS.reminders);
+
+// Strict save: integer 1..1440 only, no unknown keys.
+for (const bad of [{}, { lead_minutes: 0 }, { lead_minutes: 1441 }, { lead_minutes: 2.5 }, { lead_minutes: "15" }, { lead_minutes: 15, extra: 1 }, null, [], "x"]) {
+  assert.equal(validateReminderSettings(bad).ok, false, `reminder save rejects ${String(JSON.stringify(bad))}`);
+}
+assert.deepEqual(validateReminderSettings({ lead_minutes: 1 }), { ok: true, value: { lead_minutes: 1 } });
+assert.deepEqual(validateClientSettings("reminders", { lead_minutes: 1440 }), { ok: true, value: { lead_minutes: 1440 } });
+const savedReminder = validateClientSettings("reminders", { lead_minutes: 30 });
+assert.deepEqual(parseClientSettings("reminders", JSON.parse(JSON.stringify(savedReminder.value))), { lead_minutes: 30 });
 
 console.log("check-client-settings: all assertions passed");
