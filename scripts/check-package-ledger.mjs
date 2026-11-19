@@ -3,7 +3,21 @@
 import assert from "node:assert/strict";
 import {
   addDaysToIsoDate,
+  addMonthsToIsoDate,
+  allocateInstallments,
+  buildInstallmentRows,
   canDetachSession,
+  checkPayment,
+  isChargeableSession,
+  formatPaiseInput,
+  moneyToPaise,
+  paiseToMoney,
+  parseMoneyPaise,
+  perVisitOutstanding,
+  splitPaiseEvenly,
+  suggestedPaymentPaise,
+  summarizePackageMoney,
+  validateInstallmentSchedule,
   canMarkSessionMissed,
   canResolveSession,
   checkAttach,
@@ -24,10 +38,18 @@ import {
 } from "../src/lib/package-ledger.ts";
 import {
   DEFAULT_PACKAGE_LABELS,
+  PACKAGE_LIMITS,
+  PACKAGE_PAYMENT_KINDS,
+  PACKAGE_PAYMENT_METHODS,
   PACKAGE_SESSION_STATUSES,
+  PAYMENT_KIND_FOR_PLAN,
   formatSessionCount,
+  isPackagePaymentKind,
+  isPackagePaymentMethod,
   isPackageSessionStatus,
 } from "../src/lib/package-types.ts";
+import { zonedNow } from "../src/lib/appointment-reminder-window.ts";
+import { CLINIC_PAYMENT_MODES, parseMoneyInput, toPaise } from "../src/lib/clinic-billing-types.ts";
 
 const s = (status) => ({ status });
 
@@ -258,5 +280,347 @@ for (let run = 0; run < 400; run += 1) {
     assert.ok(credit.consumed + credit.held <= total);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Task 7: payments. Pure money math, parity with the clinic billing helpers, schedule rules, plan balances, overdue
+// in the clinic time zone, per-visit accrual with charge_on_forfeit, overpayment, and a seeded random walk.
+// ---------------------------------------------------------------------------
+
+// Parity with the clinic billing vocabulary and paise helper (reuse is by equality, since the ledger is import-free).
+assert.deepEqual([...PACKAGE_PAYMENT_METHODS], [...CLINIC_PAYMENT_MODES]);
+for (const amount of [0, 0.01, 0.1, 0.29, 1, 19.99, 250.5, 1234.56, 99999999.99]) {
+  assert.equal(moneyToPaise(amount), toPaise(amount), `paise parity for ${amount}`);
+}
+assert.equal(moneyToPaise(Number.NaN), 0);
+assert.equal(moneyToPaise(Number.POSITIVE_INFINITY), 0);
+assert.equal(parseMoneyInput("250.5"), 25050);
+for (const raw of ["0", "0.1", "12", "12.5", "12.50", "250.5", "99999999.99", " 7.25 "]) {
+  assert.equal(parseMoneyPaise(raw), parseMoneyInput(raw), `parse parity for ${raw}`);
+}
+for (const raw of ["", "abc", "1.234", "-5", "1,000", "100000000", "1e3", ".5", "5."]) {
+  assert.equal(parseMoneyPaise(raw), null, `rejected: ${raw}`);
+}
+assert.equal(formatPaiseInput(25050), "250.50");
+assert.equal(formatPaiseInput(5), "0.05");
+assert.equal(formatPaiseInput(-3), "0.00");
+assert.equal(paiseToMoney(25050), 250.5);
+assert.deepEqual(
+  PACKAGE_PAYMENT_KINDS.map((kind) => kind),
+  ["upfront", "installment", "per_visit"],
+);
+assert.deepEqual(PAYMENT_KIND_FOR_PLAN, { upfront: "upfront", installments: "installment", per_visit: "per_visit" });
+assert.equal(isPackagePaymentMethod("UPI"), true);
+assert.equal(isPackagePaymentMethod("BTC"), false);
+assert.equal(isPackagePaymentKind("refund"), false);
+assert.equal(PACKAGE_LIMITS.installmentsMin, 1);
+assert.equal(PACKAGE_LIMITS.installmentsMax, 120);
+assert.equal(PACKAGE_LIMITS.installmentDaysBack, 366);
+assert.equal(PACKAGE_LIMITS.installmentDaysAhead, 3660);
+assert.equal(PACKAGE_LIMITS.idempotencyKeyMax, 100);
+assert.equal(Math.round(PACKAGE_LIMITS.priceMax * 100), 9_999_999_999);
+
+// Remainder-on-last split always adds up exactly.
+assert.deepEqual(splitPaiseEvenly(100000, 3), [33333, 33333, 33334]);
+assert.deepEqual(splitPaiseEvenly(90000, 3), [30000, 30000, 30000]);
+assert.deepEqual(splitPaiseEvenly(1, 3), [0, 0, 1]);
+assert.deepEqual(splitPaiseEvenly(500, 1), [500]);
+assert.deepEqual(splitPaiseEvenly(10, 0), []);
+assert.deepEqual(splitPaiseEvenly(-1, 2), []);
+assert.deepEqual(splitPaiseEvenly(1.5, 2), []);
+for (let total = 0; total <= 400; total += 7) {
+  for (let count = 1; count <= 13; count += 1) {
+    const rows = splitPaiseEvenly(total, count);
+    assert.equal(rows.length, count);
+    assert.equal(rows.reduce((sum, value) => sum + value, 0), total, `split ${total}/${count} adds up`);
+    assert.ok(rows.every((value) => value >= 0));
+  }
+}
+
+// Month arithmetic clamps to month end and is anchored on the first date (no drift).
+assert.equal(addMonthsToIsoDate("2026-01-31", 1), "2026-02-28");
+assert.equal(addMonthsToIsoDate("2028-01-31", 1), "2028-02-29");
+assert.equal(addMonthsToIsoDate("2026-11-30", 3), "2027-02-28");
+assert.equal(addMonthsToIsoDate("2026-12-15", 1), "2027-01-15");
+assert.equal(addMonthsToIsoDate("2026-12-15", 12), "2027-12-15");
+assert.deepEqual(
+  buildInstallmentRows({ totalPaise: 90000, count: 3, firstDueOn: "2026-01-31" }).map((row) => row.dueOn),
+  ["2026-01-31", "2026-02-28", "2026-03-31"],
+);
+assert.deepEqual(buildInstallmentRows({ totalPaise: 90000, count: 3, firstDueOn: "bad" }), []);
+assert.deepEqual(
+  buildInstallmentRows({ totalPaise: 10000, count: 2, firstDueOn: "2026-11-20", intervalMonths: 3 }),
+  [{ dueOn: "2026-11-20", amountPaise: 5000 }, { dueOn: "2027-02-20", amountPaise: 5000 }],
+);
+
+// Schedule validation mirrors sell_package (same reasons, same bounds).
+const TODAY = "2026-11-20";
+const row = (dueOn, amountPaise) => ({ dueOn, amountPaise });
+const generated = buildInstallmentRows({ totalPaise: 100000, count: 3, firstDueOn: TODAY });
+assert.deepEqual(validateInstallmentSchedule(generated, 100000, TODAY), { ok: true, sumPaise: 100000 });
+assert.equal(validateInstallmentSchedule(generated, 100001, TODAY).reason, "sum");
+assert.equal(validateInstallmentSchedule(generated, 99999, TODAY).reason, "sum");
+assert.equal(validateInstallmentSchedule(generated, 0, TODAY).reason, "total");
+assert.equal(validateInstallmentSchedule([], 100, TODAY).reason, "count");
+assert.equal(validateInstallmentSchedule(Array.from({ length: 121 }, () => row(TODAY, 1)), 121, TODAY).reason, "count");
+assert.deepEqual(validateInstallmentSchedule(Array.from({ length: 120 }, () => row(TODAY, 1)), 120, TODAY), { ok: true, sumPaise: 120 });
+assert.equal(validateInstallmentSchedule([row(TODAY, 0), row(TODAY, 100)], 100, TODAY).reason, "amount");
+assert.equal(validateInstallmentSchedule([row(TODAY, -5), row(TODAY, 105)], 100, TODAY).reason, "amount");
+assert.equal(validateInstallmentSchedule([row(TODAY, 10.5)], 10, TODAY).reason, "amount");
+assert.equal(validateInstallmentSchedule([row(TODAY, 10_000_000_000)], 10_000_000_000, TODAY).reason, "total");
+assert.equal(validateInstallmentSchedule([row("2026-02-30", 100)], 100, TODAY).reason, "date");
+assert.equal(validateInstallmentSchedule([row("tomorrow", 100)], 100, TODAY).reason, "date");
+assert.equal(validateInstallmentSchedule([row("2026-11-21", 50), row("2026-11-20", 50)], 100, TODAY).reason, "order");
+assert.deepEqual(validateInstallmentSchedule([row("2026-11-20", 50), row("2026-11-20", 50)], 100, TODAY), { ok: true, sumPaise: 100 });
+assert.equal(validateInstallmentSchedule([row(addDaysToIsoDate(TODAY, -366), 100)], 100, TODAY).ok, true);
+assert.equal(validateInstallmentSchedule([row(addDaysToIsoDate(TODAY, -367), 100)], 100, TODAY).reason, "range");
+assert.equal(validateInstallmentSchedule([row(addDaysToIsoDate(TODAY, 3660), 100)], 100, TODAY).ok, true);
+assert.equal(validateInstallmentSchedule([row(addDaysToIsoDate(TODAY, 3661), 100)], 100, TODAY).reason, "range");
+
+// Upfront: balance = price_total - paid.
+const upfront = (paid) =>
+  summarizePackageMoney({
+    plan: "upfront", priceTotal: 1000, pricePerSession: null, installments: [],
+    payments: paid.map((amount) => ({ amount })), sessions: [], today: TODAY,
+  });
+assert.deepEqual(upfront([]), {
+  plan: "upfront", owedPaise: 100000, paidPaise: 0, balancePaise: 100000, dueToDatePaise: 100000, overduePaise: 0, overpaidPaise: 0,
+});
+assert.equal(upfront([400]).balancePaise, 60000);
+assert.equal(upfront([400, 600]).balancePaise, 0);
+assert.equal(upfront([400, 599.99]).balancePaise, 1);
+assert.equal(upfront([0.1, 0.2]).paidPaise, 30, "no float drift: 0.1 + 0.2 is exactly 30 paise");
+assert.equal(upfront([1100]).balancePaise, 0, "balance is never negative");
+assert.equal(upfront([1100]).overpaidPaise, 10000, "an impossible overpayment is flagged, not hidden");
+assert.equal(upfront([]).overduePaise, 0);
+
+// Installments: due to date counts only rows due on or before today; overdue = max(0, due to date - paid).
+const schedule = [
+  { seq: 1, due_on: "2026-11-01", amount: 300 },
+  { seq: 2, due_on: "2026-11-20", amount: 300 },
+  { seq: 3, due_on: "2026-12-20", amount: 300 },
+];
+const installments = (paid, today = TODAY) =>
+  summarizePackageMoney({
+    plan: "installments", priceTotal: 900, pricePerSession: null, installments: schedule,
+    payments: paid.map((amount) => ({ amount })), sessions: [], today,
+  });
+assert.equal(installments([]).dueToDatePaise, 60000, "due today counts as due");
+assert.equal(installments([]).overduePaise, 60000);
+assert.equal(installments([]).balancePaise, 90000);
+assert.equal(installments([300]).overduePaise, 30000);
+assert.equal(installments([600]).overduePaise, 0);
+assert.equal(installments([600]).balancePaise, 30000);
+assert.equal(installments([900]).balancePaise, 0);
+assert.equal(installments([], "2026-10-31").dueToDatePaise, 0, "nothing due before the first date");
+assert.equal(installments([], "2026-10-31").overduePaise, 0);
+assert.equal(installments([], "2026-11-19").dueToDatePaise, 30000);
+assert.equal(installments([], "2027-01-01").dueToDatePaise, 90000);
+assert.equal(installments([1000]).overduePaise, 0, "overdue is never negative");
+
+// Overdue is judged in the CLINIC time zone: the same instant is a different calendar day in IST and UTC.
+const instant = new Date("2026-11-20T20:00:00Z");
+const todayIst = zonedNow(instant, "Asia/Kolkata").date;
+const todayUtc = zonedNow(instant, "UTC").date;
+assert.equal(todayIst, "2026-11-21");
+assert.equal(todayUtc, "2026-11-20");
+const scheduleTz = [{ seq: 1, due_on: "2026-11-21", amount: 100 }];
+const overdueIn = (today) =>
+  summarizePackageMoney({
+    plan: "installments", priceTotal: 100, pricePerSession: null, installments: scheduleTz, payments: [], sessions: [], today,
+  }).overduePaise;
+assert.equal(overdueIn(todayIst), 10000, "due on 21 Nov is due for a clinic in IST at 20:00 UTC on 20 Nov");
+assert.equal(overdueIn(todayUtc), 0, "but not yet due for a UTC clinic");
+
+// Row states: oldest first allocation; rows due on or before today add up to the overdue amount.
+const states = allocateInstallments(schedule, 450 * 100, TODAY);
+assert.deepEqual(states.map((item) => [item.seq, item.paidPaise, item.outstandingPaise, item.state]), [
+  [1, 30000, 0, "paid"],
+  [2, 15000, 15000, "due"],
+  [3, 0, 30000, "upcoming"],
+]);
+assert.equal(allocateInstallments(schedule, 0, TODAY)[0].state, "overdue");
+assert.equal(allocateInstallments(schedule, 0, TODAY)[1].state, "due");
+assert.deepEqual(allocateInstallments([...schedule].reverse(), 30000, TODAY).map((item) => item.seq), [1, 2, 3]);
+
+// Per visit: accrued = price x (completed + forfeited where charge_on_forfeit); balance = accrued - paid.
+const pv = (sessions, paid, price = 500) =>
+  summarizePackageMoney({
+    plan: "per_visit", priceTotal: null, pricePerSession: price, installments: [],
+    payments: paid.map((amount) => ({ amount })), sessions, today: TODAY,
+  });
+const pvSessions = [
+  { status: "completed" },
+  { status: "forfeited", charge_on_forfeit: true },
+  { status: "forfeited", charge_on_forfeit: false },
+  { status: "rolled_over" },
+  { status: "scheduled" },
+  { status: "missed_pending" },
+  { status: "voided" },
+];
+assert.equal(pv(pvSessions, []).owedPaise, 100000, "completed + charged forfeit accrue; the rest do not");
+assert.equal(pv(pvSessions, [500]).balancePaise, 50000);
+assert.equal(pv(pvSessions, [1000]).balancePaise, 0);
+assert.equal(pv([], []).owedPaise, 0);
+assert.equal(pv([{ status: "forfeited", charge_on_forfeit: false }], []).owedPaise, 0, "forfeit without charge accrues nothing");
+assert.equal(pv([{ status: "forfeited", charge_on_forfeit: null }], []).owedPaise, 0);
+assert.equal(pv([{ status: "forfeited", charge_on_forfeit: true }], []).owedPaise, 50000);
+assert.equal(pv(pvSessions, []).overduePaise, 0);
+assert.equal(pv(pvSessions, [], 0.1).owedPaise, 20, "per-visit price in paise, no float drift");
+
+// Chargeable sessions and per-session outstanding.
+assert.equal(isChargeableSession({ status: "completed" }), true);
+assert.equal(isChargeableSession({ status: "forfeited", charge_on_forfeit: true }), true);
+assert.equal(isChargeableSession({ status: "forfeited", charge_on_forfeit: false }), false);
+assert.equal(isChargeableSession({ status: "rolled_over" }), false);
+const outstanding = perVisitOutstanding(
+  [{ id: "a", status: "completed" }, { id: "b", status: "forfeited", charge_on_forfeit: true }, { id: "c", status: "forfeited", charge_on_forfeit: false }, { id: "d", status: "scheduled" }],
+  [{ session_id: "a", amount: 500 }, { session_id: "b", amount: 200 }],
+  50000,
+);
+assert.deepEqual(outstanding, [{ sessionId: "b", paidPaise: 20000, outstandingPaise: 30000 }]);
+assert.equal(suggestedPaymentPaise({ plan: "upfront", balancePaise: 60000, sessionOutstandingPaise: null }), 60000);
+assert.equal(suggestedPaymentPaise({ plan: "per_visit", balancePaise: 90000, sessionOutstandingPaise: 30000 }), 30000);
+assert.equal(suggestedPaymentPaise({ plan: "per_visit", balancePaise: 90000, sessionOutstandingPaise: null }), 0);
+
+// Payment rules mirror record_package_payment.
+const payBase = {
+  plan: "upfront", packageStatus: "active", kind: "upfront", amountPaise: 10000, priceTotalPaise: 100000,
+  pricePerSessionPaise: 0, paidPaise: 0, sessionId: null, session: null,
+};
+assert.deepEqual(checkPayment(payBase), { ok: true });
+assert.deepEqual(checkPayment({ ...payBase, amountPaise: 100000 }), { ok: true });
+assert.deepEqual(checkPayment({ ...payBase, amountPaise: 100001 }), { ok: false, reason: "exceeds" });
+assert.deepEqual(checkPayment({ ...payBase, paidPaise: 99999, amountPaise: 2 }), { ok: false, reason: "exceeds" });
+assert.deepEqual(checkPayment({ ...payBase, amountPaise: 0 }), { ok: false, reason: "invalid_amount" });
+assert.deepEqual(checkPayment({ ...payBase, amountPaise: -1 }), { ok: false, reason: "invalid_amount" });
+assert.deepEqual(checkPayment({ ...payBase, amountPaise: 10.5 }), { ok: false, reason: "invalid_amount" });
+assert.deepEqual(checkPayment({ ...payBase, amountPaise: Number.NaN }), { ok: false, reason: "invalid_amount" });
+assert.deepEqual(checkPayment({ ...payBase, kind: "installment" }), { ok: false, reason: "kind_mismatch" });
+assert.deepEqual(checkPayment({ ...payBase, kind: "per_visit" }), { ok: false, reason: "kind_mismatch" });
+assert.deepEqual(checkPayment({ ...payBase, sessionId: "s" }), { ok: false, reason: "session_not_allowed" });
+assert.deepEqual(checkPayment({ ...payBase, packageStatus: "cancelled" }), { ok: false, reason: "cancelled" });
+assert.deepEqual(checkPayment({ ...payBase, packageStatus: "completed" }), { ok: true }, "a completed package still takes its balance");
+assert.deepEqual(checkPayment({ ...payBase, plan: "installments", kind: "installment" }), { ok: true });
+assert.deepEqual(checkPayment({ ...payBase, plan: "installments", kind: "upfront" }), { ok: false, reason: "kind_mismatch" });
+
+const pvPay = {
+  plan: "per_visit", packageStatus: "active", kind: "per_visit", amountPaise: 50000, priceTotalPaise: 0,
+  pricePerSessionPaise: 50000, paidPaise: 0, sessionId: "s1", session: { status: "completed", paidPaise: 0 },
+};
+assert.deepEqual(checkPayment(pvPay), { ok: true });
+assert.deepEqual(checkPayment({ ...pvPay, amountPaise: 50001 }), { ok: false, reason: "exceeds" });
+assert.deepEqual(checkPayment({ ...pvPay, session: { status: "completed", paidPaise: 1 } }), { ok: false, reason: "exceeds" });
+assert.deepEqual(checkPayment({ ...pvPay, session: { status: "forfeited", charge_on_forfeit: true, paidPaise: 20000 }, amountPaise: 30000 }), { ok: true });
+assert.deepEqual(checkPayment({ ...pvPay, sessionId: null }), { ok: false, reason: "session_required" });
+assert.deepEqual(checkPayment({ ...pvPay, session: null }), { ok: false, reason: "session_not_found" });
+for (const status of ["rolled_over", "scheduled", "missed_pending", "voided"]) {
+  assert.deepEqual(checkPayment({ ...pvPay, session: { status, paidPaise: 0 } }), { ok: false, reason: "session_not_chargeable" }, status);
+}
+assert.deepEqual(
+  checkPayment({ ...pvPay, session: { status: "forfeited", charge_on_forfeit: false, paidPaise: 0 } }),
+  { ok: false, reason: "session_not_chargeable" },
+  "forfeit without charge accrues nothing and cannot be paid against",
+);
+assert.deepEqual(checkPayment({ ...pvPay, kind: "upfront" }), { ok: false, reason: "kind_mismatch" });
+assert.deepEqual(checkPayment({ ...pvPay, packageStatus: "cancelled" }), { ok: true }, "per-visit visits already delivered can settle after a cancel");
+
+// Seeded random walk over a model of the database: balance never negative, paid never above the plan total (or the
+// accrued amount per visit), overdue equals the outstanding of the rows already due, rows add up to the total.
+const walkToday = "2026-11-20";
+let accepted = 0;
+let rejected = 0;
+for (let run = 0; run < 300; run += 1) {
+  const plan = ["upfront", "installments", "per_visit"][Math.floor(random() * 3)];
+  const pricePaise = (1 + Math.floor(random() * 500)) * 100 + Math.floor(random() * 100);
+  const perSessionPaise = (1 + Math.floor(random() * 50)) * 100;
+  const count = 1 + Math.floor(random() * 6);
+  const rows =
+    plan === "installments"
+      ? buildInstallmentRows({
+          totalPaise: pricePaise,
+          count,
+          firstDueOn: addDaysToIsoDate(walkToday, Math.floor(random() * 90) - 60),
+        })
+      : [];
+  if (plan === "installments") {
+    assert.equal(validateInstallmentSchedule(rows, pricePaise, walkToday).ok, true, "generated schedules always validate");
+  }
+  const model = { status: "active", sessions: [], payments: [], nextId: 1 };
+  const money = () =>
+    summarizePackageMoney({
+      plan,
+      priceTotal: plan === "per_visit" ? null : paiseToMoney(pricePaise),
+      pricePerSession: plan === "per_visit" ? paiseToMoney(perSessionPaise) : null,
+      installments: rows.map((item, index) => ({ seq: index + 1, due_on: item.dueOn, amount: paiseToMoney(item.amountPaise) })),
+      payments: model.payments.map((payment) => ({ amount: paiseToMoney(payment.amountPaise) })),
+      sessions: model.sessions,
+      today: walkToday,
+    });
+
+  for (let step = 0; step < 40; step += 1) {
+    const action = Math.floor(random() * 6);
+    if (action === 0 && plan === "per_visit" && model.status === "active") {
+      const status = ["completed", "completed", "forfeited", "forfeited", "rolled_over", "scheduled"][Math.floor(random() * 6)];
+      model.sessions.push({ id: `s${model.nextId++}`, status, charge_on_forfeit: status === "forfeited" ? random() < 0.5 : null });
+    } else if (action === 1 && model.sessions.length > 0) {
+      // Status correction of a visit: allowed only while no payment is pinned to it (the C1 appointments trigger).
+      const session = model.sessions[Math.floor(random() * model.sessions.length)];
+      const pinned = model.payments.some((payment) => payment.sessionId === session.id);
+      if (session.status === "completed" && !pinned) session.status = "scheduled";
+      else if (session.status === "scheduled") session.status = "completed";
+    } else if (action === 2 && model.status === "active" && random() < 0.15) {
+      model.status = "cancelled";
+      for (const session of model.sessions) {
+        if (session.status === "scheduled" || session.status === "missed_pending") session.status = "voided";
+      }
+    } else {
+      const session = model.sessions.length > 0 && random() < 0.85 ? model.sessions[Math.floor(random() * model.sessions.length)] : null;
+      const kind = random() < 0.9 ? PAYMENT_KIND_FOR_PLAN[plan] : PACKAGE_PAYMENT_KINDS[Math.floor(random() * 3)];
+      const amountPaise = 1 + Math.floor(random() * (plan === "per_visit" ? perSessionPaise : pricePaise) * 1.3);
+      const sessionId = plan === "per_visit" ? (session ? session.id : null) : random() < 0.05 && session ? session.id : null;
+      const sessionPaid = session
+        ? model.payments.filter((payment) => payment.sessionId === session.id).reduce((sum, payment) => sum + payment.amountPaise, 0)
+        : 0;
+      const verdict = checkPayment({
+        plan, packageStatus: model.status, kind, amountPaise,
+        priceTotalPaise: plan === "per_visit" ? 0 : pricePaise, pricePerSessionPaise: plan === "per_visit" ? perSessionPaise : 0,
+        paidPaise: money().paidPaise, sessionId,
+        session: sessionId !== null && session ? { status: session.status, charge_on_forfeit: session.charge_on_forfeit, paidPaise: sessionPaid } : null,
+      });
+      if (verdict.ok) {
+        model.payments.push({ amountPaise, sessionId });
+        accepted += 1;
+      } else {
+        rejected += 1;
+      }
+    }
+
+    const summary = money();
+    assert.ok(summary.balancePaise >= 0, "balance never negative");
+    assert.equal(summary.overpaidPaise, 0, `paid never exceeds owed (run ${run}, step ${step}, ${plan})`);
+    assert.ok(summary.overduePaise >= 0);
+    if (plan === "installments") {
+      assert.ok(summary.paidPaise <= pricePaise, "paid never exceeds the total");
+      const allocated = allocateInstallments(
+        rows.map((item, index) => ({ seq: index + 1, due_on: item.dueOn, amount: paiseToMoney(item.amountPaise) })),
+        summary.paidPaise,
+        walkToday,
+      );
+      const dueOutstanding = allocated.filter((item) => item.due_on <= walkToday).reduce((sum, item) => sum + item.outstandingPaise, 0);
+      assert.equal(dueOutstanding, summary.overduePaise, "outstanding of the rows already due equals the overdue amount");
+      assert.equal(allocated.reduce((sum, item) => sum + item.paidPaise, 0), summary.paidPaise);
+      assert.equal(rows.reduce((sum, item) => sum + item.amountPaise, 0), pricePaise);
+    }
+    if (plan === "per_visit") {
+      assert.ok(summary.paidPaise <= summary.owedPaise, "paid never exceeds accrued");
+      for (const session of model.sessions) {
+        const paid = model.payments.filter((payment) => payment.sessionId === session.id).reduce((sum, payment) => sum + payment.amountPaise, 0);
+        assert.ok(paid <= perSessionPaise, "no session is paid above its price");
+        if (paid > 0) assert.equal(isChargeableSession(session), true, "payments only ever pin chargeable visits");
+      }
+    }
+  }
+}
+assert.ok(accepted > 500 && rejected > 500, `random walk exercised both outcomes (accepted ${accepted}, rejected ${rejected})`);
 
 console.log("check-package-ledger: all assertions passed");
