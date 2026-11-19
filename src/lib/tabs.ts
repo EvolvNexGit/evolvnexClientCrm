@@ -9,6 +9,7 @@ export const DEFAULT_TAB_ORDER = [
   "saloon-summary",
   "doctor-summary",
   "appointments",
+  "packages",
   "billing",
   "doctor-billing",
   "transaction",
@@ -179,6 +180,8 @@ const DB_KEY_TO_CODE_KEY: Record<string, string> = {
   "026": "hrm-payroll",
   // Tenant staff list (staff_members); a real tab, applied last by 20261119_staff_tab_access.sql.
   "027": "staff",
+  // Packages and sessions ledger; a real tab, applied last by 20261120_packages_tab_access.sql (no backfill).
+  "028": "packages",
 };
 
 // These tabs_info rows still exist in the DB but their feature was removed; drop them at normalization.

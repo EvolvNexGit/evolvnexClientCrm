@@ -189,14 +189,23 @@ export async function fetchAppointmentStaffName(clientId: string, appointmentId:
   return typeof staffName === "string" && staffName.trim() !== "" ? staffName : null;
 }
 
-/** client_id is written after the payload spread so payload contents can never override the tenant. */
-export async function createAppointment(clientId: string, payload: AppointmentPayload): Promise<void> {
+/**
+ * client_id is written after the payload spread so payload contents can never override the tenant.
+ * Returns the new row id (additive; callers that ignore it are unaffected) so a package can be linked after save.
+ */
+export async function createAppointment(clientId: string, payload: AppointmentPayload): Promise<string> {
   const supabase = getClient();
-  const { error } = await supabase.from("appointments").insert({ ...payload, client_id: clientId });
+  const { data, error } = await supabase
+    .from("appointments")
+    .insert({ ...payload, client_id: clientId })
+    .select("id")
+    .single();
 
   if (error) {
     throw error;
   }
+
+  return String((data as { id: unknown }).id);
 }
 
 /** Filters by client_id AND id; zero matched rows (stale or foreign id) fails loudly instead of silently succeeding. */

@@ -20,11 +20,17 @@ import {
   type CalendarSlot,
 } from "@/components/dashboard/appointments-calendar";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import {
+  AppointmentPackageField,
+  type AppointmentPackageLink,
+} from "@/components/dashboard/packages/appointment-package-field";
 import { StaffPickerField } from "@/components/dashboard/staff-picker-field";
 import { ListPaginationControls } from "@/components/ui/list-pagination-controls";
+import { useApp } from "@/contexts/app-context";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useAppointmentsRange } from "@/hooks/use-appointments-range";
 import { usePagedList } from "@/hooks/use-paged-list";
+import { notifyPackagesChanged } from "@/hooks/use-packages";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import { useStaffMembers } from "@/hooks/use-staff-members";
 import {
@@ -53,6 +59,12 @@ import {
   formatUtcToIst,
 } from "@/lib/time-utils";
 import { fetchCustomersPage } from "@/lib/billing-queries";
+import {
+  attachPackageSession,
+  detachPackageSession,
+  fetchAppointmentPackageLink,
+} from "@/lib/package-queries";
+import { DEFAULT_PACKAGE_LABELS } from "@/lib/package-types";
 import { findStaffMemberByName, normalizeStaffName } from "@/lib/staff-member-types";
 import type { CustomerRecord } from "@/lib/billing-types";
 import { formatSupabaseError } from "@/lib/supabase";
@@ -70,6 +82,10 @@ type AppointmentFormState = {
   end_time: string;
   status: "tentative" | "booked" | "cancelled" | "completed";
   remark: string;
+  /** customers.id when the name was picked from suggestions (not persisted on appointments; feeds "Use package"). */
+  customer_id?: string;
+  /** Package chosen in the form; linked through attach_package_session after the appointment is saved. */
+  package_id?: string;
 };
 
 type PendingStatusChange = {
@@ -95,6 +111,8 @@ const initialForm: AppointmentFormState = {
   end_time: "",
   status: "tentative",
   remark: "",
+  customer_id: "",
+  package_id: "",
 };
 
 function toNullable(value: string) {
@@ -495,6 +513,16 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
 
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
 
+  // Packages (Wave 3): every package call here is gated on the tenant holding the packages tab and is best-effort,
+  // so the appointment save path behaves exactly as before for everyone else.
+  const { tabs } = useApp();
+  const packagesEnabled = tabs.some((tab) => tab.key === "packages");
+  const packageLabels = DEFAULT_PACKAGE_LABELS;
+  const [packageLink, setPackageLink] = useState<AppointmentPackageLink | null>(null);
+  const [packageLinkLoading, setPackageLinkLoading] = useState(false);
+  const [packageLinkRemoving, setPackageLinkRemoving] = useState(false);
+  const [packageNotice, setPackageNotice] = useState<string | null>(null);
+
   // Active bookable staff: feeds the form picker and keeps staff with no appointments yet visible as calendar columns.
   const staffDirectory = useStaffMembers(clientId, { bookableOnly: true, enabled: Boolean(clientId) });
 
@@ -561,6 +589,49 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       modalDayAppointments.appointments,
     ],
   );
+
+  const editingAppointmentId = editingAppointment?.id ?? null;
+  useEffect(() => {
+    if (!packagesEnabled || !editingAppointmentId || modalMode === null) {
+      setPackageLink(null);
+      setPackageLinkLoading(false);
+      return;
+    }
+
+    // Ignore a stale lookup when another appointment is opened mid-flight.
+    let cancelled = false;
+    setPackageLinkLoading(true);
+    fetchAppointmentPackageLink(clientId, editingAppointmentId)
+      .then((link) => {
+        if (!cancelled) setPackageLink(link);
+      })
+      .catch(() => {
+        if (!cancelled) setPackageLink(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPackageLinkLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId, editingAppointmentId, modalMode, packagesEnabled]);
+
+  async function handleRemovePackageLink() {
+    if (!packageLink || packageLinkRemoving) {
+      return;
+    }
+    try {
+      setPackageLinkRemoving(true);
+      setAddError(null);
+      await detachPackageSession(clientId, packageLink.session.id);
+      setPackageLink(null);
+      notifyPackagesChanged(clientId);
+    } catch (detachError) {
+      setAddError(formatSupabaseError(detachError, "Unable to remove the package link."));
+    } finally {
+      setPackageLinkRemoving(false);
+    }
+  }
 
   const loading = pagedAppointments.loading;
   const error = pagedAppointments.error;
@@ -637,6 +708,8 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       end_time: appointment.end_time ?? "",
       status: appointment.status ?? "tentative",
       remark: appointment.remark ?? "",
+      customer_id: "",
+      package_id: "",
     });
     setModalMode(mode);
   }
@@ -738,13 +811,20 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       remark: toNullable(form.remark),
     };
 
+    // Package to link after the save succeeds (skipped entirely when none is chosen or the tenant has no packages).
+    const packageToAttach = packagesEnabled && !packageLink ? (form.package_id ?? "") : "";
+    const wasLinked = packagesEnabled && Boolean(packageLink);
+    let savedAppointmentId: string;
+
     try {
       setIsSaving(true);
+      setPackageNotice(null);
 
       if (!editingAppointment) {
-        await createAppointment(clientId, payload);
+        savedAppointmentId = await createAppointment(clientId, payload);
       } else {
         await updateAppointment(clientId, editingAppointment.id, payload);
+        savedAppointmentId = editingAppointment.id;
       }
     } catch (saveError) {
       // Only a failed write keeps the modal open; a retry after a successful write would duplicate the row.
@@ -757,6 +837,24 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     setEditingAppointment(null);
     resetForm();
     setIsSaving(false);
+
+    // The appointment is saved; a failed link is reported without reopening the form (a retry would duplicate it).
+    if (packageToAttach) {
+      try {
+        await attachPackageSession(clientId, packageToAttach, savedAppointmentId);
+        notifyPackagesChanged(clientId);
+      } catch (attachError) {
+        setPackageNotice(
+          `Appointment saved, but the ${packageLabels.package.toLowerCase()} was not linked: ${formatSupabaseError(
+            attachError,
+            "Unable to link the package.",
+          )}`,
+        );
+      }
+    } else if (wasLinked) {
+      // Status changes on a linked appointment move its session through the database trigger.
+      notifyPackagesChanged(clientId);
+    }
 
     // Follow-up refreshes are best-effort; the write already succeeded.
     const savedService = payload.service;
@@ -1338,6 +1436,20 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
         </div>
       )}
 
+      {packageNotice && (
+        <div role="status" className="flex items-start justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700">
+          <p>{packageNotice}</p>
+          <button
+            type="button"
+            onClick={() => setPackageNotice(null)}
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl hover:bg-amber-500/20 xl:h-8 xl:w-8"
+            aria-label="Dismiss"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {viewMode !== "list" && (
         <AppointmentsCalendar
           mode={viewMode === "week" ? "week" : "day"}
@@ -1384,17 +1496,35 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
               <CustomerPickerField
                 clientId={clientId}
                 value={form.name}
-                onTyping={(name) => setForm((current) => ({ ...current, name }))}
+                onTyping={(name) => setForm((current) => ({ ...current, name, customer_id: "", package_id: "" }))}
                 onSelect={(customer) =>
                   setForm((current) => ({
                     ...current,
                     name: customer.name,
                     phone: (customer.phone ?? "").replace(/\D/g, "").slice(-10),
                     email: customer.email ?? current.email,
+                    customer_id: customer.id,
+                    package_id: "",
                   }))
                 }
               />
             </div>
+
+            {packagesEnabled && (
+              <AppointmentPackageField
+                clientId={clientId}
+                customerId={form.customer_id ?? ""}
+                appointmentDate={form.date}
+                appointmentStatus={form.status}
+                value={form.package_id ?? ""}
+                onChange={(packageId) => setForm((current) => ({ ...current, package_id: packageId }))}
+                link={packageLink}
+                linkLoading={packageLinkLoading}
+                removing={packageLinkRemoving}
+                onRemoveLink={() => void handleRemovePackageLink()}
+                labels={packageLabels}
+              />
+            )}
 
             <label className="space-y-1 text-sm text-muted-foreground">
               <span>Phone *</span>

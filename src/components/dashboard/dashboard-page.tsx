@@ -65,6 +65,10 @@ const StaffTab = dynamic(() => import("./tabs/staff-tab"), {
   loading: () => <TabLoading />,
 });
 
+const PackagesTab = dynamic(() => import("./tabs/packages-tab"), {
+  loading: () => <TabLoading />,
+});
+
 const ConsultationTab = dynamic(() => import("./tabs/consultation-tab"), {
   loading: () => <TabLoading />,
 });
@@ -590,6 +594,7 @@ function DashboardPageContent() {
               {displayTabKey === "appointments" && <AppointmentsTab clientId={clientId} />}
               {displayTabKey === "staff" && <StaffTab clientId={clientId} />}
               {displayTabKey === "consultation" && <ConsultationTab clientId={clientId} />}
+              {displayTabKey === "packages" && <PackagesTab clientId={clientId} />}
               {displayTabKey === "subscription" && <SubscriptionTab clientId={clientId} />}
               {displayTabKey === "billing" && <BillingTab clientId={clientId} />}
               {displayTabKey === "doctor-billing" && <DoctorBillingTab clientId={clientId} />}
