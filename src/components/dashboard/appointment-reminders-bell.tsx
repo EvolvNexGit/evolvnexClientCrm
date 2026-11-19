@@ -4,18 +4,24 @@ import { Bell, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { useOrderAlertSettings } from "@/contexts/order-alert-context";
+import { describeWait, formatLeadLabel } from "@/lib/appointment-reminder-window";
 import { cn } from "@/lib/utils";
 
 const MAX_LISTED_REMINDERS = 10;
 
-function describeWait(minutesUntil: number) {
-  return minutesUntil <= 0 ? "Starting now" : `in ${minutesUntil} min`;
+function describeStart(reminder: { dayOffset: number; date: string; timeLabel: string }) {
+  if (reminder.dayOffset === 0) {
+    return reminder.timeLabel;
+  }
+
+  return `${reminder.dayOffset === 1 ? "Tomorrow" : reminder.date} ${reminder.timeLabel}`;
 }
 
-/** Bell for doctor tenants: badge counts appointments starting within 5 minutes; the panel lists the rest of today. */
+/** Bell for doctor tenants: badge counts appointments starting within the clinic lead time; the panel lists the look-ahead window. */
 export function AppointmentRemindersBell() {
-  const { enabled, busy, error, reminders, dueSoonCount, remindersLoading, remindersError, setEnabled } =
+  const { enabled, busy, error, reminders, dueSoonCount, remindersLoading, remindersError, leadMinutes, setEnabled } =
     useOrderAlertSettings();
+  const leadLabel = formatLeadLabel(leadMinutes);
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -65,7 +71,7 @@ export function AppointmentRemindersBell() {
         {dueSoonCount > 0 && (
           <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold text-white">
             {dueSoonCount}
-            <span className="sr-only"> appointments starting within 5 minutes</span>
+            <span className="sr-only"> appointments starting within {leadLabel}</span>
           </span>
         )}
       </button>
@@ -98,7 +104,7 @@ export function AppointmentRemindersBell() {
               {remindersError}
             </p>
           ) : listed.length === 0 ? (
-            <p className="px-1 py-3 text-sm text-muted-foreground">No more appointments today.</p>
+            <p className="px-1 py-3 text-sm text-muted-foreground">No upcoming appointments in the next {leadLabel}.</p>
           ) : (
             <ul className="space-y-2">
               {listed.map((reminder) => (
@@ -112,7 +118,7 @@ export function AppointmentRemindersBell() {
                   <p className="truncate text-sm font-medium text-text">{reminder.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{reminder.service}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {reminder.timeLabel} · {describeWait(reminder.minutesUntil)}
+                    {describeStart(reminder)} · {describeWait(reminder.minutesUntil)}
                   </p>
                 </li>
               ))}
@@ -128,7 +134,7 @@ export function AppointmentRemindersBell() {
               onClick={() => void setEnabled(!enabled)}
               className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-1 text-left text-sm text-text hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <span>Alert 5 min before appointments</span>
+              <span>Alert {leadLabel} before appointments</span>
               <span
                 aria-hidden="true"
                 className={cn(

@@ -1,14 +1,17 @@
 "use client";
 
 import { CalendarClock } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useApp } from "@/contexts/app-context";
 import { useOrderAlertSettings } from "@/contexts/order-alert-context";
 import { useClientSettings } from "@/hooks/use-client-settings";
+import { formatLeadLabel } from "@/lib/appointment-reminder-window";
 import {
+  DEFAULT_SCHEDULING_TIMEZONE,
   REMINDER_LEAD_MAX_MINUTES,
   REMINDER_LEAD_MIN_MINUTES,
   validateReminderSettings,
+  validateSchedulingSettings,
 } from "@/lib/client-settings-types";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +25,21 @@ const LEAD_PRESETS: { minutes: number; label: string }[] = [
   { minutes: 1440, label: "1 day" },
 ];
 
+/** Valid IANA zones from the runtime, always including the default and the currently stored zone. */
+function listTimeZones(current: string): string[] {
+  const supported = (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf;
+  let zones: string[] = [];
+  try {
+    zones = supported ? supported("timeZone") : [];
+  } catch {
+    zones = [];
+  }
+
+  return Array.from(new Set([DEFAULT_SCHEDULING_TIMEZONE, current, "UTC", ...zones])).sort((left, right) =>
+    left.localeCompare(right),
+  );
+}
+
 /** Clinic-wide appointment reminder settings on My Profile; hidden when this tenant does not scan appointments. */
 export function AppointmentReminderSettingsCard() {
   const { clientId } = useApp();
@@ -33,7 +51,15 @@ export function AppointmentReminderSettingsCard() {
     error: settingsError,
     save,
   } = useClientSettings(clientId ?? "", "reminders", { enabled: remindersApplicable && Boolean(clientId) });
+  const {
+    value: scheduling,
+    loading: zoneLoading,
+    saving: zoneSaving,
+    error: zoneError,
+    save: saveScheduling,
+  } = useClientSettings(clientId ?? "", "scheduling", { enabled: remindersApplicable && Boolean(clientId) });
   const [draft, setDraft] = useState(String(value.lead_minutes));
+  const [zoneDraft, setZoneDraft] = useState(scheduling.timezone);
   const [localError, setLocalError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -42,33 +68,56 @@ export function AppointmentReminderSettingsCard() {
     setDraft(String(value.lead_minutes));
   }, [value.lead_minutes]);
 
+  useEffect(() => {
+    setZoneDraft(scheduling.timezone);
+  }, [scheduling.timezone]);
+
+  const zoneOptions = useMemo(() => listTimeZones(scheduling.timezone), [scheduling.timezone]);
+
   if (!remindersApplicable || !clientId) {
     return null;
   }
 
   const draftMinutes = draft.trim() === "" ? Number.NaN : Number(draft);
-  const dirty = draftMinutes !== value.lead_minutes;
+  const leadDirty = draftMinutes !== value.lead_minutes;
+  const zoneDirty = zoneDraft !== scheduling.timezone;
+  const dirty = leadDirty || zoneDirty;
+  const busy = loading || zoneLoading || saving || zoneSaving;
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaved(false);
 
-    const validation = validateReminderSettings({ lead_minutes: draftMinutes });
-    if (!validation.ok) {
-      setLocalError(validation.error);
+    // Validate everything before writing anything so a bad value never leaves a half-saved pair.
+    const leadValidation = validateReminderSettings({ lead_minutes: draftMinutes });
+    if (!leadValidation.ok) {
+      setLocalError(leadValidation.error);
+      return;
+    }
+
+    const zoneValidation = validateSchedulingSettings({ timezone: zoneDraft });
+    if (!zoneValidation.ok) {
+      setLocalError(zoneValidation.error);
       return;
     }
 
     setLocalError(null);
     try {
-      await save(validation.value);
+      if (leadDirty) {
+        await save(leadValidation.value);
+      }
+
+      if (zoneDirty) {
+        await saveScheduling(zoneValidation.value);
+      }
+
       setSaved(true);
     } catch {
-      // The hook already exposes the failure through its error state.
+      // The hooks already expose the failure through their error state.
     }
   }
 
-  const error = localError ?? settingsError;
+  const error = localError ?? settingsError ?? zoneError;
 
   return (
     <form className="rounded-2xl border border-border bg-card p-4" onSubmit={(event) => void handleSave(event)}>
@@ -77,8 +126,10 @@ export function AppointmentReminderSettingsCard() {
         Appointment reminders
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        How long before an appointment to alert. This applies to every device of this clinic. Alerts still need to be
-        turned On on each device above, because browser permission is per device.
+        How long before an appointment to alert, and the clinic time zone used to decide when &quot;now&quot; is.
+        Currently {formatLeadLabel(value.lead_minutes)} before, in {scheduling.timezone}. This applies to every device
+        of this clinic. Alerts still need to be turned On on each device above, because browser permission is per
+        device.
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Reminder lead time presets">
@@ -87,7 +138,7 @@ export function AppointmentReminderSettingsCard() {
             key={preset.minutes}
             type="button"
             aria-pressed={draftMinutes === preset.minutes}
-            disabled={loading || saving}
+            disabled={busy}
             onClick={() => {
               setDraft(String(preset.minutes));
               setSaved(false);
@@ -113,7 +164,7 @@ export function AppointmentReminderSettingsCard() {
             max={REMINDER_LEAD_MAX_MINUTES}
             step={1}
             value={draft}
-            disabled={loading || saving}
+            disabled={busy}
             onChange={(event) => {
               setDraft(event.target.value);
               setSaved(false);
@@ -122,12 +173,31 @@ export function AppointmentReminderSettingsCard() {
             className="mt-1 min-h-11 w-full rounded-xl border border-border bg-background px-3 text-text focus:outline-none focus:ring-2 focus:ring-primary xl:min-h-0 xl:py-2"
           />
         </label>
+        <label className="block text-sm text-text sm:w-64">
+          Clinic time zone
+          <select
+            value={zoneDraft}
+            disabled={busy}
+            onChange={(event) => {
+              setZoneDraft(event.target.value);
+              setSaved(false);
+              setLocalError(null);
+            }}
+            className="mt-1 min-h-11 w-full rounded-xl border border-border bg-background px-3 text-text focus:outline-none focus:ring-2 focus:ring-primary xl:min-h-0 xl:py-2"
+          >
+            {zoneOptions.map((zone) => (
+              <option key={zone} value={zone}>
+                {zone}
+              </option>
+            ))}
+          </select>
+        </label>
         <button
           type="submit"
-          disabled={loading || saving || !dirty}
+          disabled={busy || !dirty}
           className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50 xl:min-h-0 xl:py-2"
         >
-          {saving ? "Saving..." : "Save"}
+          {saving || zoneSaving ? "Saving..." : "Save"}
         </button>
       </div>
 

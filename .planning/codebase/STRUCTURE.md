@@ -159,6 +159,8 @@ evolvnexClientCrm/
 - `src/components/dashboard/tabs/staff-tab.tsx`: CRM Staff tab (table from `md`, cards below); `src/components/dashboard/staff-picker-field.tsx`: appointment-form picker with inline add
 - `src/lib/client-settings-types.ts` (import-free registry and parsers), `src/lib/client-settings-queries.ts`, `src/hooks/use-client-settings.ts`: per-namespace tenant settings
 - `scripts/check-client-settings.mjs`: node assertion script for the registry (`node scripts/check-client-settings.mjs`; Node 24 loads the `.ts` directly)
+- `src/lib/appointment-reminder-window.ts` (import-free reminder math: zoned now, horizon days, due list, lead label), `src/components/dashboard/appointment-reminder-settings-card.tsx` (My Profile clinic-wide lead time and time zone)
+- `scripts/check-reminder-window.mjs`: node assertion script for the reminder window (`node scripts/check-reminder-window.mjs`)
 - `supabase/migrations/20261119_{staff_members,client_settings,staff_tab_access}.sql`: authored, not applied; staff_tab_access applies last
 
 **Configuration:**

@@ -2,6 +2,25 @@
 
 Newest first. Each entry: what changed, files, contracts. Structural changes are also patched into STRUCTURE.md / ARCHITECTURE.md.
 
+## 2026-11-19 — Scheduling reminders (quick-261114-22k, Wave 2): clinic-wide lead time, time zone, look-ahead
+
+**Problem:** The appointment reminder lead time was a hard-coded 5 minutes, "now" was hard-coded to IST, only today was scanned, and nothing was shared between devices.
+
+**Status:** no migration. Wave 2 stores its values in `client_settings` (jsonb, namespace pattern already accepted by the live check), which the Wave 1 migration `20261119_client_settings.sql` creates; that file must be applied first (authored, NOT applied to live). With nothing saved, behaviour is the old one: 5 minutes, Asia/Kolkata.
+
+**Contracts introduced**
+- `client_settings` namespace `reminders` (`lead_minutes`, default 5, integer 1 to 1440; clamped on read, rejected on strict save). `scheduling.timezone` now also drives reminders.
+- `src/lib/appointment-reminder-window.ts` (import-free): `zonedNow`, `getReminderHorizonDays` (lead 5 -> 0, 1440 -> 1, 1500 -> 2; a short lead near midnight also reaches into tomorrow), `computeReminders`, `formatLeadLabel`, `describeWait`, `shiftIsoDate`.
+- `useAppointmentReminders(clientId, alertsEnabled, { leadMinutes, timeZone })`: both options travel by ref (the 30 s timer never restarts); the fetch range is today through today plus the horizon; the fired key is `id|appointment date|start` (the appointment's own date, so a look-ahead alert for tomorrow does not fire again when tomorrow becomes today). `APPOINTMENT_REMINDER_LEAD_MINUTES` is removed; the default lives in the registry.
+- `OrderAlertProvider` loads `reminders` and `scheduling` through `useClientSettings` (window focus, same-tab save event, 5 minute poll) only when the tenant has the `doctor-summary` tab, and exposes `remindersApplicable` and `leadMinutes`.
+- My Profile gets `AppointmentReminderSettingsCard` (presets 5, 10, 15, 30, 60, 120, 1440, custom 1 to 1440, time zone select) below the order alert card, hidden when reminders do not apply. The per-device On/Off toggle is unchanged. The bell copy uses `formatLeadLabel` and shows "Tomorrow" for next-day rows.
+
+**Files**
+- Added: `src/lib/appointment-reminder-window.ts`, `src/components/dashboard/appointment-reminder-settings-card.tsx`, `scripts/check-reminder-window.mjs`
+- Modified: `src/lib/client-settings-types.ts`, `src/hooks/use-appointment-reminders.ts`, `src/contexts/order-alert-context.tsx`, `src/components/dashboard/{appointment-reminders-bell.tsx,tabs/summary-tab.tsx}`, `scripts/check-client-settings.mjs`
+
+**Not done (by design):** widening the reminder gate beyond `doctor-summary` (OQ-2); moving other screens off IST; closed-browser reminders.
+
 ## 2026-11-19 — Scheduling foundation (quick-261114-22k, Wave 1): staff_members, client_settings, Staff tab
 
 **Problem:** Appointment staff was free text (`appointments.staff_name`), so there was no staff list to reuse, rename safely or assign, and tenant-wide settings had no home.

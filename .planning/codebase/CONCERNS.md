@@ -102,6 +102,12 @@
 - Current mitigation: rename trigger rewrites `appointments.staff_name` and `doctor_print_profiles.doctor_name` (skipped when the new name already exists as a profile); sync trigger leaves text untouched when it already matches after trim and lowercase so legacy casing never collides with `unique_booking`; both triggers are SECURITY INVOKER with a pinned `search_path` and no EXECUTE for API roles.
 - Recommendations: Stage B moves readers to `staff_member_id`; Stage C drops `staff_name`.
 
+**Reminder time zone applies only to reminders; other screens still use IST; no closed-browser reminders:**
+- Risk: `scheduling.timezone` changes how reminders compute "now" and which dates they fetch, but `time-utils.ts` and the appointment screens still format and compare in Asia/Kolkata, and stored appointment times are clinic wall-clock. A tenant that sets a non-IST zone gets reminders in its zone while other screens keep showing IST. Reminders also run only while the CRM tab is open (no service worker or server push), and only for tenants with the `doctor-summary` tab.
+- Files: `src/lib/appointment-reminder-window.ts`, `src/hooks/use-appointment-reminders.ts`, `src/lib/time-utils.ts`, `src/contexts/order-alert-context.tsx`
+- Current mitigation: default zone is Asia/Kolkata so existing tenants see no change; an invalid zone falls back to Asia/Kolkata; lead time and zone are one value per clinic and reach other devices within about 5 minutes (window focus, same-tab save, poll).
+- Recommendations: move the other IST uses to the tenant zone as separate work; server-side reminders can reuse the Wave 4 outbox tick later; decide whether to widen the reminder gate (OQ-2).
+
 **Single login per tenant can edit settings and staff:**
 - Risk: today any signed-in tenant user can write `client_settings` and `staff_members` (own-client RLS only).
 - Recommendations: add an owner-only check when per-staff logins exist.
