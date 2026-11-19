@@ -12,13 +12,20 @@ import {
   PackageDetailDrawer,
 } from "@/components/dashboard/packages/package-detail-drawer";
 import { PackageSettingsSection } from "@/components/dashboard/packages/package-settings-section";
+import { PackageTemplatesSection } from "@/components/dashboard/packages/package-templates-section";
 import { SellPackageModal } from "@/components/dashboard/packages/sell-package-modal";
 import { useClientSettings } from "@/hooks/use-client-settings";
-import { usePackageDecisionActions, usePackages, usePendingDecisions } from "@/hooks/use-packages";
+import {
+  usePackageDecisionActions,
+  usePackageTemplates,
+  usePackages,
+  usePendingDecisions,
+} from "@/hooks/use-packages";
 import { zonedNow } from "@/lib/appointment-reminder-window";
 import { derivePackageDisplayStatus, summarizePackageCredit } from "@/lib/package-ledger";
 import {
   PACKAGE_LIMITS,
+  PACKAGE_PLAN_LABEL,
   formatPackageMoney,
   type PackageSessionRecord,
   type PendingDecisionRecord,
@@ -54,6 +61,11 @@ export default function PackagesTab({ clientId }: { clientId: string }) {
   const packagesState = usePackages(clientId, { enabled: Boolean(clientId) });
   const pendingState = usePendingDecisions(clientId, { enabled: Boolean(clientId) });
   const decisions = usePackageDecisionActions(clientId);
+  const templatesState = usePackageTemplates(clientId, { enabled: Boolean(clientId) });
+  const activeTemplates = useMemo(
+    () => templatesState.templates.filter((template) => template.is_active),
+    [templatesState.templates],
+  );
 
   const [filter, setFilter] = useState<PackageFilter>("active");
   const [search, setSearch] = useState("");
@@ -284,7 +296,12 @@ export default function PackagesTab({ clientId }: { clientId: string }) {
                       </span>
                       {credit.held > 0 ? <span>{credit.held} booked</span> : null}
                       <span>{pkg.valid_until ? `Valid until ${pkg.valid_until}` : "No expiry"}</span>
-                      <span>{formatPackageMoney(pkg.price_total)}</span>
+                      <span>
+                        {PACKAGE_PLAN_LABEL[pkg.payment_plan]}{" "}
+                        {pkg.payment_plan === "per_visit"
+                          ? `${formatPackageMoney(pkg.price_per_session)} per ${labels.session.toLowerCase()}`
+                          : formatPackageMoney(pkg.price_total)}
+                      </span>
                     </div>
                     <div className="h-2 w-full overflow-hidden rounded-full bg-muted" aria-hidden="true">
                       <div
@@ -306,6 +323,17 @@ export default function PackagesTab({ clientId }: { clientId: string }) {
         </>
       )}
 
+      <PackageTemplatesSection
+        templates={templatesState.templates}
+        loading={templatesState.loading}
+        saving={templatesState.saving}
+        loadError={templatesState.error}
+        labels={labels}
+        onCreate={templatesState.create}
+        onUpdate={templatesState.update}
+        onRemove={templatesState.remove}
+      />
+
       <PackageSettingsSection
         value={packageSettings.value}
         loading={packageSettings.loading}
@@ -320,6 +348,7 @@ export default function PackagesTab({ clientId }: { clientId: string }) {
         labels={labels}
         today={today}
         saving={packagesState.saving}
+        templates={activeTemplates}
         onClose={() => setSellOpen(false)}
         onSell={packagesState.sell}
       />

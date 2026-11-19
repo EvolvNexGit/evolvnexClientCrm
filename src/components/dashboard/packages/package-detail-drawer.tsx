@@ -4,10 +4,13 @@ import { useState } from "react";
 import { Link2, Loader2, Unlink } from "lucide-react";
 import { DataState } from "@/components/dashboard/billing/data-state";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import { CancelPackageControl } from "@/components/dashboard/packages/cancel-package-control";
+import { PackagePaymentsSection } from "@/components/dashboard/packages/package-payments-section";
 import { usePackageDetail } from "@/hooks/use-packages";
 import { derivePackageDisplayStatus, summarizePackageCredit } from "@/lib/package-ledger";
 import { fetchLinkableAppointments } from "@/lib/package-queries";
 import {
+  PACKAGE_PLAN_LABEL,
   formatPackageMoney,
   formatSessionCount,
   type PackageDisplayStatus,
@@ -139,7 +142,12 @@ export function PackageDetailDrawer({
                 {PACKAGE_STATUS_LABEL[displayStatus]}
               </span>
               <span>{pkg.valid_until ? `Valid until ${pkg.valid_until}` : "No expiry"}</span>
-              <span>Upfront {formatPackageMoney(pkg.price_total)}</span>
+              <span>
+                {PACKAGE_PLAN_LABEL[pkg.payment_plan]}{" "}
+                {pkg.payment_plan === "per_visit"
+                  ? `${formatPackageMoney(pkg.price_per_session)} per ${labels.session.toLowerCase()}`
+                  : formatPackageMoney(pkg.price_total)}
+              </span>
             </div>
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -302,10 +310,22 @@ export function PackageDetailDrawer({
               </section>
             )}
 
+            <PackagePaymentsSection
+              pkg={pkg}
+              today={today}
+              labels={labels}
+              saving={detail.saving}
+              onRecord={detail.recordPayment}
+            />
+
             <p className="text-xs text-muted-foreground">
               {formatSessionCount(labels, credit.remaining)} left of {credit.total}. Completing a linked appointment uses one;
               cancelling it asks whether to roll over or forfeit.
             </p>
+
+            {pkg.status === "active" && (
+              <CancelPackageControl labels={labels} saving={detail.saving} onCancel={detail.cancel} />
+            )}
           </>
         )}
       </div>

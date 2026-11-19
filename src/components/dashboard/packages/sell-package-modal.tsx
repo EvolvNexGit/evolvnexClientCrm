@@ -3,17 +3,38 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Loader2, Search, X } from "lucide-react";
 import { EntityModal } from "@/components/dashboard/billing/entity-modal";
+import {
+  InstallmentScheduleEditor,
+  describeScheduleFailure,
+  draftToRows,
+  type ScheduleDraftRow,
+} from "@/components/dashboard/packages/installment-schedule-editor";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { fetchCustomersPage } from "@/lib/billing-queries";
 import type { CustomerRecord } from "@/lib/billing-types";
-import { computeValidUntil } from "@/lib/package-ledger";
+import { CLINIC_PAYMENT_MODES } from "@/lib/clinic-billing-types";
+import {
+  computeValidUntil,
+  formatPaiseInput,
+  moneyToPaise,
+  paiseToMoney,
+  parseMoneyPaise,
+  validateInstallmentSchedule,
+} from "@/lib/package-ledger";
 import {
   PACKAGE_LIMITS,
+  PACKAGE_PAYMENT_PLANS,
+  PACKAGE_PLAN_LABEL,
   formatPackageMoney,
+  formatSessionCount,
   type PackageLabels,
+  type PackagePaymentMethod,
+  type PackagePaymentPlan,
+  type PackageTemplateRecord,
   type SellPackagePayload,
 } from "@/lib/package-types";
 import { formatSupabaseError } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
 
 type PickedCustomer = { id: string; name: string; phone: string | null };
 
@@ -21,11 +42,12 @@ type SellFormState = {
   name: string;
   sessions: string;
   price: string;
+  pricePerSession: string;
   validityDays: string;
   note: string;
 };
 
-const EMPTY_FORM: SellFormState = { name: "", sessions: "", price: "", validityDays: "", note: "" };
+const EMPTY_FORM: SellFormState = { name: "", sessions: "", price: "", pricePerSession: "", validityDays: "", note: "" };
 
 const inputClass =
   "w-full min-h-11 rounded-xl border border-border bg-background px-3 py-2 text-base text-text placeholder:text-muted-foreground sm:text-sm";
@@ -150,16 +172,6 @@ function CustomerSearchField({
   );
 }
 
-/** Parses a non-negative amount with at most two decimals, or null. */
-function parseAmount(raw: string): number | null {
-  const text = raw.trim();
-  if (!/^\d{1,8}(?:\.\d{1,2})?$/.test(text)) {
-    return null;
-  }
-  const value = Number(text);
-  return value <= PACKAGE_LIMITS.priceMax ? value : null;
-}
-
 function parseWholeNumber(raw: string, min: number, max: number): number | null {
   const text = raw.trim();
   if (!/^\d{1,4}$/.test(text)) {
@@ -169,42 +181,103 @@ function parseWholeNumber(raw: string, min: number, max: number): number | null 
   return value >= min && value <= max ? value : null;
 }
 
+const PLAN_HELP: Record<PackagePaymentPlan, string> = {
+  upfront: "One price for the whole package. Payments can be recorded any time, up to the price.",
+  installments: "A due-dated schedule that adds up to the price. Overdue amounts are highlighted.",
+  per_visit: "Nothing is owed up front. Each completed visit (or charged forfeit) adds the price per visit.",
+};
+
 export function SellPackageModal({
   open,
   clientId,
   labels,
   today,
   saving,
+  templates,
   onClose,
   onSell,
 }: {
   open: boolean;
   clientId: string;
   labels: PackageLabels;
-  /** Today in the clinic time zone (yyyy-mm-dd); expiry is counted from here. */
+  /** Today in the clinic time zone (yyyy-mm-dd); expiry and installment dates are counted from here. */
   today: string;
   saving: boolean;
+  /** Active catalog templates; picking one pre-fills the form (every field stays editable). */
+  templates: PackageTemplateRecord[];
   onClose: () => void;
   onSell: (payload: SellPackagePayload) => Promise<unknown>;
 }) {
   const [customer, setCustomer] = useState<PickedCustomer | null>(null);
   const [form, setForm] = useState<SellFormState>(EMPTY_FORM);
+  const [plan, setPlan] = useState<PackagePaymentPlan>("upfront");
+  const [templateId, setTemplateId] = useState("");
+  const [schedule, setSchedule] = useState<ScheduleDraftRow[]>([]);
+  const [collect, setCollect] = useState(false);
+  const [collectAmount, setCollectAmount] = useState("");
+  const [collectMethod, setCollectMethod] = useState<PackagePaymentMethod>("CASH");
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       setCustomer(null);
       setForm(EMPTY_FORM);
+      setPlan("upfront");
+      setTemplateId("");
+      setSchedule([]);
+      setCollect(false);
+      setCollectAmount("");
+      setCollectMethod("CASH");
       setFormError(null);
     }
   }, [open]);
 
   const sessions = parseWholeNumber(form.sessions, PACKAGE_LIMITS.sessionsMin, PACKAGE_LIMITS.sessionsMax);
-  const price = parseAmount(form.price);
+  const pricePaise = parseMoneyPaise(form.price);
+  const perVisitPaise = parseMoneyPaise(form.pricePerSession);
   const validityDays = form.validityDays.trim()
     ? parseWholeNumber(form.validityDays, 1, PACKAGE_LIMITS.validityDaysMax)
     : null;
   const validUntil = computeValidUntil(today, validityDays);
+  const planTotalPaise = plan === "per_visit" ? null : pricePaise;
+
+  function applyTemplate(nextId: string) {
+    setTemplateId(nextId);
+    const template = templates.find((item) => item.id === nextId);
+    if (!template) {
+      return;
+    }
+    setPlan(template.payment_plan);
+    setSchedule([]);
+    setCollect(false);
+    setCollectAmount("");
+    setForm((current) => ({
+      ...current,
+      name: template.name,
+      sessions: String(template.session_count),
+      price: template.price_total !== null ? formatPaiseInput(moneyToPaise(template.price_total)) : "",
+      pricePerSession:
+        template.price_per_session !== null ? formatPaiseInput(moneyToPaise(template.price_per_session)) : "",
+      validityDays: template.validity_days !== null ? String(template.validity_days) : "",
+    }));
+  }
+
+  function changePlan(next: PackagePaymentPlan) {
+    setPlan(next);
+    setSchedule([]);
+    setCollect(false);
+    setCollectAmount("");
+    setFormError(null);
+  }
+
+  function toggleCollect(next: boolean) {
+    setCollect(next);
+    if (!next) {
+      return;
+    }
+    const first = plan === "installments" ? parseMoneyPaise(schedule[0]?.amount ?? "") : pricePaise;
+    setCollectAmount(first !== null && first > 0 ? formatPaiseInput(first) : "");
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -225,7 +298,12 @@ export function SellPackageModal({
       setFormError(`${labels.sessions} must be a whole number from 1 to ${PACKAGE_LIMITS.sessionsMax}.`);
       return;
     }
-    if (price === null) {
+    if (plan === "per_visit") {
+      if (perVisitPaise === null || perVisitPaise <= 0) {
+        setFormError(`Enter the price per ${labels.session.toLowerCase()} (above zero, up to two decimals).`);
+        return;
+      }
+    } else if (pricePaise === null) {
       setFormError("Enter the total price (up to two decimals).");
       return;
     }
@@ -238,18 +316,45 @@ export function SellPackageModal({
       return;
     }
 
+    let installments: SellPackagePayload["installments"] = null;
+    if (plan === "installments") {
+      const rows = draftToRows(schedule);
+      const check = validateInstallmentSchedule(rows, pricePaise ?? 0, today);
+      if (!check.ok) {
+        setFormError(describeScheduleFailure(check.reason));
+        return;
+      }
+      installments = rows;
+    }
+
+    let initialPayment: SellPackagePayload["initialPayment"] = null;
+    if (collect && plan !== "per_visit") {
+      const amountPaise = parseMoneyPaise(collectAmount);
+      if (amountPaise === null || amountPaise <= 0) {
+        setFormError("Enter the amount collected now (above zero, up to two decimals).");
+        return;
+      }
+      if (amountPaise > (pricePaise ?? 0)) {
+        setFormError("The amount collected now cannot be more than the price.");
+        return;
+      }
+      initialPayment = { amountPaise, method: collectMethod, note: null };
+    }
+
     try {
       setFormError(null);
       await onSell({
         customerId: customer.id,
         name,
         sessionsTotal: sessions,
-        paymentPlan: "upfront",
-        priceTotal: price,
-        pricePerSession: null,
+        paymentPlan: plan,
+        priceTotal: plan === "per_visit" ? null : paiseToMoney(pricePaise ?? 0),
+        pricePerSession: plan === "per_visit" ? paiseToMoney(perVisitPaise ?? 0) : null,
         validUntil,
-        templateId: null,
+        templateId: templateId || null,
         note: form.note.trim() || null,
+        installments,
+        initialPayment,
       });
       onClose();
     } catch (sellError) {
@@ -265,6 +370,20 @@ export function SellPackageModal({
           <CustomerSearchField clientId={clientId} picked={customer} onPick={setCustomer} />
         </div>
 
+        {templates.length > 0 && (
+          <label className="block space-y-1 text-sm text-muted-foreground">
+            <span>Start from a template</span>
+            <select value={templateId} onChange={(event) => applyTemplate(event.target.value)} className={inputClass}>
+              <option value="">Custom (no template)</option>
+              {templates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name} - {formatSessionCount(labels, template.session_count)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
         <label className="block space-y-1 text-sm text-muted-foreground">
           <span>{labels.package} name *</span>
           <input
@@ -275,6 +394,27 @@ export function SellPackageModal({
             className={inputClass}
           />
         </label>
+
+        <div className="space-y-1 text-sm text-muted-foreground">
+          <span>Payment plan</span>
+          <div role="group" aria-label="Payment plan" className="grid grid-cols-3 overflow-hidden rounded-xl border border-border bg-background">
+            {PACKAGE_PAYMENT_PLANS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={plan === option}
+                onClick={() => changePlan(option)}
+                className={cn(
+                  "min-h-11 px-2 text-sm font-medium transition",
+                  plan === option ? "bg-primary/10 text-text" : "text-muted-foreground hover:bg-muted hover:text-text",
+                )}
+              >
+                {PACKAGE_PLAN_LABEL[option]}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs">{PLAN_HELP[plan]}</p>
+        </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="space-y-1 text-sm text-muted-foreground">
@@ -287,16 +427,29 @@ export function SellPackageModal({
               className={inputClass}
             />
           </label>
-          <label className="space-y-1 text-sm text-muted-foreground">
-            <span>Total price *</span>
-            <input
-              value={form.price}
-              onChange={(event) => setForm((current) => ({ ...current, price: event.target.value }))}
-              inputMode="decimal"
-              placeholder="0.00"
-              className={inputClass}
-            />
-          </label>
+          {plan === "per_visit" ? (
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span>Price per {labels.session.toLowerCase()} *</span>
+              <input
+                value={form.pricePerSession}
+                onChange={(event) => setForm((current) => ({ ...current, pricePerSession: event.target.value }))}
+                inputMode="decimal"
+                placeholder="0.00"
+                className={inputClass}
+              />
+            </label>
+          ) : (
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span>Total price *</span>
+              <input
+                value={form.price}
+                onChange={(event) => setForm((current) => ({ ...current, price: event.target.value }))}
+                inputMode="decimal"
+                placeholder="0.00"
+                className={inputClass}
+              />
+            </label>
+          )}
           <label className="space-y-1 text-sm text-muted-foreground">
             <span>Valid for (days)</span>
             <input
@@ -309,20 +462,63 @@ export function SellPackageModal({
               className={inputClass}
             />
           </label>
-          <div className="space-y-1 text-sm text-muted-foreground">
-            <span>Payment</span>
-            <p className="flex min-h-11 items-center rounded-xl border border-border bg-muted/40 px-3 text-sm text-text">
-              Upfront {price !== null ? `(${formatPackageMoney(price)})` : ""}
-            </p>
-          </div>
         </div>
 
         <p className="text-sm text-muted-foreground">
           {validUntil ? `Expires after ${validUntil}.` : "No expiry date."}
-          {sessions !== null && price !== null && sessions > 0
-            ? ` ${formatPackageMoney(Math.round((price / sessions) * 100) / 100)} per ${labels.session.toLowerCase()}.`
+          {plan !== "per_visit" && sessions !== null && pricePaise !== null && sessions > 0
+            ? ` ${formatPackageMoney(Math.round(pricePaise / sessions) / 100)} per ${labels.session.toLowerCase()}.`
+            : ""}
+          {plan === "per_visit" && sessions !== null && perVisitPaise !== null
+            ? ` At most ${formatPackageMoney((perVisitPaise * sessions) / 100)} if every ${labels.session.toLowerCase()} is used.`
             : ""}
         </p>
+
+        {plan === "installments" && (
+          <InstallmentScheduleEditor totalPaise={planTotalPaise} today={today} rows={schedule} onChange={setSchedule} />
+        )}
+
+        {plan !== "per_visit" && (
+          <div className="space-y-2 rounded-xl border border-border bg-background p-3">
+            <label className="flex min-h-11 items-center gap-2 text-sm text-text">
+              <input
+                type="checkbox"
+                checked={collect}
+                onChange={(event) => toggleCollect(event.target.checked)}
+                className="h-5 w-5"
+              />
+              Collect a payment now
+            </label>
+            {collect && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="space-y-1 text-sm text-muted-foreground">
+                  <span>Amount collected</span>
+                  <input
+                    value={collectAmount}
+                    onChange={(event) => setCollectAmount(event.target.value)}
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    className={inputClass}
+                  />
+                </label>
+                <label className="space-y-1 text-sm text-muted-foreground">
+                  <span>Method</span>
+                  <select
+                    value={collectMethod}
+                    onChange={(event) => setCollectMethod(event.target.value as PackagePaymentMethod)}
+                    className={inputClass}
+                  >
+                    {CLINIC_PAYMENT_MODES.map((mode) => (
+                      <option key={mode} value={mode}>
+                        {mode}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
+          </div>
+        )}
 
         <label className="block space-y-1 text-sm text-muted-foreground">
           <span>Notes</span>
