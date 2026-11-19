@@ -24,13 +24,18 @@ import {
   AppointmentPackageField,
   type AppointmentPackageLink,
 } from "@/components/dashboard/packages/appointment-package-field";
+import {
+  MissedSessionDialog,
+  type MissedSessionTarget,
+} from "@/components/dashboard/packages/missed-session-dialog";
 import { StaffPickerField } from "@/components/dashboard/staff-picker-field";
 import { ListPaginationControls } from "@/components/ui/list-pagination-controls";
 import { useApp } from "@/contexts/app-context";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useAppointmentsRange } from "@/hooks/use-appointments-range";
 import { usePagedList } from "@/hooks/use-paged-list";
-import { notifyPackagesChanged } from "@/hooks/use-packages";
+import { useClientSettings } from "@/hooks/use-client-settings";
+import { notifyPackagesChanged, usePackageDecisionActions, usePendingDecisions } from "@/hooks/use-packages";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import { useStaffMembers } from "@/hooks/use-staff-members";
 import {
@@ -64,7 +69,6 @@ import {
   detachPackageSession,
   fetchAppointmentPackageLink,
 } from "@/lib/package-queries";
-import { DEFAULT_PACKAGE_LABELS } from "@/lib/package-types";
 import { findStaffMemberByName, normalizeStaffName } from "@/lib/staff-member-types";
 import type { CustomerRecord } from "@/lib/billing-types";
 import { formatSupabaseError } from "@/lib/supabase";
@@ -517,7 +521,11 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
   // so the appointment save path behaves exactly as before for everyone else.
   const { tabs } = useApp();
   const packagesEnabled = tabs.some((tab) => tab.key === "packages");
-  const packageLabels = DEFAULT_PACKAGE_LABELS;
+  const packageSettings = useClientSettings(clientId, "packages", { enabled: packagesEnabled && Boolean(clientId) });
+  const packageLabels = packageSettings.value.labels;
+  const pendingDecisions = usePendingDecisions(clientId, { enabled: packagesEnabled && Boolean(clientId) });
+  const packageDecisions = usePackageDecisionActions(clientId);
+  const [decisionTarget, setDecisionTarget] = useState<MissedSessionTarget | null>(null);
   const [packageLink, setPackageLink] = useState<AppointmentPackageLink | null>(null);
   const [packageLinkLoading, setPackageLinkLoading] = useState(false);
   const [packageLinkRemoving, setPackageLinkRemoving] = useState(false);
@@ -615,6 +623,48 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
       cancelled = true;
     };
   }, [clientId, editingAppointmentId, modalMode, packagesEnabled]);
+
+  /**
+   * Prompted every time (D-05): after a linked appointment is cancelled, open the decision for its undecided session.
+   * Best-effort: a failed lookup only skips the prompt; the session stays under Needs decision.
+   */
+  async function promptMissedDecision(appointmentId: string) {
+    if (!packagesEnabled) {
+      return;
+    }
+    try {
+      const link = await fetchAppointmentPackageLink(clientId, appointmentId);
+      if (link && link.session.status === "missed_pending") {
+        setDecisionTarget({
+          sessionId: link.session.id,
+          packageName: link.pkg.name_snapshot,
+          customerName: link.pkg.customerName,
+          appointmentDate: link.session.appointmentDate,
+          reason: link.session.missed_reason,
+        });
+      }
+    } catch {
+      // The banner below still surfaces the undecided session.
+    }
+  }
+
+  function openOldestPendingDecision() {
+    const oldest = pendingDecisions.pending[0];
+    if (oldest) {
+      setDecisionTarget({
+        sessionId: oldest.id,
+        packageName: oldest.packageName,
+        customerName: oldest.customerName,
+        appointmentDate: oldest.appointmentDate,
+        reason: oldest.missed_reason,
+      });
+    }
+  }
+
+  async function handleResolveDecision(sessionId: string, resolution: "rollover" | "forfeit", note: string | null) {
+    await packageDecisions.resolve(sessionId, resolution, note);
+    setDecisionTarget(null);
+  }
 
   async function handleRemovePackageLink() {
     if (!packageLink || packageLinkRemoving) {
@@ -854,6 +904,9 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     } else if (wasLinked) {
       // Status changes on a linked appointment move its session through the database trigger.
       notifyPackagesChanged(clientId);
+      if (payload.status === "cancelled") {
+        void promptMissedDecision(savedAppointmentId);
+      }
     }
 
     // Follow-up refreshes are best-effort; the write already succeeded.
@@ -880,6 +933,12 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
     try {
       setUpdatingIds((current) => new Set(current).add(appointmentId));
       await setAppointmentStatus(clientId, appointmentId, nextStatus);
+      if (packagesEnabled) {
+        notifyPackagesChanged(clientId);
+        if (nextStatus === "cancelled") {
+          void promptMissedDecision(appointmentId);
+        }
+      }
 
       await pagedAppointments.refresh();
       await rangeAppointments.refresh();
@@ -1079,6 +1138,40 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           </button>
         </div>
       </div>
+
+      {packagesEnabled && pendingDecisions.count > 0 && (
+        <div
+          role="status"
+          className="flex flex-col gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <p>
+            {pendingDecisions.count} missed{" "}
+            {pendingDecisions.count === 1 ? packageLabels.session.toLowerCase() : packageLabels.sessions.toLowerCase()} need a
+            decision (roll over or forfeit).
+          </p>
+          <button
+            type="button"
+            onClick={openOldestPendingDecision}
+            className="min-h-11 shrink-0 rounded-xl border border-amber-500/40 bg-background px-3 text-sm font-medium text-amber-700 hover:bg-amber-500/20 xl:min-h-9"
+          >
+            Review
+          </button>
+        </div>
+      )}
+
+      {packageNotice && (
+        <div role="status" className="flex items-start justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700">
+          <p>{packageNotice}</p>
+          <button
+            type="button"
+            onClick={() => setPackageNotice(null)}
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl hover:bg-amber-500/20 xl:h-8 xl:w-8"
+            aria-label="Dismiss"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {viewMode === "list" && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -1436,20 +1529,6 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
         </div>
       )}
 
-      {packageNotice && (
-        <div role="status" className="flex items-start justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700">
-          <p>{packageNotice}</p>
-          <button
-            type="button"
-            onClick={() => setPackageNotice(null)}
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl hover:bg-amber-500/20 xl:h-8 xl:w-8"
-            aria-label="Dismiss"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-
       {viewMode !== "list" && (
         <AppointmentsCalendar
           mode={viewMode === "week" ? "week" : "day"}
@@ -1749,6 +1828,16 @@ export default function AppointmentsTab({ clientId }: { clientId: string }) {
           </div>
         </div>
       </EntityModal>
+
+      {packagesEnabled && (
+        <MissedSessionDialog
+          target={decisionTarget}
+          settings={packageSettings.value}
+          saving={packageDecisions.saving}
+          onResolve={handleResolveDecision}
+          onDismiss={() => setDecisionTarget(null)}
+        />
+      )}
 
       <EntityModal open={Boolean(pendingDelete)} title="Delete appointment" onClose={() => setPendingDelete(null)}>
         <div className="space-y-4">

@@ -3,8 +3,15 @@
 import assert from "node:assert/strict";
 import {
   addDaysToIsoDate,
+  canDetachSession,
+  canMarkSessionMissed,
+  canResolveSession,
   checkAttach,
   computeValidUntil,
+  countChargeableVisits,
+  isOverdueScheduledSession,
+  perVisitAccruedPaise,
+  resolveMissedDecision,
   derivePackageDisplayStatus,
   isIsoDate,
   isPackageExpired,
@@ -125,5 +132,131 @@ assert.equal(nextSessionStatusForDeletedAppointment("missed_pending"), null);
 assert.deepEqual(DEFAULT_PACKAGE_LABELS, { package: "Package", packages: "Packages", session: "Session", sessions: "Sessions" });
 assert.equal(formatSessionCount(DEFAULT_PACKAGE_LABELS, 1), "1 Session");
 assert.equal(formatSessionCount({ ...DEFAULT_PACKAGE_LABELS, session: "Visit", sessions: "Visits" }, 3), "3 Visits");
+
+// ---------------------------------------------------------------------------
+// Task 6: missed-session decision rules.
+// ---------------------------------------------------------------------------
+
+// missed_pending holds a slot but never consumes credit.
+const pending = summarizePackageCredit(3, [s("missed_pending")]);
+assert.equal(pending.consumed, 0);
+assert.equal(pending.held, 1);
+assert.equal(pending.remaining, 2);
+
+// rolled_over frees the slot and does not consume; forfeited consumes.
+assert.deepEqual(
+  [summarizePackageCredit(3, [s("rolled_over")]).remaining, summarizePackageCredit(3, [s("rolled_over")]).consumed],
+  [3, 0],
+);
+assert.deepEqual(
+  [summarizePackageCredit(3, [s("forfeited")]).remaining, summarizePackageCredit(3, [s("forfeited")]).consumed],
+  [2, 1],
+);
+
+assert.equal(canMarkSessionMissed("scheduled"), true);
+for (const other of ["completed", "missed_pending", "rolled_over", "forfeited", "voided"]) {
+  assert.equal(canMarkSessionMissed(other), false);
+}
+assert.deepEqual(PACKAGE_SESSION_STATUSES.filter(canResolveSession), ["missed_pending"]);
+assert.deepEqual(PACKAGE_SESSION_STATUSES.filter(canDetachSession), ["scheduled", "missed_pending"]);
+assert.equal(isOverdueScheduledSession({ status: "scheduled", appointmentDate: "2026-11-19" }, "2026-11-20"), true);
+assert.equal(isOverdueScheduledSession({ status: "scheduled", appointmentDate: "2026-11-20" }, "2026-11-20"), false);
+assert.equal(isOverdueScheduledSession({ status: "missed_pending", appointmentDate: "2026-11-01" }, "2026-11-20"), false);
+assert.equal(isOverdueScheduledSession({ status: "scheduled", appointmentDate: null }, "2026-11-20"), false);
+
+// Overrode-default flag is relative to the tenant default.
+const tenantRollover = { missed_default: "rollover", rollover_extends_validity_days: 0, forfeit_charges_per_visit: true };
+const tenantForfeit = { ...tenantRollover, missed_default: "forfeit" };
+assert.equal(resolveMissedDecision({ resolution: "rollover", settings: tenantRollover, validUntil: null }).overrodeDefault, false);
+assert.equal(resolveMissedDecision({ resolution: "forfeit", settings: tenantRollover, validUntil: null }).overrodeDefault, true);
+assert.equal(resolveMissedDecision({ resolution: "forfeit", settings: tenantForfeit, validUntil: null }).overrodeDefault, false);
+assert.equal(resolveMissedDecision({ resolution: "rollover", settings: tenantForfeit, validUntil: null }).overrodeDefault, true);
+
+// R-15: rollover extends valid_until by N only when the package has an expiry and N > 0; snapshot the days.
+assert.deepEqual(resolveMissedDecision({ resolution: "rollover", settings: tenantRollover, validUntil: "2026-12-31" }), {
+  status: "rolled_over", overrodeDefault: false, validityExtendedDays: 0, validUntil: "2026-12-31", chargeOnForfeit: null,
+});
+const extend7 = { ...tenantRollover, rollover_extends_validity_days: 7 };
+assert.deepEqual(resolveMissedDecision({ resolution: "rollover", settings: extend7, validUntil: "2026-12-28" }), {
+  status: "rolled_over", overrodeDefault: false, validityExtendedDays: 7, validUntil: "2027-01-04", chargeOnForfeit: null,
+});
+assert.deepEqual(resolveMissedDecision({ resolution: "rollover", settings: extend7, validUntil: null }), {
+  status: "rolled_over", overrodeDefault: false, validityExtendedDays: 0, validUntil: null, chargeOnForfeit: null,
+});
+// Forfeit never extends, even with N > 0.
+assert.equal(resolveMissedDecision({ resolution: "forfeit", settings: extend7, validUntil: "2026-12-28" }).validityExtendedDays, 0);
+assert.equal(resolveMissedDecision({ resolution: "forfeit", settings: extend7, validUntil: "2026-12-28" }).validUntil, "2026-12-28");
+
+// R-16: forfeit snapshots the tenant setting at decision time.
+assert.equal(resolveMissedDecision({ resolution: "forfeit", settings: tenantRollover, validUntil: null }).chargeOnForfeit, true);
+assert.equal(
+  resolveMissedDecision({ resolution: "forfeit", settings: { ...tenantRollover, forfeit_charges_per_visit: false }, validUntil: null })
+    .chargeOnForfeit,
+  false,
+);
+
+// R-16 accrual inputs: completed always owed; forfeited only when its snapshot says so; rolled over never.
+const visits = [
+  { status: "completed" }, { status: "completed", charge_on_forfeit: null },
+  { status: "forfeited", charge_on_forfeit: true }, { status: "forfeited", charge_on_forfeit: false },
+  { status: "forfeited", charge_on_forfeit: null }, { status: "rolled_over" }, { status: "scheduled" },
+  { status: "missed_pending" }, { status: "voided" },
+];
+assert.equal(countChargeableVisits(visits), 3);
+assert.equal(perVisitAccruedPaise(50000, visits), 150000);
+assert.equal(perVisitAccruedPaise(-5, visits), 0);
+assert.equal(perVisitAccruedPaise(Number.NaN, visits), 0);
+assert.equal(countChargeableVisits([]), 0);
+
+// Un-cancel reverts an unresolved missed_pending; a resolved decision is never reverted.
+assert.equal(nextSessionStatusForAppointment("missed_pending", "cancelled", "booked"), "scheduled");
+assert.equal(nextSessionStatusForAppointment("rolled_over", "cancelled", "booked"), null);
+assert.equal(nextSessionStatusForAppointment("forfeited", "cancelled", "tentative"), null);
+
+// Remaining never goes below zero for any sequence of transitions (seeded pseudo-random walk over the same rules
+// the database enforces: attach guarded by capacity, trigger table, mark missed, resolve, detach, soft delete).
+let seed = 20261120;
+const random = () => {
+  seed = (seed * 1103515245 + 12345) % 2147483648;
+  return seed / 2147483648;
+};
+const appointmentStatuses = ["tentative", "booked", "completed", "cancelled"];
+for (let run = 0; run < 400; run += 1) {
+  const total = 1 + Math.floor(random() * 5);
+  const ledger = []; // { status, appointmentStatus }
+  for (let step = 0; step < 40; step += 1) {
+    const action = Math.floor(random() * 6);
+    const live = ledger.filter((item) => !["voided", "rolled_over", "forfeited"].includes(item.status));
+    const pick = live.length > 0 ? live[Math.floor(random() * live.length)] : null;
+    if (action === 0) {
+      const appointmentStatus = appointmentStatuses[Math.floor(random() * 3)];
+      const check = checkAttach({
+        packageStatus: nextPackageStatus("active", total, ledger), validUntil: null, sessionsTotal: total,
+        sessions: ledger, appointmentDate: null, appointmentStatus, alreadyLinked: false,
+      });
+      if (check.ok) {
+        ledger.push({ status: appointmentStatus === "completed" ? "completed" : "scheduled", appointmentStatus });
+      }
+    } else if (action === 1 && pick) {
+      const to = appointmentStatuses[Math.floor(random() * 4)];
+      const next = nextSessionStatusForAppointment(pick.status, pick.appointmentStatus, to);
+      pick.appointmentStatus = to;
+      if (next) pick.status = next;
+    } else if (action === 2 && pick && canMarkSessionMissed(pick.status)) {
+      pick.status = "missed_pending";
+    } else if (action === 3 && pick && canResolveSession(pick.status)) {
+      pick.status = resolveMissedDecision({ resolution: random() < 0.5 ? "rollover" : "forfeit", settings: tenantRollover, validUntil: null }).status;
+    } else if (action === 4 && pick && canDetachSession(pick.status)) {
+      pick.status = "voided";
+    } else if (action === 5 && pick) {
+      const next = nextSessionStatusForDeletedAppointment(pick.status);
+      if (next) pick.status = next;
+    }
+    const credit = summarizePackageCredit(total, ledger);
+    assert.ok(credit.remaining >= 0, "remaining never below zero");
+    assert.equal(credit.overCapacity, false, `consumed + held never exceeds total (run ${run}, step ${step})`);
+    assert.ok(credit.consumed + credit.held <= total);
+  }
+}
 
 console.log("check-package-ledger: all assertions passed");

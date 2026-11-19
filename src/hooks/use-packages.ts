@@ -6,10 +6,18 @@ import {
   detachPackageSession,
   fetchCustomerPackages,
   fetchPackageDetail,
+  fetchPendingDecisions,
+  markSessionMissed,
+  resolveMissedSession,
   sellPackage,
   type PackageWithSessions,
 } from "@/lib/package-queries";
-import type { PackageStatus, SellPackagePayload } from "@/lib/package-types";
+import type {
+  MissedResolution,
+  PackageStatus,
+  PendingDecisionRecord,
+  SellPackagePayload,
+} from "@/lib/package-types";
 import { formatSupabaseError } from "@/lib/supabase";
 
 /** Same-tab signal so every package view (tab, drawer, appointment form) refreshes after any ledger change. */
@@ -187,4 +195,90 @@ export function usePackageDetail(clientId: string, packageId: string | null) {
   );
 
   return { pkg, loading, saving, error, refresh, attach, detach, runMutation };
+}
+
+/** Undecided sessions (Needs decision). Refreshes on focus and after any package change in this tab. */
+export function usePendingDecisions(clientId: string, options: { enabled?: boolean } = {}) {
+  const { enabled = true } = options;
+  const [pending, setPending] = useState<PendingDecisionRecord[]>([]);
+  const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
+
+  const refresh = useCallback(async () => {
+    if (!enabled || !clientId) {
+      setPending([]);
+      setLoading(false);
+      return;
+    }
+
+    const requestId = ++requestIdRef.current;
+    try {
+      setLoading(true);
+      setError(null);
+      const next = await fetchPendingDecisions(clientId);
+      if (requestId === requestIdRef.current) {
+        setPending(next);
+      }
+    } catch (fetchError) {
+      if (requestId === requestIdRef.current) {
+        setError(formatSupabaseError(fetchError, "Unable to load sessions that need a decision."));
+      }
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [clientId, enabled]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    function handleFocus() {
+      void refresh();
+    }
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [enabled, refresh]);
+
+  usePackagesChangedListener(clientId, enabled, () => void refresh());
+
+  return { pending, count: pending.length, loading, error, refresh };
+}
+
+/** Decision mutators shared by the Packages and Appointments tabs; both broadcast a package change. */
+export function usePackageDecisionActions(clientId: string) {
+  const [saving, setSaving] = useState(false);
+
+  const run = useCallback(
+    async <T,>(action: () => Promise<T>): Promise<T> => {
+      setSaving(true);
+      try {
+        const result = await action();
+        notifyPackagesChanged(clientId);
+        return result;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [clientId],
+  );
+
+  const markMissed = useCallback(
+    (sessionId: string, note?: string | null) => run(() => markSessionMissed(clientId, sessionId, note)),
+    [clientId, run],
+  );
+
+  const resolve = useCallback(
+    (sessionId: string, resolution: MissedResolution, note?: string | null) =>
+      run(() => resolveMissedSession(clientId, sessionId, resolution, note)),
+    [clientId, run],
+  );
+
+  return { saving, markMissed, resolve };
 }

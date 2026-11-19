@@ -14,7 +14,12 @@
  *
  * consumed = completed + forfeited; held = scheduled + missed_pending; remaining = total - consumed - held (>= 0).
  */
-import type { PackageDisplayStatus, PackageSessionStatus, PackageStatus } from "@/lib/package-types";
+import type {
+  MissedResolution,
+  PackageDisplayStatus,
+  PackageSessionStatus,
+  PackageStatus,
+} from "@/lib/package-types";
 
 const CONSUMING: readonly string[] = ["completed", "forfeited"];
 const HOLDING: readonly string[] = ["scheduled", "missed_pending"];
@@ -189,4 +194,102 @@ export function nextSessionStatusForAppointment(
 /** Session status after the linked appointment is soft-deleted: only a scheduled link is voided. */
 export function nextSessionStatusForDeletedAppointment(current: PackageSessionStatus): PackageSessionStatus | null {
   return current === "scheduled" ? "voided" : null;
+}
+
+// ---------------------------------------------------------------------------
+// Missed-session decision (Task 6, D-05). Same rules as mark_session_missed / resolve_missed_session.
+// ---------------------------------------------------------------------------
+
+export function canMarkSessionMissed(status: PackageSessionStatus): boolean {
+  return status === "scheduled";
+}
+
+export function canResolveSession(status: PackageSessionStatus): boolean {
+  return status === "missed_pending";
+}
+
+export function canDetachSession(status: PackageSessionStatus): boolean {
+  return status === "scheduled" || status === "missed_pending";
+}
+
+/** A scheduled session whose appointment date is before today (eligible for "Mark missed"). */
+export function isOverdueScheduledSession(
+  session: { status: PackageSessionStatus; appointmentDate: string | null },
+  today: string,
+): boolean {
+  return session.status === "scheduled" && session.appointmentDate !== null && session.appointmentDate < today;
+}
+
+export type PackageDecisionSettings = {
+  missed_default: MissedResolution;
+  rollover_extends_validity_days: number;
+  forfeit_charges_per_visit: boolean;
+};
+
+export type MissedDecisionOutcome = {
+  status: PackageSessionStatus;
+  overrodeDefault: boolean;
+  /** R-15 snapshot: days added to valid_until (0 when no expiry or the setting is 0). */
+  validityExtendedDays: number;
+  validUntil: string | null;
+  /** R-16 snapshot: set only for forfeit. */
+  chargeOnForfeit: boolean | null;
+};
+
+/** What resolve_missed_session stores for a decision, given the tenant settings at decision time. */
+export function resolveMissedDecision(input: {
+  resolution: MissedResolution;
+  settings: PackageDecisionSettings;
+  validUntil: string | null;
+}): MissedDecisionOutcome {
+  const overrodeDefault = input.resolution !== input.settings.missed_default;
+
+  if (input.resolution === "rollover") {
+    const days = Math.min(365, Math.max(0, Math.round(input.settings.rollover_extends_validity_days || 0)));
+    const extend = input.validUntil !== null && days > 0;
+    return {
+      status: "rolled_over",
+      overrodeDefault,
+      validityExtendedDays: extend ? days : 0,
+      validUntil: extend && input.validUntil !== null ? addDaysToIsoDate(input.validUntil, days) : input.validUntil,
+      chargeOnForfeit: null,
+    };
+  }
+
+  return {
+    status: "forfeited",
+    overrodeDefault,
+    validityExtendedDays: 0,
+    validUntil: input.validUntil,
+    chargeOnForfeit: input.settings.forfeit_charges_per_visit,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Per-visit accrual inputs (R-16). Task 7 builds payment balances on these; amounts are integer paise.
+// ---------------------------------------------------------------------------
+
+/**
+ * Visits owed on a per-visit plan: every completed session, plus forfeited sessions whose snapshot says the
+ * forfeit is charged (charge_on_forfeit true). Rolled over, scheduled, undecided and voided sessions are not owed.
+ */
+export function countChargeableVisits(
+  sessions: ReadonlyArray<{ status: PackageSessionStatus; charge_on_forfeit?: boolean | null }>,
+): number {
+  let count = 0;
+  for (const session of sessions) {
+    if (session.status === "completed" || (session.status === "forfeited" && session.charge_on_forfeit === true)) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+/** Per-visit accrued amount in integer paise: price per session x chargeable visits. */
+export function perVisitAccruedPaise(
+  pricePerSessionPaise: number,
+  sessions: ReadonlyArray<{ status: PackageSessionStatus; charge_on_forfeit?: boolean | null }>,
+): number {
+  const price = Number.isFinite(pricePerSessionPaise) ? Math.max(0, Math.round(pricePerSessionPaise)) : 0;
+  return price * countChargeableVisits(sessions);
 }

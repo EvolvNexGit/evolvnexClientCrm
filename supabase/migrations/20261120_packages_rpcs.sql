@@ -471,12 +471,234 @@ when (old.status is distinct from new.status or old.deleted_at is distinct from 
 execute function public.appointments_package_session_sync();
 
 -- ===========================================================================
--- (f) Privileges: live default privileges hand new functions to anon, so revoke explicitly.
+-- (f) Missed-session decision (Task 6, D-05): prompt every time, default rollover, override to forfeit
+-- ===========================================================================
+
+-- Tenant package settings read in SQL. Mirrors parsePackageSettings in src/lib/client-settings-types.ts:
+-- unknown or malformed values fall back to the same defaults (rollover, 0 days, charge forfeits), the extension is
+-- rounded and clamped to 0..365, and a missing row means defaults. Never raises for bad stored values.
+create or replace function public.package_settings_for(p_client_id uuid)
+returns table (missed_default text, rollover_extends_validity_days integer, forfeit_charges_per_visit boolean)
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select
+    case
+      when s.settings ->> 'missed_default' in ('rollover', 'forfeit') then s.settings ->> 'missed_default'
+      else 'rollover'
+    end,
+    case
+      when jsonb_typeof(s.settings -> 'rollover_extends_validity_days') = 'number'
+        then least(365, greatest(0, round((s.settings ->> 'rollover_extends_validity_days')::numeric)))::integer
+      else 0
+    end,
+    case
+      when jsonb_typeof(s.settings -> 'forfeit_charges_per_visit') = 'boolean'
+        then (s.settings ->> 'forfeit_charges_per_visit')::boolean
+      else true
+    end
+  from (select 1) as one
+  left join public.client_settings s
+    on s.client_id = p_client_id
+   and s.namespace = 'packages';
+$$;
+
+-- scheduled -> missed_pending for a visit that did not happen (the "Mark missed" action on overdue sessions).
+-- Holds the slot without consuming; the decision dialog follows.
+create or replace function public.mark_session_missed(
+  p_client_id uuid,
+  p_session_id uuid,
+  p_note text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_package_id uuid;
+  v_status text;
+  v_note text;
+begin
+  perform public.package_assert_tenant(p_client_id);
+
+  v_note := nullif(btrim(coalesce(p_note, '')), '');
+  if v_note is not null and length(v_note) > 500 then
+    raise exception 'Invalid note' using errcode = '22023';
+  end if;
+
+  select s.package_id
+    into v_package_id
+    from public.package_sessions s
+   where s.id = p_session_id
+     and s.client_id = p_client_id;
+  if p_session_id is null or not found then
+    raise exception 'Session not found' using errcode = 'P0002';
+  end if;
+
+  perform public.package_lock(v_package_id);
+
+  select s.status
+    into v_status
+    from public.package_sessions s
+   where s.id = p_session_id
+     and s.client_id = p_client_id
+   for update;
+
+  if v_status <> 'scheduled' then
+    raise exception 'Only scheduled sessions can be marked missed' using errcode = '22023';
+  end if;
+
+  update public.package_sessions s
+     set status = 'missed_pending',
+         missed_reason = 'no_show',
+         missed_at = now(),
+         note = coalesce(v_note, s.note)
+   where s.id = p_session_id
+     and s.client_id = p_client_id;
+
+  return jsonb_build_object('session_id', p_session_id, 'status', 'missed_pending');
+end
+$$;
+
+-- missed_pending -> rolled_over | forfeited. The overrode-default flag is computed here against the tenant default
+-- read from client_settings, never taken from the caller. Snapshots (5.5):
+--   rollover: when the package has an expiry and rollover_extends_validity_days N > 0, valid_until moves by N days
+--             and N is stored in validity_extended_days (R-15);
+--   forfeit : forfeit_charges_per_visit is stored in charge_on_forfeit (R-16) and the credit is consumed.
+create or replace function public.resolve_missed_session(
+  p_client_id uuid,
+  p_session_id uuid,
+  p_resolution text,
+  p_note text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_package_id uuid;
+  v_status text;
+  v_note text;
+  v_default text;
+  v_extend_days integer;
+  v_charge boolean;
+  v_overrode boolean;
+  v_valid_until date;
+  v_applied_days integer := 0;
+begin
+  perform public.package_assert_tenant(p_client_id);
+
+  if p_resolution is null or p_resolution not in ('rollover', 'forfeit') then
+    raise exception 'Invalid resolution' using errcode = '22023';
+  end if;
+
+  v_note := nullif(btrim(coalesce(p_note, '')), '');
+  if v_note is not null and length(v_note) > 500 then
+    raise exception 'Invalid note' using errcode = '22023';
+  end if;
+
+  select s.package_id
+    into v_package_id
+    from public.package_sessions s
+   where s.id = p_session_id
+     and s.client_id = p_client_id;
+  if p_session_id is null or not found then
+    raise exception 'Session not found' using errcode = 'P0002';
+  end if;
+
+  perform public.package_lock(v_package_id);
+
+  select s.status
+    into v_status
+    from public.package_sessions s
+   where s.id = p_session_id
+     and s.client_id = p_client_id
+   for update;
+
+  if v_status <> 'missed_pending' then
+    raise exception 'Session is not awaiting a decision' using errcode = '22023';
+  end if;
+
+  select ps.missed_default, ps.rollover_extends_validity_days, ps.forfeit_charges_per_visit
+    into v_default, v_extend_days, v_charge
+    from public.package_settings_for(p_client_id) ps;
+
+  v_overrode := p_resolution <> v_default;
+
+  select p.valid_until
+    into v_valid_until
+    from public.customer_packages p
+   where p.id = v_package_id
+     and p.client_id = p_client_id
+   for update;
+
+  if p_resolution = 'rollover' then
+    if v_valid_until is not null and v_extend_days > 0 then
+      v_applied_days := v_extend_days;
+      update public.customer_packages p
+         set valid_until = p.valid_until + v_applied_days
+       where p.id = v_package_id
+         and p.client_id = p_client_id
+      returning p.valid_until into v_valid_until;
+    end if;
+
+    update public.package_sessions s
+       set status = 'rolled_over',
+           resolution = 'rollover',
+           resolution_overrode_default = v_overrode,
+           validity_extended_days = v_applied_days,
+           resolved_at = now(),
+           resolved_by = auth.uid(),
+           note = coalesce(v_note, s.note)
+     where s.id = p_session_id
+       and s.client_id = p_client_id;
+
+    return jsonb_build_object(
+      'session_id', p_session_id,
+      'status', 'rolled_over',
+      'overrode_default', v_overrode,
+      'validity_extended_days', v_applied_days,
+      'valid_until', v_valid_until,
+      'charge_on_forfeit', null
+    );
+  end if;
+
+  update public.package_sessions s
+     set status = 'forfeited',
+         resolution = 'forfeit',
+         resolution_overrode_default = v_overrode,
+         charge_on_forfeit = v_charge,
+         resolved_at = now(),
+         resolved_by = auth.uid(),
+         note = coalesce(v_note, s.note)
+   where s.id = p_session_id
+     and s.client_id = p_client_id;
+
+  perform public.package_sync_status(p_client_id, v_package_id);
+
+  return jsonb_build_object(
+    'session_id', p_session_id,
+    'status', 'forfeited',
+    'overrode_default', v_overrode,
+    'validity_extended_days', 0,
+    'valid_until', v_valid_until,
+    'charge_on_forfeit', v_charge
+  );
+end
+$$;
+
+-- ===========================================================================
+-- (g) Privileges: live default privileges hand new functions to anon, so revoke explicitly.
 -- ===========================================================================
 revoke all on function public.package_assert_tenant(uuid) from public, anon, authenticated;
 revoke all on function public.package_lock(uuid) from public, anon, authenticated;
 revoke all on function public.package_sync_status(uuid, uuid) from public, anon, authenticated;
 revoke all on function public.appointments_package_session_sync() from public, anon, authenticated;
+revoke all on function public.package_settings_for(uuid) from public, anon, authenticated;
 
 revoke all on function public.sell_package(uuid, uuid, text, integer, text, numeric, numeric, date, uuid, jsonb, jsonb, text) from public, anon;
 grant execute on function public.sell_package(uuid, uuid, text, integer, text, numeric, numeric, date, uuid, jsonb, jsonb, text) to authenticated;
@@ -486,6 +708,12 @@ grant execute on function public.attach_package_session(uuid, uuid, uuid) to aut
 
 revoke all on function public.detach_package_session(uuid, uuid, text) from public, anon;
 grant execute on function public.detach_package_session(uuid, uuid, text) to authenticated;
+
+revoke all on function public.mark_session_missed(uuid, uuid, text) from public, anon;
+grant execute on function public.mark_session_missed(uuid, uuid, text) to authenticated;
+
+revoke all on function public.resolve_missed_session(uuid, uuid, text, text) from public, anon;
+grant execute on function public.resolve_missed_session(uuid, uuid, text, text) to authenticated;
 
 -- ===========================================================================
 -- Read-only verification queries (run against live; SELECT only)
@@ -520,6 +748,9 @@ grant execute on function public.detach_package_session(uuid, uuid, text) to aut
 -- drop function if exists public.sell_package(uuid, uuid, text, integer, text, numeric, numeric, date, uuid, jsonb, jsonb, text);
 -- drop function if exists public.attach_package_session(uuid, uuid, uuid);
 -- drop function if exists public.detach_package_session(uuid, uuid, text);
+-- drop function if exists public.mark_session_missed(uuid, uuid, text);
+-- drop function if exists public.resolve_missed_session(uuid, uuid, text, text);
+-- drop function if exists public.package_settings_for(uuid);
 -- drop function if exists public.package_sync_status(uuid, uuid);
 -- drop function if exists public.package_lock(uuid);
 -- drop function if exists public.package_assert_tenant(uuid);

@@ -8,8 +8,11 @@ import {
   type AttachPackageResult,
   type CustomerPackageRecord,
   type MissedReason,
+  type MissedResolution,
   type PackageSessionRecord,
   type PackageStatus,
+  type PendingDecisionRecord,
+  type ResolveMissedResult,
   type SellPackagePayload,
 } from "@/lib/package-types";
 
@@ -63,6 +66,7 @@ export function mapPackageRpcError(error: unknown, fallback: string): string {
     if (message.includes("cancelled appointment")) return "A cancelled appointment cannot use a package.";
     if (message.includes("not supported yet")) return "Only upfront packages can be sold right now.";
     if (message.includes("awaiting a decision")) return "This session already has a decision.";
+    if (message.includes("marked missed")) return "Only booked sessions can be marked missed.";
     if (message.includes("Only scheduled")) return "Only scheduled or undecided sessions can be removed.";
     if (message.includes("Invalid price")) return "Enter a valid price.";
     if (message.includes("Invalid validity")) return "Enter a valid expiry.";
@@ -362,6 +366,91 @@ export async function attachPackageSession(
     sessionId,
     status: isPackageSessionStatus(result.status) ? result.status : "scheduled",
     remaining: asNumber(result.remaining),
+  };
+}
+
+/** Undecided (missed_pending) sessions of the tenant, oldest first, with package and customer names. */
+export async function fetchPendingDecisions(clientId: string): Promise<PendingDecisionRecord[]> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("package_sessions")
+    .select(SESSION_SELECT)
+    .eq("client_id", clientId)
+    .eq("status", "missed_pending")
+    .order("missed_at", { ascending: true })
+    .range(0, PACKAGE_LIMITS.listMax - 1);
+
+  if (error) {
+    raiseQueryError(error, "Unable to load sessions that need a decision.");
+  }
+
+  const sessions = ((data ?? []) as Array<Record<string, unknown>>).map(mapSession);
+  const packageIds = Array.from(new Set(sessions.map((session) => session.package_id)));
+  const packagesById = new Map<string, CustomerPackageRecord>();
+
+  for (let index = 0; index < packageIds.length; index += SESSION_ID_CHUNK) {
+    const { data: packageRows, error: packageError } = await supabase
+      .from("customer_packages")
+      .select(PACKAGE_SELECT)
+      .eq("client_id", clientId)
+      .in("id", packageIds.slice(index, index + SESSION_ID_CHUNK));
+
+    if (packageError) {
+      raiseQueryError(packageError, "Unable to load sessions that need a decision.");
+    }
+
+    for (const row of (packageRows ?? []) as Array<Record<string, unknown>>) {
+      const pkg = mapPackage(row);
+      packagesById.set(pkg.id, pkg);
+    }
+  }
+
+  return sessions.map((session) => {
+    const pkg = packagesById.get(session.package_id);
+    return { ...session, packageName: pkg?.name_snapshot ?? "", customerName: pkg?.customerName ?? null };
+  });
+}
+
+export async function markSessionMissed(clientId: string, sessionId: string, note?: string | null): Promise<void> {
+  const supabase = getClient();
+  const { error } = await supabase.rpc("mark_session_missed", {
+    p_client_id: clientId,
+    p_session_id: sessionId,
+    p_note: note?.trim() || null,
+  });
+
+  if (error) {
+    throw new Error(mapPackageRpcError(error, "Unable to mark the session missed."));
+  }
+}
+
+/** Records the doctor's decision; the overrode-default flag and the R-15/R-16 snapshots are computed server-side. */
+export async function resolveMissedSession(
+  clientId: string,
+  sessionId: string,
+  resolution: MissedResolution,
+  note?: string | null,
+): Promise<ResolveMissedResult> {
+  const supabase = getClient();
+  const { data, error } = await supabase.rpc("resolve_missed_session", {
+    p_client_id: clientId,
+    p_session_id: sessionId,
+    p_resolution: resolution,
+    p_note: note?.trim() || null,
+  });
+
+  if (error) {
+    throw new Error(mapPackageRpcError(error, "Unable to save the decision."));
+  }
+
+  const result = embedded(data);
+  return {
+    sessionId,
+    status: isPackageSessionStatus(result?.status) ? result.status : resolution === "rollover" ? "rolled_over" : "forfeited",
+    overrodeDefault: result?.overrode_default === true,
+    validityExtendedDays: asNumber(result?.validity_extended_days),
+    validUntil: asNullableText(result?.valid_until),
+    chargeOnForfeit: typeof result?.charge_on_forfeit === "boolean" ? result.charge_on_forfeit : null,
   };
 }
 
