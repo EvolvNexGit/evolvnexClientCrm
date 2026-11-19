@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useApp } from "@/contexts/app-context";
 import { useAppointmentReminders, type AppointmentReminder } from "@/hooks/use-appointment-reminders";
+import { useClientSettings } from "@/hooks/use-client-settings";
 import { useOrderAlerts } from "@/hooks/use-order-alerts";
 import {
   persistOrderAlertsEnabled,
@@ -33,6 +34,10 @@ type OrderAlertContextValue = {
   dueSoonCount: number;
   remindersLoading: boolean;
   remindersError: string | null;
+  /** True when this tenant scans appointments (doctor-summary tab); the settings card hides itself otherwise. */
+  remindersApplicable: boolean;
+  /** Clinic-wide lead time in minutes (reminders.lead_minutes). */
+  leadMinutes: number;
 };
 
 const OrderAlertContext = createContext<OrderAlertContextValue | null>(null);
@@ -254,12 +259,18 @@ export function OrderAlertProvider({ children }: { children: ReactNode }) {
 
   // Only doctor tenants scan appointments; cafe tenants never hit the appointments table from here.
   const reminderClientId = user && tabs.some((tab) => tab.key === "doctor-summary") ? clientId : null;
+  const remindersApplicable = Boolean(reminderClientId);
+  // Clinic-wide lead time, not per device; defaults apply until loaded or when nothing is saved.
+  const { value: reminderSettings } = useClientSettings(reminderClientId ?? "", "reminders", {
+    enabled: remindersApplicable,
+  });
+  const leadMinutes = reminderSettings.lead_minutes;
   const {
     reminders,
     dueSoonCount,
     loading: remindersLoading,
     error: remindersError,
-  } = useAppointmentReminders(reminderClientId, enabled && Boolean(user));
+  } = useAppointmentReminders(reminderClientId, enabled && Boolean(user), { leadMinutes });
 
   const statusLabel = useMemo(
     () =>
@@ -288,16 +299,20 @@ export function OrderAlertProvider({ children }: { children: ReactNode }) {
       dueSoonCount,
       remindersLoading,
       remindersError,
+      remindersApplicable,
+      leadMinutes,
     }),
     [
       busy,
       dueSoonCount,
       enabled,
       error,
+      leadMinutes,
       permission,
       pushConfigured,
       pushReady,
       reminders,
+      remindersApplicable,
       remindersError,
       remindersLoading,
       setEnabled,

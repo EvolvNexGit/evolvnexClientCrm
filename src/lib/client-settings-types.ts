@@ -6,7 +6,7 @@
  * The database accepts any well-formed namespace; this registry is the allow-list for reads and writes.
  * Readers run parse*: unknown keys dropped, wrong types and out-of-range values fall back to defaults, never throws.
  * Writers run validate*: strict, returns an error message instead of silently coercing.
- * Later waves add their own namespaces here (reminders, packages, calendar_sync); none are stubbed now.
+ * Later waves add their own namespaces here (packages, calendar_sync); none are stubbed now.
  */
 
 export const DEFAULT_SCHEDULING_TIMEZONE = "Asia/Kolkata";
@@ -16,16 +16,26 @@ export type SchedulingSettings = {
   timezone: string;
 };
 
-export const CLIENT_SETTINGS_NAMESPACES = ["scheduling"] as const;
+export const DEFAULT_REMINDER_LEAD_MINUTES = 5;
+export const REMINDER_LEAD_MIN_MINUTES = 1;
+export const REMINDER_LEAD_MAX_MINUTES = 1440;
+
+export type ReminderSettings = {
+  lead_minutes: number;
+};
+
+export const CLIENT_SETTINGS_NAMESPACES = ["scheduling", "reminders"] as const;
 
 export type ClientSettingsNamespace = (typeof CLIENT_SETTINGS_NAMESPACES)[number];
 
 export type ClientSettingsMap = {
   scheduling: SchedulingSettings;
+  reminders: ReminderSettings;
 };
 
 export const CLIENT_SETTINGS_DEFAULTS: ClientSettingsMap = {
   scheduling: { timezone: DEFAULT_SCHEDULING_TIMEZONE },
+  reminders: { lead_minutes: DEFAULT_REMINDER_LEAD_MINUTES },
 };
 
 export type ClientSettingsValidation<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -83,6 +93,47 @@ export function validateSchedulingSettings(input: unknown): ClientSettingsValida
   return { ok: true, value: { timezone: input.timezone.trim() } };
 }
 
+/** Never throws: wrong types fall back to the default, numbers are rounded and clamped to 1..1440. */
+export function parseReminderSettings(raw: unknown): ReminderSettings {
+  const source = isPlainObject(raw) ? raw : {};
+  const lead = source.lead_minutes;
+  if (typeof lead !== "number" || !Number.isFinite(lead)) {
+    return { lead_minutes: DEFAULT_REMINDER_LEAD_MINUTES };
+  }
+
+  return {
+    lead_minutes: Math.min(REMINDER_LEAD_MAX_MINUTES, Math.max(REMINDER_LEAD_MIN_MINUTES, Math.round(lead))),
+  };
+}
+
+/** Strict: lead_minutes must be an integer from 1 to 1440 and no other key is accepted. */
+export function validateReminderSettings(input: unknown): ClientSettingsValidation<ReminderSettings> {
+  if (!isPlainObject(input)) {
+    return { ok: false, error: "Reminder settings must be an object." };
+  }
+
+  for (const key of Object.keys(input)) {
+    if (key !== "lead_minutes") {
+      return { ok: false, error: `Unknown reminder setting: ${key}.` };
+    }
+  }
+
+  const lead = input.lead_minutes;
+  if (
+    typeof lead !== "number" ||
+    !Number.isInteger(lead) ||
+    lead < REMINDER_LEAD_MIN_MINUTES ||
+    lead > REMINDER_LEAD_MAX_MINUTES
+  ) {
+    return {
+      ok: false,
+      error: `Reminder lead time must be a whole number of minutes from ${REMINDER_LEAD_MIN_MINUTES} to ${REMINDER_LEAD_MAX_MINUTES}.`,
+    };
+  }
+
+  return { ok: true, value: { lead_minutes: lead } };
+}
+
 /** Reader entry point for any registered namespace; never throws. */
 export function parseClientSettings<N extends ClientSettingsNamespace>(
   namespace: N,
@@ -91,6 +142,8 @@ export function parseClientSettings<N extends ClientSettingsNamespace>(
   switch (namespace) {
     case "scheduling":
       return parseSchedulingSettings(raw) as ClientSettingsMap[N];
+    case "reminders":
+      return parseReminderSettings(raw) as ClientSettingsMap[N];
     default:
       return CLIENT_SETTINGS_DEFAULTS[namespace];
   }
@@ -104,6 +157,8 @@ export function validateClientSettings<N extends ClientSettingsNamespace>(
   switch (namespace) {
     case "scheduling":
       return validateSchedulingSettings(input) as ClientSettingsValidation<ClientSettingsMap[N]>;
+    case "reminders":
+      return validateReminderSettings(input) as ClientSettingsValidation<ClientSettingsMap[N]>;
     default:
       return { ok: false, error: "Unknown settings namespace." };
   }

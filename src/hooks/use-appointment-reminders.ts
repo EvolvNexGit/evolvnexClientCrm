@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { fetchAppointmentsRange } from "@/lib/appointment-queries";
 import { clockToMinutes } from "@/lib/appointment-schedule";
+import { DEFAULT_REMINDER_LEAD_MINUTES } from "@/lib/client-settings-types";
 import { playOrderAlertSound, showAppNotification } from "@/lib/order-notifications";
 import { formatSupabaseError } from "@/lib/supabase";
 import { formatUtcToIst, formatUtcToIstTime } from "@/lib/time-utils";
 
-export const APPOINTMENT_REMINDER_LEAD_MINUTES = 5;
 export const APPOINTMENT_REMINDER_SCAN_MS = 30_000;
 
 const FIRED_KEY_PREFIX = "crm-appointment-reminder-fired";
@@ -52,17 +52,29 @@ function saveFiredKeys(clientId: string, keys: Set<string>) {
   }
 }
 
+export type AppointmentReminderOptions = {
+  /** Clinic-wide lead time from the reminders settings namespace; defaults to the registry default. */
+  leadMinutes?: number;
+};
+
 /**
- * Scans today's appointments (IST) every 30s. Rows starting within 5 minutes alert once (sound + browser
- * notification) while the opt-in is on; the fired set lives in localStorage so a reload does not refire.
+ * Scans today's appointments (IST) every 30s. Rows starting within the clinic lead time alert once (sound +
+ * browser notification) while the opt-in is on; the fired set lives in localStorage so a reload does not refire.
  */
-export function useAppointmentReminders(clientId: string | null, alertsEnabled: boolean) {
+export function useAppointmentReminders(
+  clientId: string | null,
+  alertsEnabled: boolean,
+  options: AppointmentReminderOptions = {},
+) {
   const [reminders, setReminders] = useState<AppointmentReminder[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Ref, not an effect dependency: toggling the opt-in must not restart the scan timer.
   const alertsEnabledRef = useRef(alertsEnabled);
   alertsEnabledRef.current = alertsEnabled;
+  // Same for the lead time: a settings change is picked up on the next scan without restarting the timer.
+  const leadMinutesRef = useRef(options.leadMinutes ?? DEFAULT_REMINDER_LEAD_MINUTES);
+  leadMinutesRef.current = options.leadMinutes ?? DEFAULT_REMINDER_LEAD_MINUTES;
 
   useEffect(() => {
     if (!clientId) {
@@ -78,6 +90,7 @@ export function useAppointmentReminders(clientId: string | null, alertsEnabled: 
 
     async function scan(activeClientId: string) {
       const requestId = ++latestRequest;
+      const leadMinutes = leadMinutesRef.current;
       const nowIst = formatUtcToIst(new Date());
       const today = nowIst.slice(0, 10);
       const nowMinutes = clockToMinutes(nowIst.slice(11, 16));
@@ -111,7 +124,7 @@ export function useAppointmentReminders(clientId: string | null, alertsEnabled: 
             service: row.service?.trim() || "Appointment",
             timeLabel,
             minutesUntil,
-            dueSoon: minutesUntil > 0 && minutesUntil <= APPOINTMENT_REMINDER_LEAD_MINUTES,
+            dueSoon: minutesUntil > 0 && minutesUntil <= leadMinutes,
           });
         }
 
