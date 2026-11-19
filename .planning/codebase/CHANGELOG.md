@@ -4,19 +4,19 @@ Newest first. Each entry: what changed, files, contracts. Structural changes are
 
 ## 2026-11-20 — Scheduling package payments (quick-261114-22k, Wave 3 plan C2): upfront, installments, per visit, templates, reschedule guard
 
-**Status:** `supabase/migrations/20261120_packages_payment_rpcs.sql` is authored but NOT applied to live. Apply order: `20261120_packages_schema.sql`, `20261120_packages_rpcs.sql`, `20261120_packages_payment_rpcs.sql` (re-apply it after any re-apply of the rpcs file), deploy the code, `20261120_packages_tab_access.sql` last. Dry run: `supabase/tests/20261120_packages_all_dryrun.sql` (one transaction, always rolls back, ends in `ALL PASS`; regenerate with `node scripts/build-packages-dryrun.mjs`).
+**Status:** `supabase/migrations/20261120_packages_payment_rpcs.sql` is authored but NOT applied to live. Apply order: `20261120_packages_schema.sql`, `20261120_packages_rpcs.sql`, `20261120_packages_payment_rpcs.sql` (re-apply it straight after any re-apply of the rpcs file: that file recreates the 12-argument `sell_package` and the C1 trigger), deploy the code, `20261120_packages_tab_access.sql` last. Dry run: `supabase/tests/20261120_packages_all_dryrun.sql` (one transaction, always rolls back, ends in `ALL PASS`; regenerate with `node scripts/build-packages-dryrun.mjs`).
 
 **Database**
-- `sell_package` body replaced under its existing signature: upfront, installments (jsonb schedule, count 1..120, sum must equal `price_total`) and per visit; optional initial payment created atomically.
+- `sell_package` now has 13 arguments (trailing optional `p_idempotency_key`); the 12-argument C1 signature is dropped explicitly first so no overload remains. Upfront, installments (jsonb schedule, count 1..120, sum must equal `price_total`) and per visit; optional initial payment created atomically. Sale idempotency: `customer_packages.idempotency_key` / `idempotency_fingerprint` / `initial_payment_id`, partial unique index per tenant; replay returns the stored package, other details raise 23505. The app sends a per-submission key.
 - New `record_package_payment` (final signature, optional trailing `p_idempotency_key`; column `package_payments.idempotency_key` plus partial unique index per tenant) and `cancel_package` (voids scheduled and undecided sessions, keeps payments). Same R-10 hardening as C1.
-- Appointments trigger function replaced with a reschedule guard (a package-linked appointment cannot move past `valid_until`, 22023); trigger recreated on `status, deleted_at, date`.
+- Appointments trigger function replaced with a reschedule guard (a scheduled, completed or missed_pending package link cannot move past `valid_until`, 22023; rolled_over and forfeited links are skipped); trigger recreated on `status, deleted_at, date`.
 
 **App**
 - Sell modal: plan selector, template pick, installment schedule editor (count, first due, split evenly with remainder on the last row, live sum check), collect-now. Detail drawer: payments list, record-payment form (idempotent per submission), installment schedule with overdue highlighting, per-visit amounts owed, cancel package. Packages tab: template management (catalog CRUD) and plan shown on each card.
 - `package-ledger.ts` gained the integer-paise money module; `check-package-ledger.mjs` asserts all three plans, overdue in the clinic time zone, per-visit accrual with `charge_on_forfeit`, overpayment and a seeded random walk.
 - Appointments tab shows a readable message when a save or status change is rejected by the package triggers.
 
-**Not done (by design):** refunds (R-17), revenue reporting integration (R-14), an idempotency key on `sell_package`.
+**Not done (by design):** refunds (R-17), revenue reporting integration (R-14).
 
 ## 2026-11-20 — Scheduling packages core (quick-261114-22k, Wave 3 plan C1): sell, attach, consume, missed-session decision
 
