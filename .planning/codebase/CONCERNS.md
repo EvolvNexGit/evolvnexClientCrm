@@ -108,8 +108,15 @@
 - Current mitigation: default zone is Asia/Kolkata so existing tenants see no change; an invalid zone falls back to Asia/Kolkata; lead time and zone are one value per clinic and reach other devices within about 5 minutes (window focus, same-tab save, poll).
 - Recommendations: move the other IST uses to the tenant zone as separate work; server-side reminders can reuse the Wave 4 outbox tick later; decide whether to widen the reminder gate (OQ-2).
 
+**Package ledger: definer functions and a second appointments trigger (Wave 3, R-10):**
+- Risk: five SECURITY DEFINER RPCs (`sell_package`, `attach_package_session`, `detach_package_session`, `mark_session_missed`, `resolve_missed_session`) and the definer trigger `appointments_package_session_sync` run with owner privileges. A bug in a tenant predicate would cross tenants. The trigger is the second user trigger on `appointments` (after `appointments_staff_name_sync`) and deliberately raises on failure, so a ledger error blocks the appointment status change.
+- Files: `supabase/migrations/20261120_packages_rpcs.sql`, `supabase/tests/20261120_packages_probes.sql`
+- Current mitigation: `search_path = ''` with schema-qualified names; first statement is the tenant gate (`auth.uid()` plus `crm_can_access_client`, 42501); every lookup also filters `client_id = p_client_id`; execute revoked from public and anon; helpers and the trigger function are not callable by API roles; ledger tables have no browser write grant; lock order is appointment row then package advisory lock; the probe script checks cross-tenant, anon and direct-write denial in one rolled-back transaction. The trigger is a no-op for appointments without a live package link.
+- Known limits: a resolved (rolled over or forfeited) session is never reverted, so un-cancelling and then completing that same appointment consumes nothing (book a new appointment instead); rescheduling a linked appointment past `valid_until` is not re-checked (only attach checks expiry); appointments have no customer column, so linking older visits from the Packages tab matches by phone.
+- Recommendations: keep new package writes inside these RPCs; add owner-only checks with per-staff logins (R-11).
+
 **Single login per tenant can edit settings and staff:**
-- Risk: today any signed-in tenant user can write `client_settings` and `staff_members` (own-client RLS only).
+- Risk: today any signed-in tenant user can write `client_settings`, `staff_members` and `package_templates`, and call the package RPCs (own-client RLS only).
 - Recommendations: add an owner-only check when per-staff logins exist.
 
 **Dashboard auth is client-only (no middleware):**

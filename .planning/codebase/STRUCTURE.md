@@ -163,6 +163,15 @@ evolvnexClientCrm/
 - `scripts/check-reminder-window.mjs`: node assertion script for the reminder window (`node scripts/check-reminder-window.mjs`)
 - `supabase/migrations/20261119_{staff_members,client_settings,staff_tab_access}.sql`: authored, not applied; staff_tab_access applies last
 
+**Packages and sessions (quick-261114-22k Wave 3, plan C1):**
+- `src/lib/package-types.ts` (import-free: statuses, limits, records, payloads, labels), `src/lib/package-ledger.ts` (import-free credit math, transition table, decision outcome, per-visit accrual inputs), `src/lib/package-queries.ts` (tenant-scoped reads and RPC wrappers with SQLSTATE mapping)
+- `src/hooks/use-packages.ts`: `usePackages`, `usePackageDetail`, `usePendingDecisions`, `usePackageDecisionActions`, same-tab `packages-changed` event
+- `src/components/dashboard/tabs/packages-tab.tsx`: Packages tab (Active, Needs decision, Completed, All; settings section)
+- `src/components/dashboard/packages/`: `sell-package-modal.tsx`, `package-detail-drawer.tsx`, `appointment-package-field.tsx` (appointment form "Use package"), `missed-session-dialog.tsx`, `package-settings-section.tsx`
+- `scripts/check-package-ledger.mjs`: node assertion script for the ledger (`node scripts/check-package-ledger.mjs`)
+- `supabase/migrations/20261120_{packages_schema,packages_rpcs,packages_tab_access}.sql`: authored, not applied; packages_tab_access applies last
+- `supabase/tests/20261120_packages_probes.sql`: self-checking role-simulation probes, one rolled-back transaction (new folder `supabase/tests/`; never applied as a migration)
+
 **Configuration:**
 - `package.json`: Next 15, React 19, Supabase JS, Tailwind, Recharts
 - `tsconfig.json`: `strict`, paths `@/*` → `src/*`
