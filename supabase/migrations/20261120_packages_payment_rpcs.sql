@@ -445,6 +445,7 @@ declare
   v_sess_status text;
   v_sess_charge boolean;
   v_sess_paid numeric;
+  v_expected_kind text;
 begin
   perform public.package_assert_tenant(p_client_id);
 
@@ -532,7 +533,9 @@ begin
     raise exception 'Package is cancelled' using errcode = '22023';
   end if;
 
-  if p_kind <> case v_plan when 'upfront' then 'upfront' when 'installments' then 'installment' else 'per_visit' end then
+  -- Computed first: plpgsql ends an IF condition at the first THEN, so a CASE ... THEN inside it is a syntax error.
+  v_expected_kind := case v_plan when 'upfront' then 'upfront' when 'installments' then 'installment' else 'per_visit' end;
+  if p_kind <> v_expected_kind then
     raise exception 'Payment kind does not match the plan' using errcode = '22023';
   end if;
 
