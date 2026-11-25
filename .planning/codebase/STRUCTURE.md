@@ -163,6 +163,16 @@ evolvnexClientCrm/
 - `scripts/check-reminder-window.mjs`: node assertion script for the reminder window (`node scripts/check-reminder-window.mjs`)
 - `supabase/migrations/20261119_{staff_members,client_settings,staff_tab_access}.sql`: authored, not applied; staff_tab_access applies last
 
+**Packages and sessions (quick-261114-22k Wave 3, plan C1):**
+- `src/lib/package-types.ts` (import-free: statuses, limits, records, payloads, labels), `src/lib/package-ledger.ts` (import-free credit math, transition table, decision outcome, per-visit accrual, and the integer-paise money module: plan balances, installment schedule build and validation, overdue in the clinic zone, payment pre-checks), `src/lib/package-queries.ts` (tenant-scoped reads and RPC wrappers with SQLSTATE mapping)
+- `src/hooks/use-packages.ts`: `usePackages`, `usePackageDetail` (also `recordPayment`, `cancel`), `usePendingDecisions`, `usePackageDecisionActions`, `usePackageTemplates`, same-tab `packages-changed` event
+- `src/components/dashboard/tabs/packages-tab.tsx`: Packages tab (Active, Needs decision, Completed, All; settings section)
+- `src/components/dashboard/packages/`: `sell-package-modal.tsx`, `package-detail-drawer.tsx`, `appointment-package-field.tsx` (appointment form "Use package"), `missed-session-dialog.tsx`, `package-settings-section.tsx`, `installment-schedule-editor.tsx`, `record-payment-form.tsx`, `package-payments-section.tsx`, `cancel-package-control.tsx`, `package-templates-section.tsx`
+- `scripts/check-package-ledger.mjs`: node assertion script for the ledger and money math (`node scripts/check-package-ledger.mjs`)
+- `scripts/build-packages-dryrun.mjs`: generates `supabase/tests/20261120_packages_all_dryrun.sql` (`node scripts/build-packages-dryrun.mjs`; `--check` verifies it is current; `--with-client-settings` embeds the Wave 1 migration)
+- `supabase/migrations/20261120_{packages_schema,packages_rpcs,packages_payment_rpcs,packages_tab_access}.sql`: authored, not applied; apply in that order, packages_tab_access last; re-apply packages_payment_rpcs straight after any re-apply of packages_rpcs (it drops the 12-argument sell_package that file recreates)
+- `supabase/tests/20261120_packages_probes.sql`, `20261120_packages_payment_probes.sql`: self-checking role-simulation probes, one rolled-back transaction each; `20261120_packages_all_dryrun.sql` is the generated single-file run of schema + RPCs + payment RPCs + both probe files (new folder `supabase/tests/`; never applied as a migration)
+
 **Configuration:**
 - `package.json`: Next 15, React 19, Supabase JS, Tailwind, Recharts
 - `tsconfig.json`: `strict`, paths `@/*` → `src/*`

@@ -2,6 +2,41 @@
 
 Newest first. Each entry: what changed, files, contracts. Structural changes are also patched into STRUCTURE.md / ARCHITECTURE.md.
 
+## 2026-11-20 — Scheduling package payments (quick-261114-22k, Wave 3 plan C2): upfront, installments, per visit, templates, reschedule guard
+
+**Status:** `supabase/migrations/20261120_packages_payment_rpcs.sql` is authored but NOT applied to live. Apply order: `20261120_packages_schema.sql`, `20261120_packages_rpcs.sql`, `20261120_packages_payment_rpcs.sql` (re-apply it straight after any re-apply of the rpcs file: that file recreates the 12-argument `sell_package` and the C1 trigger), deploy the code, `20261120_packages_tab_access.sql` last. Dry run: `supabase/tests/20261120_packages_all_dryrun.sql` (one transaction, always rolls back, ends in `ALL PASS`; regenerate with `node scripts/build-packages-dryrun.mjs`).
+
+**Database**
+- `sell_package` now has 13 arguments (trailing optional `p_idempotency_key`); the 12-argument C1 signature is dropped explicitly first so no overload remains. Upfront, installments (jsonb schedule, count 1..120, sum must equal `price_total`) and per visit; optional initial payment created atomically. Sale idempotency: `customer_packages.idempotency_key` / `idempotency_fingerprint` / `initial_payment_id`, partial unique index per tenant; replay returns the stored package, other details raise 23505. The app sends a per-submission key.
+- New `record_package_payment` (final signature, optional trailing `p_idempotency_key`; column `package_payments.idempotency_key` plus partial unique index per tenant) and `cancel_package` (voids scheduled and undecided sessions, keeps payments). Same R-10 hardening as C1.
+- Appointments trigger function replaced with a reschedule guard (a scheduled, completed or missed_pending package link cannot move past `valid_until`, 22023; rolled_over and forfeited links are skipped); trigger recreated on `status, deleted_at, date`.
+
+**App**
+- Sell modal: plan selector, template pick, installment schedule editor (count, first due, split evenly with remainder on the last row, live sum check), collect-now. Detail drawer: payments list, record-payment form (idempotent per submission), installment schedule with overdue highlighting, per-visit amounts owed, cancel package. Packages tab: template management (catalog CRUD) and plan shown on each card.
+- `package-ledger.ts` gained the integer-paise money module; `check-package-ledger.mjs` asserts all three plans, overdue in the clinic time zone, per-visit accrual with `charge_on_forfeit`, overpayment and a seeded random walk.
+- Appointments tab shows a readable message when a save or status change is rejected by the package triggers.
+
+**Not done (by design):** refunds (R-17), revenue reporting integration (R-14).
+
+## 2026-11-20 — Scheduling packages core (quick-261114-22k, Wave 3 plan C1): sell, attach, consume, missed-session decision
+
+**Problem:** Clinics sell bundles of sessions (physio courses, salon memberships) but had nowhere to record them, consume them on visits, or decide what happens to a missed visit.
+
+**Status:** migrations `20261120_packages_schema.sql` and `20261120_packages_rpcs.sql` are authored but NOT applied to live. Apply them by hand (after the Wave 1 `client_settings` migration) BEFORE deploying this code; apply `20261120_packages_tab_access.sql` LAST (tabs_info 028 only, no access backfill: grant per tenant by hand; users sign in again). Self-checking rolled-back probe: `supabase/tests/20261120_packages_probes.sql`.
+
+**Contracts introduced**
+- Tables `package_templates` (browser CRUD, own client), `customer_packages`, `package_installments`, `package_sessions`, `package_payments` (browser SELECT only; no write grant at all). Session status machine: scheduled, completed, missed_pending, rolled_over, forfeited, voided; consumed = completed + forfeited, held = scheduled + missed_pending.
+- Definer RPCs (search_path '', schema-qualified, tenant gate `crm_can_access_client(p_client_id)` with auth.uid(), execute revoked from public and anon): `sell_package` (FINAL signature; C1 body accepts the upfront plan only, Task 7 replaces the body), `attach_package_session`, `detach_package_session`, `mark_session_missed`, `resolve_missed_session`. SQLSTATE contract 42501 / P0002 / 22023 / 23505 / 23514, mapped in `package-queries.ts`.
+- Trigger `appointments_package_session_sync` (AFTER UPDATE OF status, deleted_at; definer; raises on failure): completed consumes, cancelled opens missed_pending, un-cancel reverts an unresolved decision, completed back to booked reverts consumption (blocked when a payment references the visit), soft delete voids a scheduled link.
+- `client_settings` namespace `packages`: `missed_default` (rollover), `rollover_extends_validity_days` (R-15, 0 to 365, default 0), `forfeit_charges_per_visit` (R-16, default true), `labels`. SQL mirror `package_settings_for`. Snapshots on the session row: `validity_extended_days`, `charge_on_forfeit`, `resolution_overrode_default`.
+- `createAppointment` now returns the new id (additive). The appointment form gains "Use package" (only for tenants holding the packages tab and a picked customer); attach runs after save and is skipped when none is chosen.
+
+**Files**
+- Added: `supabase/migrations/20261120_{packages_schema,packages_rpcs,packages_tab_access}.sql`, `supabase/tests/20261120_packages_probes.sql`, `src/lib/{package-types,package-ledger,package-queries}.ts`, `src/hooks/use-packages.ts`, `src/components/dashboard/tabs/packages-tab.tsx`, `src/components/dashboard/packages/{sell-package-modal,package-detail-drawer,appointment-package-field,missed-session-dialog,package-settings-section}.tsx`, `scripts/check-package-ledger.mjs`
+- Modified: `src/lib/{appointment-queries,client-settings-types,tabs,dashboard-tab-routes,module-navigation}.ts`, `src/components/dashboard/{dashboard-page.tsx,tabs/appointments-tab.tsx}`, `scripts/check-client-settings.mjs`
+
+**Not done in C1 (delivered by plan C2 above):** installments and per-visit selling, payments, `cancel_package`, templates UI. Revenue reporting (R-14) and refunds (R-17) stay out of scope.
+
 ## 2026-11-19 — Scheduling reminders (quick-261114-22k, Wave 2): clinic-wide lead time, time zone, look-ahead
 
 **Problem:** The appointment reminder lead time was a hard-coded 5 minutes, "now" was hard-coded to IST, only today was scanned, and nothing was shared between devices.

@@ -189,14 +189,43 @@ export async function fetchAppointmentStaffName(clientId: string, appointmentId:
   return typeof staffName === "string" && staffName.trim() !== "" ? staffName : null;
 }
 
-/** client_id is written after the payload spread so payload contents can never override the tenant. */
-export async function createAppointment(clientId: string, payload: AppointmentPayload): Promise<void> {
+/**
+ * client_id is written after the payload spread so payload contents can never override the tenant.
+ * Returns the new row id (additive; callers that ignore it are unaffected) so a package can be linked after save.
+ */
+export async function createAppointment(clientId: string, payload: AppointmentPayload): Promise<string> {
   const supabase = getClient();
-  const { error } = await supabase.from("appointments").insert({ ...payload, client_id: clientId });
+  const { data, error } = await supabase
+    .from("appointments")
+    .insert({ ...payload, client_id: clientId })
+    .select("id")
+    .single();
 
   if (error) {
     throw error;
   }
+
+  return String((data as { id: unknown }).id);
+}
+
+/**
+ * Package trigger rejections (supabase/migrations/20261120_packages_payment_rpcs.sql) as readable messages, so the
+ * Appointments tab shows a sentence instead of a database error code. Other errors pass through unchanged.
+ */
+function mapAppointmentWriteError(error: unknown): unknown {
+  const record = error != null && typeof error === "object" ? (error as Record<string, unknown>) : {};
+  const code = typeof record.code === "string" ? record.code : "";
+  const message = typeof record.message === "string" ? record.message : "";
+
+  if (code === "22023" && message.includes("Package expired")) {
+    return new Error(
+      "This appointment is linked to a package that expires before the new date. Pick a date on or before the package expiry, or remove the package link first.",
+    );
+  }
+  if (code === "23514" && message.includes("package payment")) {
+    return new Error("This visit has a recorded package payment, so its status cannot be changed back.");
+  }
+  return error;
 }
 
 /** Filters by client_id AND id; zero matched rows (stale or foreign id) fails loudly instead of silently succeeding. */
@@ -215,7 +244,7 @@ export async function updateAppointment(
     .select("id");
 
   if (error) {
-    throw error;
+    throw mapAppointmentWriteError(error);
   }
 
   if (!data || data.length === 0) {
@@ -238,7 +267,7 @@ export async function setAppointmentStatus(
     .select("id");
 
   if (error) {
-    throw error;
+    throw mapAppointmentWriteError(error);
   }
 
   if (!data || data.length === 0) {
