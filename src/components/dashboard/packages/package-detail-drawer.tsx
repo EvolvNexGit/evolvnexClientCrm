@@ -155,7 +155,7 @@ export function PackageDetailDrawer({
                 { label: "Total", value: credit.total },
                 { label: "Used", value: credit.consumed },
                 { label: "Booked", value: credit.held },
-                { label: "Left", value: credit.remaining },
+                { label: "Left", value: pkg.status === "cancelled" ? 0 : credit.remaining },
               ].map((item) => (
                 <div key={item.label} className="rounded-xl border border-border bg-background p-3">
                   <div className="text-xs text-muted-foreground">{item.label}</div>
@@ -319,8 +319,9 @@ export function PackageDetailDrawer({
             />
 
             <p className="text-xs text-muted-foreground">
-              {formatSessionCount(labels, credit.remaining)} left of {credit.total}. Completing a linked appointment uses one;
-              cancelling it asks whether to roll over or forfeit.
+              {pkg.status === "cancelled"
+                ? `This ${labels.package.toLowerCase()} was cancelled; no ${labels.sessions.toLowerCase()} are left to use.`
+                : `${formatSessionCount(labels, credit.remaining)} left of ${credit.total}. Completing a linked appointment uses one; cancelling it asks whether to roll over or forfeit.`}
             </p>
 
             {pkg.status === "active" && (

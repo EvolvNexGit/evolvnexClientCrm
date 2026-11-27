@@ -240,6 +240,11 @@ export function SellPackageModal({
     }
   }, [open]);
 
+  // A validation message describes the form as it was when submitted; editing anything makes it stale.
+  useEffect(() => {
+    setFormError(null);
+  }, [customer, form, plan, templateId, schedule, collect, collectAmount, collectMethod]);
+
   const sessions = parseWholeNumber(form.sessions, PACKAGE_LIMITS.sessionsMin, PACKAGE_LIMITS.sessionsMax);
   const pricePaise = parseMoneyPaise(form.price);
   const perVisitPaise = parseMoneyPaise(form.pricePerSession);

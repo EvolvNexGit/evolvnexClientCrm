@@ -291,7 +291,7 @@ export default function PackagesTab({ clientId }: { clientId: string }) {
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                       <span>
-                        <span className="font-semibold text-text">{credit.remaining}</span> of {credit.total}{" "}
+                        <span className="font-semibold text-text">{pkg.status === "cancelled" ? 0 : credit.remaining}</span> of {credit.total}{" "}
                         {labels.sessions.toLowerCase()} left
                       </span>
                       {credit.held > 0 ? <span>{credit.held} booked</span> : null}

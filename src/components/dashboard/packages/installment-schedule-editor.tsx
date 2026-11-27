@@ -128,21 +128,21 @@ export function InstallmentScheduleEditor({
       ) : (
         <ul className="max-h-64 space-y-2 overflow-y-auto pr-1">
           {rows.map((row, index) => (
-            <li key={index} className="grid grid-cols-[2rem_1fr_1fr] items-center gap-2">
+            <li key={index} className="grid grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2">
               <span className="text-sm text-muted-foreground">{index + 1}</span>
               <input
                 type="date"
                 value={row.dueOn}
                 onChange={(event) => updateRow(index, { dueOn: event.target.value })}
                 aria-label={`Installment ${index + 1} due date`}
-                className={inputClass}
+                className={cn(inputClass, "min-w-0")}
               />
               <input
                 value={row.amount}
                 onChange={(event) => updateRow(index, { amount: event.target.value })}
                 inputMode="decimal"
                 aria-label={`Installment ${index + 1} amount`}
-                className={inputClass}
+                className={cn(inputClass, "min-w-0")}
               />
             </li>
           ))}
